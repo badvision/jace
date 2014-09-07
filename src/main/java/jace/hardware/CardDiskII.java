@@ -1,0 +1,220 @@
+/*
+ * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301  USA
+ */
+package jace.hardware;
+
+import jace.Emulator;
+import jace.config.ConfigurableField;
+import jace.config.Name;
+import jace.config.Reconfigurable;
+import jace.core.Card;
+import jace.core.Motherboard;
+import jace.core.RAMEvent;
+import jace.core.RAMEvent.TYPE;
+import jace.core.Utility;
+import jace.library.MediaConsumer;
+import jace.library.MediaConsumerParent;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * Apple Disk ][ interface implementation. This card represents the interface
+ * side of the Disk ][ controller interface as well as the on-board "boot0" ROM.
+ * The behavior of the actual drive stepping, reading disk images, and so on is
+ * performed by DiskIIDrive and FloppyDisk, respectively. This class only serves
+ * as the I/O interface portion.
+ * Created on April 21, 2007
+ *
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ */
+@Name("Disk ][ Controller")
+public class CardDiskII extends Card implements Reconfigurable, MediaConsumerParent {
+
+    DiskIIDrive currentDrive;
+    DiskIIDrive drive1 = new DiskIIDrive();
+    DiskIIDrive drive2 = new DiskIIDrive();
+    @ConfigurableField(category = "Disk", defaultValue = "254", name = "Default volume", description = "Value to use for disk volume number")
+    static public int DEFAULT_VOLUME_NUMBER = 0x0FE;
+    @ConfigurableField(category = "Disk", defaultValue = "true", name = "Speed boost", description = "If enabled, emulator will run at max speed during disk access")
+    static public boolean USE_MAX_SPEED = true;
+
+    public CardDiskII() {
+        try {
+            loadRom("jace/data/DiskII.rom");
+        } catch (IOException ex) {
+            Logger.getLogger(CardDiskII.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        drive1.setIcon(Utility.loadIcon("disk_ii.png"));
+        drive2.setIcon(Utility.loadIcon("disk_ii.png"));
+        reset();
+    }
+
+    @Override
+    public String getDeviceName() {
+        return "Disk ][ Controller";
+    }
+
+    @Override
+    public void reset() {
+        currentDrive = drive1;
+        drive1.reset();
+        drive2.reset();
+        if (Emulator.getFrame() != null) {
+            Emulator.getFrame().removeIndicators(this);
+        }
+//        Motherboard.cancelSpeedRequest(this);
+    }
+
+    @SuppressWarnings("fallthrough")
+    @Override
+    protected void handleIOAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e) {
+        // handle Disk ][ registers
+        switch (register) {
+            case 0x0:
+            case 0x1:
+            case 0x2:
+            case 0x3:
+            case 0x4:
+            case 0x5:
+            case 0x6:
+            case 0x7:
+                currentDrive.step(register);
+                break;
+
+            case 0x8:
+                // drive off
+                currentDrive.setOn(false);
+//                Emulator.getFrame().removeIndicator(this, currentDrive == drive1 ? diskDrive1Icon : diskDrive2Icon, false);
+                break;
+
+            case 0x9:
+                // drive on
+                currentDrive.setOn(true);
+                Emulator.getFrame().addIndicator(this, currentDrive.getIcon());
+                break;
+
+            case 0xA:
+                // drive 1
+                currentDrive = drive1;
+                break;
+
+            case 0xB:
+                // drive 2
+                currentDrive = drive2;
+                break;
+
+            case 0xC:
+                // read/write latch
+                currentDrive.write();
+                e.setNewValue(currentDrive.readLatch());
+                break;
+
+            case 0xF:
+                // write mode
+                currentDrive.setWriteMode();
+            case 0xD:
+                // set latch
+                if (e.getType() == RAMEvent.TYPE.WRITE) {
+                    currentDrive.setLatchValue((byte) e.getNewValue());
+                }
+                e.setNewValue(currentDrive.readLatch());
+                break;
+
+            case 0xE:
+                // read mode
+                currentDrive.setReadMode();
+                if (currentDrive.disk != null && currentDrive.disk.writeProtected) {
+                    e.setNewValue(0x080);
+                } else
+                {
+//                    e.setNewValue((byte) (Math.random() * 256.0));
+                    e.setNewValue(0);
+                }
+                break;
+        }
+        // even addresses return the latch value
+//        if (e.getType() == RAMEvent.TYPE.READ) {
+//            if ((register & 0x1) == 0) {
+//                e.setNewValue(currentDrive.latch);
+//            } else {
+//                // return floating bus value (IIRC)
+//            }
+//        }
+        tweakTiming();
+    }
+
+    @Override
+    protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
+        // Do nothing: The ROM does everything
+        return;
+    }
+
+    public void loadRom(String path) throws IOException {
+        InputStream romFile = CardDiskII.class.getClassLoader().getResourceAsStream(path);
+        final int cxRomLength = 0x100;
+        byte[] romData = new byte[cxRomLength];
+        try {
+            if (romFile.read(romData) != cxRomLength) {
+                throw new IOException("Bad Disk ][ ROM size");
+            }
+            getCxRom().loadData(romData);
+        } catch (IOException ex) {
+            throw ex;
+        }
+    }
+
+    @Override
+    public void tick() {
+        // Do nothing (if you want 1mhz timing control, you can do that here...)
+//        drive1.tick();
+//        drive2.tick();
+    }
+
+    @Override
+    public void reconfigure() {
+        super.reconfigure();
+    }
+
+    private void tweakTiming() {
+        if (drive1.isOn() || drive2.isOn()) {
+            if (USE_MAX_SPEED) {
+                Motherboard.requestSpeed(this);
+            }
+        } else {
+            Motherboard.cancelSpeedRequest(this);
+        }
+    }
+
+    @Override
+    protected void handleC8FirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
+        // There is no special c8 rom for this card
+    }
+
+    @Override
+    public void setSlot(int slot) {
+        super.setSlot(slot);
+        drive1.getIcon().setDescription("S" + slot + "D1");
+        drive2.getIcon().setDescription("S" + slot + "D2");        
+    }
+    
+    public MediaConsumer[] getConsumers() {
+        return new MediaConsumer[] {drive1, drive2};
+    }
+}
