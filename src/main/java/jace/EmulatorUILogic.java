@@ -286,7 +286,7 @@ public class EmulatorUILogic {
         String timestamp = df.format(new Date());
         String type;
         int start = Computer.getComputer().getVideo().getCurrentWriter().actualWriter().getYOffset(0);
-        int len = 0;
+        int len;
         if (start < 0x02000) {
             // Lo-res or double-lores
             len = 0x0400;
