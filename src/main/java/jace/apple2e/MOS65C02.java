@@ -31,13 +31,12 @@ import jace.state.Stateful;
  * into a core 6502 and a separate extended 65c02 so that undocumented 6502
  * opcodes could be supported but that's not on the table currently.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Stateful
 public class MOS65C02 extends CPU {
 
-    static public boolean readAddressTriggersEvent = true;
-    static private MOS65C02 cpu;
+    public boolean readAddressTriggersEvent = true;
     static int RESET_VECTOR = 0x00FFFC;
     static int INT_VECTOR = 0x00FFFE;
     @Stateful
@@ -72,12 +71,13 @@ public class MOS65C02 extends CPU {
     private static RAM getMemory() {
         return Computer.getComputer().getMemory();
     }
-    
+
     @Override
     public void reconfigure() {
     }
 
     public enum OPCODE {
+
         ADC_IMM(0x0069, COMMAND.ADC, MODE.IMMEDIATE, 2),
         ADC_ZP(0x0065, COMMAND.ADC, MODE.ZEROPAGE, 3),
         ADC_ZP_X(0x0075, COMMAND.ADC, MODE.ZEROPAGE_X, 4),
@@ -316,13 +316,13 @@ public class MOS65C02 extends CPU {
         int address = 0;
         int value = 0;
 
-        private void fetch() {
-            address = getMode().calculator.calculateAddress();
-            value = getMode().calculator.getValue(!command.isStoreOnly());
+        private void fetch(MOS65C02 cpu) {
+            address = getMode().calculator.calculateAddress(cpu);
+            value = getMode().calculator.getValue(!command.isStoreOnly(), cpu);
         }
 
-        public void execute() {
-            command.getProcessor().processCommand(address, value, addressingMode);
+        public void execute(MOS65C02 cpu) {
+            command.getProcessor().processCommand(address, value, addressingMode, cpu);
         }
 
         private OPCODE(int val, COMMAND c, MODE m, int wait) {
@@ -340,64 +340,64 @@ public class MOS65C02 extends CPU {
 
     private static interface AddressCalculator {
 
-        abstract int calculateAddress();
+        abstract int calculateAddress(MOS65C02 cpu);
 
-        default int getValue(boolean isRead) {
-            int address = calculateAddress();
+        default int getValue(boolean isRead, MOS65C02 cpu) {
+            int address = calculateAddress(cpu);
             return (address > -1) ? (0x0ff & getMemory().read(address, TYPE.READ_DATA, isRead, false)) : 0;
         }
     }
 
-    private enum MODE {
+    public enum MODE {
 
-        IMPLIED(1, "", () -> -1),
+        IMPLIED(1, "", (cpu) -> -1),
         //        RELATIVE(2, "#$~1 ($R)"),
-        RELATIVE(2, "$R", () -> {
+        RELATIVE(2, "$R", (cpu) -> {
             int pc = cpu.getProgramCounter();
-            int address = pc + 2 + getMemory().read(pc + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false);
+            int address = pc + 2 + getMemory().read(pc + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             // The wait cycles are not added unless the branch actually happens!
             cpu.setPageBoundaryPenalty((address & 0x00ff00) != (pc & 0x00ff00));
             return address;
         }),
-        IMMEDIATE(2, "#$~1", () -> cpu.getProgramCounter() + 1),
-        ZEROPAGE(2, "$~1", () -> getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false) & 0x00FF),
-        ZEROPAGE_X(2, "$~1,X", () -> 0x0FF & (getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false) + cpu.X)),
-        ZEROPAGE_Y(2, "$~1,Y", () -> 0x0FF & (getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false) + cpu.Y)),
-        INDIRECT(3, "$(~2~1)", () -> {
-            int address = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false);
+        IMMEDIATE(2, "#$~1", (cpu) -> cpu.getProgramCounter() + 1),
+        ZEROPAGE(2, "$~1", (cpu) -> getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) & 0x00FF),
+        ZEROPAGE_X(2, "$~1,X", (cpu) -> 0x0FF & (getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X)),
+        ZEROPAGE_Y(2, "$~1,Y", (cpu) -> 0x0FF & (getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.Y)),
+        INDIRECT(3, "$(~2~1)", (cpu) -> {
+            int address = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             return getMemory().readWord(address, TYPE.READ_DATA, true, false);
         }),
-        INDIRECT_X(3, "$(~2~1,X)", () -> {
-            int address = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false) + cpu.X;
+        INDIRECT_X(3, "$(~2~1,X)", (cpu) -> {
+            int address = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X;
             return getMemory().readWord(address & 0x0FFFF, TYPE.READ_DATA, true, false);
         }),
-        INDIRECT_ZP(2, "$(~1)", () -> {
-            int address = getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false);
+        INDIRECT_ZP(2, "$(~1)", (cpu) -> {
+            int address = getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             return getMemory().readWord(address & 0x0FF, TYPE.READ_DATA, true, false);
         }),
-        INDIRECT_ZP_X(2, "$(~1,X)", () -> {
-            int address = getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false) + cpu.X;
+        INDIRECT_ZP_X(2, "$(~1,X)", (cpu) -> {
+            int address = getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X;
             return getMemory().readWord(address & 0x0FF, TYPE.READ_DATA, true, false);
         }),
-        INDIRECT_ZP_Y(2, "$(~1),Y", () -> {
-            int address = 0x00FF & getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false);
+        INDIRECT_ZP_Y(2, "$(~1),Y", (cpu) -> {
+            int address = 0x00FF & getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             address = getMemory().readWord(address, TYPE.READ_DATA, true, false) + cpu.Y;
             if ((address & 0x00ff00) > 0) {
                 cpu.addWaitCycles(1);
             }
             return address;
         }),
-        ABSOLUTE(3, "$~2~1", () -> getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false)),
-        ABSOLUTE_X(3, "$~2~1,X", () -> {
-            int address2 = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false);
+        ABSOLUTE(3, "$~2~1", (cpu) -> getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false)),
+        ABSOLUTE_X(3, "$~2~1,X", (cpu) -> {
+            int address2 = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             int address = 0x0FFFF & (address2 + cpu.X);
             if ((address & 0x00FF00) != (address2 & 0x00FF00)) {
                 cpu.addWaitCycles(1);
             }
             return address;
         }),
-        ABSOLUTE_Y(3, "$~2~1,Y", () -> {
-            int address2 = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false);
+        ABSOLUTE_Y(3, "$~2~1,Y", (cpu) -> {
+            int address2 = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             int address = 0x0FFFF & (address2 + cpu.Y);
             if ((address & 0x00FF00) != (address2 & 0x00FF00)) {
                 cpu.addWaitCycles(1);
@@ -406,19 +406,19 @@ public class MOS65C02 extends CPU {
         }),
         ZP_REL(2, "$~1,$R", new AddressCalculator() {
             @Override
-            public int calculateAddress() {
+            public int calculateAddress(MOS65C02 cpu) {
                 // Note: This is two's compliment addition and the getMemory().read() returns a signed 8-bit value
                 int pc = cpu.getProgramCounter();
-                int address = pc + 2 + getMemory().read(pc + 2, TYPE.READ_OPERAND, readAddressTriggersEvent, false);
+                int address = pc + 2 + getMemory().read(pc + 2, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
                 // The wait cycles are not added unless the branch actually happens!
                 cpu.setPageBoundaryPenalty((address & 0x00ff00) != (pc & 0x00ff00));
                 return address;
             }
 
             @Override
-            public int getValue(boolean isRead) {
+            public int getValue(boolean isRead, MOS65C02 cpu) {
                 int pc = cpu.getProgramCounter();
-                int address = getMemory().read(pc + 1, TYPE.READ_OPERAND, readAddressTriggersEvent, false);
+                int address = getMemory().read(pc + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
                 return getMemory().read(address, TYPE.READ_DATA, true, false);
             }
         });
@@ -434,8 +434,8 @@ public class MOS65C02 extends CPU {
 //        }
         private AddressCalculator calculator;
 
-        public int calcAddress() {
-            return calculator.calculateAddress();
+        public int calcAddress(MOS65C02 cpu) {
+            return calculator.calculateAddress(cpu);
         }
         private boolean indirect;
 
@@ -493,7 +493,7 @@ public class MOS65C02 extends CPU {
 
     private static interface CommandProcessor {
 
-        public void processCommand(int address, int value, MODE addressMode);
+        public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu);
     }
 
     private static class BBRCommand implements CommandProcessor {
@@ -505,7 +505,7 @@ public class MOS65C02 extends CPU {
         }
 
         @Override
-        public void processCommand(int address, int value, MODE addressMode) {
+        public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
             if (((value >> bit) & 1) != 0) {
                 return;
             }
@@ -525,7 +525,7 @@ public class MOS65C02 extends CPU {
         }
 
         @Override
-        public void processCommand(int address, int value, MODE addressMode) {
+        public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
             if (((value >> bit) & 1) == 0) {
                 return;
             }
@@ -545,7 +545,7 @@ public class MOS65C02 extends CPU {
         }
 
         @Override
-        public void processCommand(int address, int value, MODE addressMode) {
+        public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
             int mask = 0x0ff ^ (1 << bit);
             value &= mask;
             getMemory().write(address, (byte) value, true, false);
@@ -561,16 +561,17 @@ public class MOS65C02 extends CPU {
         }
 
         @Override
-        public void processCommand(int address, int value, MODE addressMode) {
+        public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
             int mask = 1 << bit;
             value |= mask;
             getMemory().write(address, (byte) value, true, false);
         }
     }
 
-    private enum COMMAND {
-        ADC((int address, int value, MODE addressMode) -> {
-            int w = 0;
+    public enum COMMAND {
+
+        ADC((address, value, addressMode, cpu) -> {
+            int w;
             cpu.V = ((cpu.A ^ value) & 0x080) == 0;
             if (cpu.D) {
                 // Decimal Mode
@@ -609,11 +610,11 @@ public class MOS65C02 extends CPU {
             cpu.A = w & 0x0ff;
             cpu.setNZ(cpu.A);
         }),
-        AND((int address, int value, MODE addressMode) -> {
+        AND((address, value, addressMode, cpu) -> {
             cpu.A &= value;
             cpu.setNZ(cpu.A);
         }),
-        ASL((int address, int value, MODE addressMode) -> {
+        ASL((address, value, addressMode, cpu) -> {
             cpu.C = ((value & 0x080) != 0) ? 1 : 0;
             value = 0x0FE & (value << 1);
             cpu.setNZ(value);
@@ -622,7 +623,7 @@ public class MOS65C02 extends CPU {
             getMemory().write(address, (byte) value, true, false);
             getMemory().write(address, (byte) value, true, false);
         }),
-        ASL_A((int address, int value, MODE addressMode) -> {
+        ASL_A((address, value, addressMode, cpu) -> {
             cpu.C = cpu.A >> 7;
             cpu.A = 0x0FE & (cpu.A << 1);
             cpu.setNZ(cpu.A);
@@ -643,25 +644,25 @@ public class MOS65C02 extends CPU {
         BBS5(new BBSCommand(5)),
         BBS6(new BBSCommand(6)),
         BBS7(new BBSCommand(7)),
-        BCC((int address, int value, MODE addressMode) -> {
+        BCC((address, value, addressMode, cpu) -> {
             if (cpu.C == 0) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
         }),
-        BCS((int address, int value, MODE addressMode) -> {
+        BCS((address, value, addressMode, cpu) -> {
             if (cpu.C != 0) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
         }),
-        BEQ((int address, int value, MODE addressMode) -> {
+        BEQ((address, value, addressMode, cpu) -> {
             if (cpu.Z) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
         }),
-        BIT((int address, int value, MODE addressMode) -> {
+        BIT((address, value, addressMode, cpu) -> {
             int result = (cpu.A & value);
             cpu.Z = result == 0;
             cpu.N = (value & 0x080) != 0;
@@ -670,132 +671,132 @@ public class MOS65C02 extends CPU {
                 cpu.V = (value & 0x040) != 0;
             }
         }),
-        BMI((int address, int value, MODE addressMode) -> {
+        BMI((address, value, addressMode, cpu) -> {
             if (cpu.N) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
         }),
-        BNE((int address, int value, MODE addressMode) -> {
+        BNE((address, value, addressMode, cpu) -> {
             if (!cpu.Z) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
         }),
-        BPL((int address, int value, MODE addressMode) -> {
+        BPL((address, value, addressMode, cpu) -> {
             if (!cpu.N) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
         }),
-        BRA((int address, int value, MODE addressMode) -> {
+        BRA((address, value, addressMode, cpu) -> {
             cpu.setProgramCounter(address);
             cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 1 : 0);
         }),
-        BRK((int address, int value, MODE addressMode) -> {
+        BRK((address, value, addressMode, cpu) -> {
             cpu.BRK();
         }),
-        BVC((int address, int value, MODE addressMode) -> {
+        BVC((address, value, addressMode, cpu) -> {
             if (!cpu.V) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
         }),
-        BVS((int address, int value, MODE addressMode) -> {
+        BVS((address, value, addressMode, cpu) -> {
             if (cpu.V) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
         }),
-        CLC((int address, int value, MODE addressMode) -> {
+        CLC((address, value, addressMode, cpu) -> {
             cpu.C = 0;
         }),
-        CLD((int address, int value, MODE addressMode) -> {
+        CLD((address, value, addressMode, cpu) -> {
             cpu.D = false;
         }),
-        CLI((int address, int value, MODE addressMode) -> {
+        CLI((address, value, addressMode, cpu) -> {
             cpu.I = false;
             cpu.interruptSignalled = false;
         }),
-        CLV((int address, int value, MODE addressMode) -> {
+        CLV((address, value, addressMode, cpu) -> {
             cpu.V = false;
         }),
-        CMP((int address, int value, MODE addressMode) -> {
+        CMP((address, value, addressMode, cpu) -> {
             int val = cpu.A - value;
             cpu.C = (val >= 0) ? 1 : 0;
             cpu.setNZ(val);
         }),
-        CPX((int address, int value, MODE addressMode) -> {
+        CPX((address, value, addressMode, cpu) -> {
             int val = cpu.X - value;
             cpu.C = (val >= 0) ? 1 : 0;
             cpu.setNZ(val);
         }),
-        CPY((int address, int value, MODE addressMode) -> {
+        CPY((address, value, addressMode, cpu) -> {
             int val = cpu.Y - value;
             cpu.C = (val >= 0) ? 1 : 0;
             cpu.setNZ(val);
         }),
-        DEC((int address, int value, MODE addressMode) -> {
+        DEC((address, value, addressMode, cpu) -> {
             value = 0x0FF & (value - 1);
             getMemory().write(address, (byte) value, true, false);
             getMemory().write(address, (byte) value, true, false);
             cpu.setNZ(value);
         }),
-        DEA((int address, int value, MODE addressMode) -> {
+        DEA((address, value, addressMode, cpu) -> {
             cpu.A = 0x0FF & (cpu.A - 1);
             cpu.setNZ(cpu.A);
         }),
-        DEX((int address, int value, MODE addressMode) -> {
+        DEX((address, value, addressMode, cpu) -> {
             cpu.X = 0x0FF & (cpu.X - 1);
             cpu.setNZ(cpu.X);
         }),
-        DEY((int address, int value, MODE addressMode) -> {
+        DEY((address, value, addressMode, cpu) -> {
             cpu.Y = 0x0FF & (cpu.Y - 1);
             cpu.setNZ(cpu.Y);
         }),
-        EOR((int address, int value, MODE addressMode) -> {
+        EOR((address, value, addressMode, cpu) -> {
             cpu.A = 0x0FF & (cpu.A ^ value);
             cpu.setNZ(cpu.A);
         }),
-        INC((int address, int value, MODE addressMode) -> {
+        INC((address, value, addressMode, cpu) -> {
             value = 0x0ff & (value + 1);
             // emulator correct fetch-modify-store behavior
             getMemory().write(address, (byte) value, true, false);
             getMemory().write(address, (byte) value, true, false);
             cpu.setNZ(value);
         }),
-        INA((int address, int value, MODE addressMode) -> {
+        INA((address, value, addressMode, cpu) -> {
             cpu.A = 0x0FF & (cpu.A + 1);
             cpu.setNZ(cpu.A);
         }),
-        INX((int address, int value, MODE addressMode) -> {
+        INX((address, value, addressMode, cpu) -> {
             cpu.X = 0x0FF & (cpu.X + 1);
             cpu.setNZ(cpu.X);
         }),
-        INY((int address, int value, MODE addressMode) -> {
+        INY((address, value, addressMode, cpu) -> {
             cpu.Y = 0x0FF & (cpu.Y + 1);
             cpu.setNZ(cpu.Y);
         }),
-        JMP((int address, int value, MODE addressMode) -> {
+        JMP((address, value, addressMode, cpu) -> {
             cpu.setProgramCounter(address);
         }),
-        JSR((int address, int value, MODE addressMode) -> {
+        JSR((address, value, addressMode, cpu) -> {
             cpu.pushWord(cpu.getProgramCounter() - 1);
             cpu.setProgramCounter(address);
         }),
-        LDA((int address, int value, MODE addressMode) -> {
+        LDA((address, value, addressMode, cpu) -> {
             cpu.A = value;
             cpu.setNZ(cpu.A);
         }),
-        LDX((int address, int value, MODE addressMode) -> {
+        LDX((address, value, addressMode, cpu) -> {
             cpu.X = value;
             cpu.setNZ(cpu.X);
         }),
-        LDY((int address, int value, MODE addressMode) -> {
+        LDY((address, value, addressMode, cpu) -> {
             cpu.Y = value;
             cpu.setNZ(cpu.Y);
         }),
-        LSR((int address, int value, MODE addressMode) -> {
+        LSR((address, value, addressMode, cpu) -> {
             cpu.C = (value & 1);
             value = (value >> 1) & 0x07F;
             cpu.setNZ(value);
@@ -803,40 +804,41 @@ public class MOS65C02 extends CPU {
             getMemory().write(address, (byte) value, true, false);
             getMemory().write(address, (byte) value, true, false);
         }),
-        LSR_A((int address, int value, MODE addressMode) -> {
+        LSR_A((address, value, addressMode, cpu) -> {
             cpu.C = cpu.A & 1;
             cpu.A = (cpu.A >> 1) & 0x07F;
             cpu.setNZ(cpu.A);
         }),
-        NOP((int address, int value, MODE addressMode) -> {}),
-        ORA((int address, int value, MODE addressMode) -> {
+        NOP((address, value, addressMode, cpu) -> {
+        }),
+        ORA((address, value, addressMode, cpu) -> {
             cpu.A |= value;
             cpu.setNZ(cpu.A);
         }),
-        PHA((int address, int value, MODE addressMode) -> {
+        PHA((address, value, addressMode, cpu) -> {
             cpu.push((byte) cpu.A);
         }),
-        PHP((int address, int value, MODE addressMode) -> {
+        PHP((address, value, addressMode, cpu) -> {
             cpu.push((byte) (cpu.getStatus()));
         }),
-        PHX((int address, int value, MODE addressMode) -> {
+        PHX((address, value, addressMode, cpu) -> {
             cpu.push((byte) cpu.X);
         }),
-        PHY((int address, int value, MODE addressMode) -> {
+        PHY((address, value, addressMode, cpu) -> {
             cpu.push((byte) cpu.Y);
         }),
-        PLA((int address, int value, MODE addressMode) -> {
+        PLA((address, value, addressMode, cpu) -> {
             cpu.A = 0x0FF & cpu.pop();
             cpu.setNZ(cpu.A);
         }),
-        PLP((int address, int value, MODE addressMode) -> {
+        PLP((address, value, addressMode, cpu) -> {
             cpu.setStatus(cpu.pop());
         }),
-        PLX((int address, int value, MODE addressMode) -> {
+        PLX((address, value, addressMode, cpu) -> {
             cpu.X = 0x0FF & cpu.pop();
             cpu.setNZ(cpu.X);
         }),
-        PLY((int address, int value, MODE addressMode) -> {
+        PLY((address, value, addressMode, cpu) -> {
             cpu.Y = 0x0FF & cpu.pop();
             cpu.setNZ(cpu.Y);
         }),
@@ -848,7 +850,7 @@ public class MOS65C02 extends CPU {
         RMB5(new RMBCommand(5)),
         RMB6(new RMBCommand(6)),
         RMB7(new RMBCommand(7)),
-        ROL((int address, int value, MODE addressMode) -> {
+        ROL((address, value, addressMode, cpu) -> {
             int oldC = cpu.C;
             cpu.C = value >> 7;
             value = 0x0ff & ((value << 1) | oldC);
@@ -857,13 +859,13 @@ public class MOS65C02 extends CPU {
             getMemory().write(address, (byte) value, true, false);
             getMemory().write(address, (byte) value, true, false);
         }),
-        ROL_A((int address, int value, MODE addressMode) -> {
+        ROL_A((address, value, addressMode, cpu) -> {
             int oldC = cpu.C;
             cpu.C = cpu.A >> 7;
             cpu.A = 0x0ff & ((cpu.A << 1) | oldC);
             cpu.setNZ(cpu.A);
         }),
-        ROR((int address, int value, MODE addressMode) -> {
+        ROR((address, value, addressMode, cpu) -> {
             int oldC = cpu.C << 7;
             cpu.C = value & 1;
             value = 0x0ff & ((value >> 1) | oldC);
@@ -872,21 +874,21 @@ public class MOS65C02 extends CPU {
             getMemory().write(address, (byte) value, true, false);
             getMemory().write(address, (byte) value, true, false);
         }),
-        ROR_A((int address, int value, MODE addressMode) -> {
+        ROR_A((address, value, addressMode, cpu) -> {
             int oldC = cpu.C << 7;
             cpu.C = cpu.A & 1;
             cpu.A = 0x0ff & ((cpu.A >> 1) | oldC);
             cpu.setNZ(cpu.A);
         }),
-        RTI((int address, int value, MODE addressMode) -> {
+        RTI((address, value, addressMode, cpu) -> {
             cpu.returnFromInterrupt();
         }),
-        RTS((int address, int value, MODE addressMode) -> {
+        RTS((address, value, addressMode, cpu) -> {
             cpu.setProgramCounter(cpu.popWord() + 1);
         }),
-        SBC((int address, int value, MODE addressMode) -> {
+        SBC((address, value, addressMode, cpu) -> {
             cpu.V = ((cpu.A ^ value) & 0x080) != 0;
-            int w = 0;
+            int w;
             if (cpu.D) {
                 int temp = 0x0f + (cpu.A & 0x0f) - (value & 0x0f) + cpu.C;
                 if (temp < 0x10) {
@@ -927,13 +929,13 @@ public class MOS65C02 extends CPU {
             cpu.A = w & 0x0ff;
             cpu.setNZ(cpu.A);
         }),
-        SEC((int address, int value, MODE addressMode) -> {
+        SEC((address, value, addressMode, cpu) -> {
             cpu.C = 1;
         }),
-        SED((int address, int value, MODE addressMode) -> {
+        SED((address, value, addressMode, cpu) -> {
             cpu.D = true;
         }),
-        SEI((int address, int value, MODE addressMode) -> {
+        SEI((address, value, addressMode, cpu) -> {
             cpu.I = true;
         }),
         SMB0(new SMBCommand(0)),
@@ -944,55 +946,55 @@ public class MOS65C02 extends CPU {
         SMB5(new SMBCommand(5)),
         SMB6(new SMBCommand(6)),
         SMB7(new SMBCommand(7)),
-        STA(true, (int address, int value, MODE addressMode) -> {
+        STA(true, (address, value, addressMode, cpu) -> {
             getMemory().write(address, (byte) cpu.A, true, false);
         }),
-        STP((int address, int value, MODE addressMode) -> {
+        STP((address, value, addressMode, cpu) -> {
             cpu.suspend();
         }),
-        STX(true, (int address, int value, MODE addressMode) -> {
+        STX(true, (address, value, addressMode, cpu) -> {
             getMemory().write(address, (byte) cpu.X, true, false);
         }),
-        STY(true, (int address, int value, MODE addressMode) -> {
+        STY(true, (address, value, addressMode, cpu) -> {
             getMemory().write(address, (byte) cpu.Y, true, false);
         }),
-        STZ(true, (int address, int value, MODE addressMode) -> {
+        STZ(true, (address, value, addressMode, cpu) -> {
             getMemory().write(address, (byte) 0, true, false);
         }),
-        TAX((int address, int value, MODE addressMode) -> {
+        TAX((address, value, addressMode, cpu) -> {
             cpu.X = cpu.A;
             cpu.setNZ(cpu.X);
         }),
-        TAY((int address, int value, MODE addressMode) -> {
+        TAY((address, value, addressMode, cpu) -> {
             cpu.Y = cpu.A;
             cpu.setNZ(cpu.Y);
         }),
-        TRB((int address, int value, MODE addressMode) -> {
+        TRB((address, value, addressMode, cpu) -> {
             cpu.C = (value & cpu.A) != 0 ? 1 : 0;
             value &= ~cpu.A;
             getMemory().write(address, (byte) value, true, false);
         }),
-        TSB((int address, int value, MODE addressMode) -> {
+        TSB((address, value, addressMode, cpu) -> {
             cpu.C = (value & cpu.A) != 0 ? 1 : 0;
             value |= cpu.A;
             getMemory().write(address, (byte) value, true, false);
         }),
-        TSX((int address, int value, MODE addressMode) -> {
+        TSX((address, value, addressMode, cpu) -> {
             cpu.X = cpu.STACK;
             cpu.setNZ(cpu.STACK);
         }),
-        TXA((int address, int value, MODE addressMode) -> {
+        TXA((address, value, addressMode, cpu) -> {
             cpu.A = cpu.X;
             cpu.setNZ(cpu.X);
         }),
-        TXS((int address, int value, MODE addressMode) -> {
+        TXS((address, value, addressMode, cpu) -> {
             cpu.STACK = cpu.X;
         }),
-        TYA((int address, int value, MODE addressMode) -> {
+        TYA((address, value, addressMode, cpu) -> {
             cpu.A = cpu.Y;
             cpu.setNZ(cpu.Y);
         }),
-        WAI((int address, int value, MODE addressMode) -> {
+        WAI((address, value, addressMode, cpu) -> {
             cpu.waitForInterrupt();
         });
         private CommandProcessor processor;
@@ -1024,13 +1026,6 @@ public class MOS65C02 extends CPU {
         }
     }
 
-    /**
-     * Creates a new instance of MOS65C02
-     */
-    public MOS65C02() {
-        cpu = this;
-    }
-
     @Override
     protected void executeOpcode() {
         if (interruptSignalled) {
@@ -1046,10 +1041,10 @@ public class MOS65C02 extends CPU {
         if (isTraceEnabled() || isLogEnabled() || (warnAboutExtendedOpcodes && opcode != null && opcode.isExtendedOpcode)) {
             String t = getState().toUpperCase() + "  " + Integer.toString(pc, 16) + " : " + disassemble();
             if (warnAboutExtendedOpcodes && opcode != null && opcode.isExtendedOpcode) {
-                System.out.println(">>EXTENDED OPCODE DETECTED "+Integer.toHexString(opcode.code)+"<<");
+                System.out.println(">>EXTENDED OPCODE DETECTED " + Integer.toHexString(opcode.code) + "<<");
                 System.out.println(t);
                 if (isLogEnabled()) {
-                    log(">>EXTENDED OPCODE DETECTED "+Integer.toHexString(opcode.code)+"<<");
+                    log(">>EXTENDED OPCODE DETECTED " + Integer.toHexString(opcode.code) + "<<");
                     log(t);
                 }
             } else {
@@ -1098,13 +1093,13 @@ public class MOS65C02 extends CPU {
                 dumpTrace();
             }
             if (breakOnBadOpcode) {
-                OPCODE.BRK.execute();
+                OPCODE.BRK.execute(this);
             }
         } else {
-            opcode.fetch();
+            opcode.fetch(this);
             incrementProgramCounter(opcode.getMode().getSize());
-            opcode.execute();
-            addWaitCycles(opcode.getWaitCycles());            
+            opcode.execute(this);
+            addWaitCycles(opcode.getWaitCycles());
         }
     }
 
@@ -1206,6 +1201,7 @@ public class MOS65C02 extends CPU {
     }
 
     // Cold/Warm boot procedure
+    @Override
     public void reset() {
         boolean restart = Computer.pause();
         pushWord(getProgramCounter());
@@ -1227,6 +1223,7 @@ public class MOS65C02 extends CPU {
         }
     }
 
+    @Override
     protected String getDeviceName() {
         return "65C02 Processor";
     }
@@ -1259,7 +1256,7 @@ public class MOS65C02 extends CPU {
         out.append(byte2(X)).append(" ");
         out.append(byte2(Y)).append(" ");
         //        out += "PC:"+wordString(getProgramCounter())+" ";
-        out.append("01").append(byte2(STACK)). append(" ");
+        out.append("01").append(byte2(STACK)).append(" ");
         out.append(getFlags());
         return out.toString();
     }
@@ -1308,6 +1305,6 @@ public class MOS65C02 extends CPU {
 
     @Override
     public void pushPC() {
-        cpu.pushWord(cpu.getProgramCounter() - 1);
+        pushWord(getProgramCounter() - 1);
     }
 }
