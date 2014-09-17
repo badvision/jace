@@ -346,7 +346,7 @@ public class VideoNTSC extends VideoDHGR {
 //        System.out.println(state + ": "+ graphicsMode);
     }
     // These catch changes to the RGB mode to toggle between color, BW and mixed
-    static Set<RAMListener> rgbStateListeners = new HashSet<>();
+    static final Set<RAMListener> rgbStateListeners = new HashSet<>();
 
     static {
         rgbStateListeners.add(new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
