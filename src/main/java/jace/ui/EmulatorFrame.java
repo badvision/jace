@@ -77,7 +77,8 @@ public class EmulatorFrame extends AbstractEmulatorFrame {
     /**
      * Creates new form EmulatorFrame
      */
-    public EmulatorFrame() {
+    public EmulatorFrame(Computer computer) {
+        setComputer(computer);
         initComponents();
         layers.setDoubleBuffered(true);
         screen.setDoubleBuffered(true);
@@ -94,6 +95,7 @@ public class EmulatorFrame extends AbstractEmulatorFrame {
         screen.setFocusTraversalKeysEnabled(false);
     }
 
+    @Override
     public synchronized void addKeyListener(KeyListener l) {
         super.addKeyListener(l);
         layers.addKeyListener(l);
@@ -154,10 +156,8 @@ public class EmulatorFrame extends AbstractEmulatorFrame {
      * @param args the command line arguments
      */
     public static void main(String args[]) {
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new EmulatorFrame().setVisible(true);
-            }
+        java.awt.EventQueue.invokeLater(() -> {
+            new EmulatorFrame(null).setVisible(true);
         });
     }
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -165,15 +165,17 @@ public class EmulatorFrame extends AbstractEmulatorFrame {
     public javax.swing.JLayeredPane layers;
     public jace.ui.ScreenPanel screen;
     // End of variables declaration//GEN-END:variables
-    Set<JLabel> previousIndicators = new HashSet<JLabel>();
+    Set<JLabel> previousIndicators = new HashSet<>();
 
     @Override
     public void doRedrawIndicators(Set<ImageIcon> ind) {
         synchronized (previousIndicators) {
-            for (JLabel l : previousIndicators) {
+            previousIndicators.stream().map((l) -> {
                 l.setVisible(false);
+                return l;
+            }).forEach((l) -> {
                 layers.remove(l);
-            }
+            });
             previousIndicators.clear();
         }
         if (ind != null && !ind.isEmpty()) {
@@ -195,8 +197,8 @@ public class EmulatorFrame extends AbstractEmulatorFrame {
                 label.setVisible(true);
             }
         } else {
-            if (Computer.getComputer() != null && Computer.getComputer().video != null) {
-                Computer.getComputer().video.forceRefresh();
+            if (computer != null && computer.video != null) {
+                computer.video.forceRefresh();
             }
             // This was causing a whole screen flicker -- bad.
             // screen.repaint();
@@ -208,16 +210,16 @@ public class EmulatorFrame extends AbstractEmulatorFrame {
     public void repaintIndicators() {
         synchronized (previousIndicators) {
             if (previousIndicators != null) {
-                for (JLabel l : previousIndicators) {
+                previousIndicators.stream().forEach((l) -> {
                     Graphics g = l.getGraphics();
                     if (g != null) {
                         l.paint(g);
                     }
-                }
+                });
             }
         }
     }
-    Map<ImageIcon, JLabel> indicatorCache = new HashMap<ImageIcon, JLabel>();
+    Map<ImageIcon, JLabel> indicatorCache = new HashMap<>();
 
     private JLabel createIndicatorIcon(ImageIcon i) {
         if (indicatorCache.containsKey(i)) {
@@ -240,7 +242,7 @@ public class EmulatorFrame extends AbstractEmulatorFrame {
         indicatorCache.put(i, renderedLabel);
         return renderedLabel;
     }
-    Map<String, JFrame> modals = new HashMap<String, JFrame>();
+    Map<String, JFrame> modals = new HashMap<>();
 
     @Override
     protected void displayModalDialog(final String name, JPanel ui, List<String> ancestors) {

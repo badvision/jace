@@ -109,11 +109,11 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
     public static int LinkMap = 0x0bda0;
     public static int Map = 0x0bea0;
     public static int MapInfo = 0x0bf00;
-    public static int RedBufs = 0x05e00;
-    public static int RedBuf = RedBufs + 90;
+    public static final int RedBufs = 0x05e00;
+    public static final int RedBuf = RedBufs + 90;
     // Source: https://github.com/jmechner/Prince-of-Persia-Apple-II/blob/master/01%20POP%20Source/Source/EQ.S
-    public static int WipeBuf = RedBuf + 90;
-    public static int MoveBuf = WipeBuf + 30;
+    public static final int WipeBuf = RedBuf + 90;
+    public static final int MoveBuf = WipeBuf + 30;
     // Object types
     // Source: https://github.com/jmechner/Prince-of-Persia-Apple-II/blob/master/01%20POP%20Source/Source/MOVEDATA.S
     public static int space = 0;
@@ -148,6 +148,10 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
     public static int archtop4 = 29;
     // This is the correct value for an open exit door.
     public static int ExitOpen = 172;
+
+    public PrinceOfPersiaCheats(Computer computer) {
+        super(computer);
+    }
 
     @Override
     protected String getDeviceName() {
@@ -317,7 +321,7 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
         // and 198-255 offscreen to the right.
 
 //        System.out.println("Clicked on " + col + "," + row + " -- screen " + (x * 280) + "," + (y * 192));
-        RAM128k mem = (RAM128k) Computer.getComputer().getMemory();
+        RAM128k mem = (RAM128k) computer.getMemory();
         PagedMemory auxMem = mem.getAuxMemory();
 
         if (me.getButton() == MouseEvent.BUTTON1) {
@@ -363,7 +367,7 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
      * @param direction
      */
     public void performAction(int row, int col, int direction) {
-        RAM128k mem = (RAM128k) Computer.getComputer().getMemory();
+        RAM128k mem = (RAM128k) computer.getMemory();
         PagedMemory auxMem = mem.getAuxMemory();
         byte currentScrn = auxMem.readByte(KidScrn);
         if (col < 0) {

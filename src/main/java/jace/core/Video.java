@@ -91,7 +91,8 @@ public abstract class Video extends Device {
     /**
      * Creates a new instance of Video
      */
-    public Video() {
+    public Video(Computer computer) {
+        super(computer);
         suspend();
         video = new BufferedImage(560, 192, BufferedImage.TYPE_INT_RGB);
         vPeriod = 0;
@@ -164,7 +165,7 @@ public abstract class Video extends Device {
 
     @Override
     public void tick() {
-        setFloatingBus(Computer.getComputer().getMemory().readRaw(scannerAddress + x));
+        setFloatingBus(computer.getMemory().readRaw(scannerAddress + x));
         if (hPeriod > 0) {
             hPeriod--;
             if (hPeriod == 0) {
@@ -201,12 +202,12 @@ public abstract class Video extends Device {
                         y = APPLE_SCREEN_LINES - (TOTAL_LINES - APPLE_SCREEN_LINES);
                         isVblank = true;
                         vblankStart();
-                        Motherboard.vblankStart();
+                        computer.getMotherboard().vblankStart();
                     } else {
                         y = 0;
                         isVblank = false;
                         vblankEnd();
-                        Motherboard.vblankEnd();
+                        computer.getMotherboard().vblankEnd();
                     }
                 }
             }

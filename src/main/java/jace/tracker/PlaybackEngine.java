@@ -31,12 +31,49 @@ import jace.hardware.CardMockingboard;
  */
 public class PlaybackEngine extends Computer {
 
-    Motherboard motherboard = new Motherboard();
-    CardMockingboard mockingboard = new CardMockingboard();
+    Computer dummyComputer = new Computer() {
+
+        @Override
+        public void coldStart() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        public void warmStart() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        protected boolean isRunning() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        protected void doPause() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        protected void doResume() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        public String getName() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        public String getShortName() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+    };
+    Motherboard motherboard = new Motherboard(dummyComputer);
+    CardMockingboard mockingboard = new CardMockingboard(dummyComputer);
 
     public PlaybackEngine() {
-        setMemory(new CardExt80Col());
-        setCpu(new MOS65C02());
+        setMemory(new CardExt80Col(dummyComputer));
+        setCpu(new MOS65C02(dummyComputer));
         getMemory().addCard(mockingboard, 5);
     }
 

@@ -23,7 +23,6 @@ import jace.config.Reconfigurable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Vector;
 
 /**
  * RAM is a 64K address space of paged memory. It also manages sets of memory
@@ -42,12 +41,14 @@ public abstract class RAM implements Reconfigurable {
     protected Card[] cards;
     // card 0 = 80 column card firmware / system rom
     public int activeSlot = 0;
+    protected final Computer computer;
 
     /**
      * Creates a new instance of RAM
      */
-    public RAM() {
-        listeners = new Vector<RAMListener>();
+    public RAM(Computer computer) {
+        this.computer = computer;
+        listeners = new ArrayList<>();
         cards = new Card[8];
         refreshListenerMap();
     }
@@ -196,60 +197,60 @@ public abstract class RAM implements Reconfigurable {
     private void refreshListenerMap() {
         listenerMap = new ArrayList[256];
         ioListenerMap = new ArrayList[256];
-        for (RAMListener l : listeners) {
+        listeners.stream().forEach((l) -> {
             addListenerRange(l);
-        }
+        });
     }
 
     public void addListener(final RAMListener l) {
-        boolean restart = Computer.pause();
+        boolean restart = computer.pause();
         if (listeners.contains(l)) {
             return;
         }
         listeners.add(l);
         addListenerRange(l);
         if (restart) {
-            Computer.resume();
+            computer.resume();
         }
     }
 
     public void removeListener(final RAMListener l) {
-        boolean restart = Computer.pause();
+        boolean restart = computer.pause();
         listeners.remove(l);
         refreshListenerMap();
         if (restart) {
-            Computer.resume();
+            computer.resume();
         }
     }
 
     public byte callListener(RAMEvent.TYPE t, int address, int oldValue, int newValue, boolean requireSyncronization) {
-        List<RAMListener> activeListeners = null;
+        List<RAMListener> activeListeners;
         if (requireSyncronization) {
-            Computer.getComputer().getCpu().suspend();
+            computer.getCpu().suspend();
         }
         if ((address & 0x0FF00) == 0x0C000) {
             activeListeners = ioListenerMap[address & 0x0FF];
             if (activeListeners == null && t.isRead()) {
                 if (requireSyncronization) {
-                    Computer.getComputer().getCpu().resume();
+                    computer.getCpu().resume();
                 }
-                return Computer.getComputer().getVideo().getFloatingBus();
+                return computer.getVideo().getFloatingBus();
             }
         } else {
             activeListeners = listenerMap[(address >> 8) & 0x0ff];
         }
         if (activeListeners != null) {
             RAMEvent e = new RAMEvent(t, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY, address, oldValue, newValue);
-            for (RAMListener l : activeListeners) {
+            activeListeners.stream().forEach((l) -> {
                 l.handleEvent(e);
-            }
+            });
             if (requireSyncronization) {
-                Computer.getComputer().getCpu().resume();
+                computer.getCpu().resume();
             }
             return (byte) e.getNewValue();
         }
         if (requireSyncronization) {
-            Computer.getComputer().getCpu().resume();
+            computer.getCpu().resume();
         }
         return (byte) newValue;
     }

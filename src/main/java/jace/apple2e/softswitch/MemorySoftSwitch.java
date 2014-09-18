@@ -40,8 +40,8 @@ public class MemorySoftSwitch extends SoftSwitch {
 
     public void stateChanged() {
 //        System.out.println(getName()+ " was switched to "+getState());
-        if (Computer.getComputer().getMemory() != null) {
-            Computer.getComputer().getMemory().configureActiveMemory();
+        if (computer.getMemory() != null) {
+            computer.getMemory().configureActiveMemory();
         }
     }
 

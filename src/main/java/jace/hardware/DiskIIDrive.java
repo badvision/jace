@@ -18,6 +18,7 @@
  */
 package jace.hardware;
 
+import jace.core.Computer;
 import jace.library.MediaConsumer;
 import jace.library.MediaEntry;
 import jace.library.MediaEntry.MediaFile;
@@ -41,7 +42,12 @@ import javax.swing.ImageIcon;
  */
 @Stateful
 public class DiskIIDrive implements MediaConsumer {
+    Computer computer;
 
+    public DiskIIDrive(Computer computer) {
+        this.computer = computer;
+    }
+    
     FloppyDisk disk;
     // Number of milliseconds to wait between last write and update to disk image
     public static long WRITE_UPDATE_DELAY = 1000;
@@ -77,7 +83,7 @@ public class DiskIIDrive implements MediaConsumer {
     public void reset() {
         driveOn = false;
         magnets = 0;
-        dirtyTracks = new HashSet<Integer>();
+        dirtyTracks = new HashSet<>();
         diskUpdatePending = false;
     }
 
@@ -154,7 +160,7 @@ public class DiskIIDrive implements MediaConsumer {
                     dirtyTracks.add(trackStartOffset / FloppyDisk.TRACK_NIBBLE_LENGTH);
                     disk.nibbles[trackStartOffset + nibbleOffset++] = latch;
                     triggerDiskUpdate();
-                    StateManager.markDirtyValue(disk.nibbles);
+                    StateManager.markDirtyValue(disk.nibbles, computer);
                 }
             }
 
@@ -186,9 +192,9 @@ public class DiskIIDrive implements MediaConsumer {
         diskUpdatePending = true;
         // Update all tracks as necessary
         if (disk != null) {
-            for (Integer track : dirtyTracks) {
+            dirtyTracks.stream().forEach((track) -> {
                 disk.updateTrack(track);
-            }
+            });
         }
         // Empty out dirty list
         dirtyTracks.clear();
@@ -199,53 +205,54 @@ public class DiskIIDrive implements MediaConsumer {
     private void triggerDiskUpdate() {
         lastWriteTime = System.currentTimeMillis();
         if (writerThread == null || !writerThread.isAlive()) {
-            writerThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    long diff = 0;
-                    // Wait until there have been no virtual writes for specified delay time
-                    while ((diff = System.currentTimeMillis() - lastWriteTime) < WRITE_UPDATE_DELAY) {
-                        // Sleep for difference of time
-                        LockSupport.parkNanos(diff * 1000);
-                        // Note: In the meantime, there could have been another disk write,
-                        // in which case this loop will repeat again as needed.
-                    }
-                    updateDisk();
+            writerThread = new Thread(() -> {
+                long diff = 0;
+                // Wait until there have been no virtual writes for specified delay time
+                while ((diff = System.currentTimeMillis() - lastWriteTime) < WRITE_UPDATE_DELAY) {
+                    // Sleep for difference of time
+                    LockSupport.parkNanos(diff * 1000);
+                    // Note: In the meantime, there could have been another disk write,
+                    // in which case this loop will repeat again as needed.
                 }
+                updateDisk();
             });
             writerThread.start();
         }
     }
 
     void insertDisk(File diskPath) throws IOException {
-        disk = new FloppyDisk(diskPath);
-        dirtyTracks = new HashSet<Integer>();
+        disk = new FloppyDisk(diskPath, computer);
+        dirtyTracks = new HashSet<>();
         // Emulator state has changed significantly, reset state manager
-        StateManager.getInstance().invalidate();
+        StateManager.getInstance(computer).invalidate();
     }
     private ImageIcon icon;
 
+    @Override
     public ImageIcon getIcon() {
         return icon;
     }
 
+    @Override
     public void setIcon(ImageIcon i) {
         icon = i;
     }
     private MediaEntry currentMediaEntry;
     private MediaFile currentMediaFile;
 
+    @Override
     public void eject() {
         if (disk == null) {
             return;
         }
         waitForPendingWrites();
         disk = null;
-        dirtyTracks = new HashSet<Integer>();
+        dirtyTracks = new HashSet<>();
         // Emulator state has changed significantly, reset state manager
-        StateManager.getInstance().invalidate();
+        StateManager.getInstance(computer).invalidate();
     }
 
+    @Override
     public void insertMedia(MediaEntry e, MediaFile f) throws IOException {
         if (!isAccepted(e, f)) {
             return;
@@ -256,14 +263,17 @@ public class DiskIIDrive implements MediaConsumer {
         currentMediaFile = f;
     }
 
+    @Override
     public MediaEntry getMediaEntry() {
         return currentMediaEntry;
     }
 
+    @Override
     public MediaFile getMediaFile() {
         return currentMediaFile;
     }
 
+    @Override
     public boolean isAccepted(MediaEntry e, MediaFile f) {
         if (f == null) return false;
         System.out.println("Type is accepted: "+f.path+"; "+e.type.toString()+": "+e.type.is140kb);

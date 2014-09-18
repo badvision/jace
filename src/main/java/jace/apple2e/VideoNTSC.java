@@ -63,6 +63,11 @@ public class VideoNTSC extends VideoDHGR {
     boolean colorActive = false;
     int rowStart = 0;
 
+    public VideoNTSC(Computer computer) {
+        super(computer);
+        createStateListeners();
+    }
+
     @Override
     protected void showBW(BufferedImage screen, int xOffset, int y, int dhgrWord) {
         if (lastKnownY != y) {
@@ -97,13 +102,13 @@ public class VideoNTSC extends VideoDHGR {
             pos = rowStart = divBy28[xOffset];
             colorActive = true;
         }
-        int c1 = ((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        int c1 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
             c1 &= 15;
         } else {
             c1 >>= 4;
         }
-        int c2 = ((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1) & 0x0FF;
+        int c2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1) & 0x0FF;
         if ((y & 7) < 4) {
             c2 &= 15;
         } else {
@@ -346,9 +351,9 @@ public class VideoNTSC extends VideoDHGR {
 //        System.out.println(state + ": "+ graphicsMode);
     }
     // These catch changes to the RGB mode to toggle between color, BW and mixed
-    static final Set<RAMListener> rgbStateListeners = new HashSet<>();
+    Set<RAMListener> rgbStateListeners = new HashSet<>();
 
-    static {
+    private void createStateListeners() {
         rgbStateListeners.add(new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
             @Override
             protected void doConfig() {
@@ -357,7 +362,7 @@ public class VideoNTSC extends VideoDHGR {
 
             @Override
             protected void doEvent(RAMEvent e) {
-                Video v = Computer.getComputer().getVideo();
+                Video v = computer.getVideo();
                 if (v instanceof VideoNTSC) {
                     ((VideoNTSC) v).rgbStateChange(ModeStateChanges.CLEAR_AN3);
                 }
@@ -371,7 +376,7 @@ public class VideoNTSC extends VideoDHGR {
 
             @Override
             protected void doEvent(RAMEvent e) {
-                Video v = Computer.getComputer().getVideo();
+                Video v = computer.getVideo();
                 if (v instanceof VideoNTSC) {
                     ((VideoNTSC) v).rgbStateChange(ModeStateChanges.SET_AN3);
                 }
@@ -385,7 +390,7 @@ public class VideoNTSC extends VideoDHGR {
 
             @Override
             protected void doEvent(RAMEvent e) {
-                Video v = Computer.getComputer().getVideo();
+                Video v = computer.getVideo();
                 if (v instanceof VideoNTSC) {
                     // When reset hook is called, reset the graphics mode
                     // This is useful in case a program is running that 
@@ -405,21 +410,19 @@ public class VideoNTSC extends VideoDHGR {
 
             @Override
             protected void doEvent(RAMEvent e) {
-                Video v = Computer.getComputer().getVideo();
+                Video v = computer.getVideo();
                 if (v instanceof VideoNTSC) {
                     ((VideoNTSC) v).rgbStateChange(ModeStateChanges.SET_80);
                 }
             }
         });
-
-
     }
 
     @Override
     public void detach() {
         super.detach();
         rgbStateListeners.stream().forEach((l) -> {
-            Computer.getComputer().getMemory().removeListener(l);
+            computer.getMemory().removeListener(l);
         });
     }
 
@@ -427,7 +430,7 @@ public class VideoNTSC extends VideoDHGR {
     public void attach() {
         super.attach();
         rgbStateListeners.stream().forEach((l) -> {
-            Computer.getComputer().getMemory().addListener(l);
+            computer.getMemory().addListener(l);
         });
     }
 }

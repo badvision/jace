@@ -47,7 +47,10 @@ import java.util.logging.Logger;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Keyboard implements Reconfigurable {
-
+    private Computer computer;
+    public Keyboard(Computer computer) {
+        this.computer = computer;
+    }
     @Override
     public String getShortName() {
         return "kbd";
@@ -79,16 +82,16 @@ public class Keyboard implements Reconfigurable {
      */
     public Keyboard() {
     }
-    private static Map<Integer, Set<KeyHandler>> keyHandlersByKey = new HashMap<Integer, Set<KeyHandler>>();
-    private static Map<Object, Set<KeyHandler>> keyHandlersByOwner = new HashMap<Object, Set<KeyHandler>>();
+    private static Map<Integer, Set<KeyHandler>> keyHandlersByKey = new HashMap<>();
+    private static Map<Object, Set<KeyHandler>> keyHandlersByOwner = new HashMap<>();
 
     public static void registerKeyHandler(KeyHandler l, Object owner) {
         if (!keyHandlersByKey.containsKey(l.key)) {
-            keyHandlersByKey.put(l.key, new HashSet<KeyHandler>());
+            keyHandlersByKey.put(l.key, new HashSet<>());
         }
         keyHandlersByKey.get(l.key).add(l);
         if (!keyHandlersByOwner.containsKey(owner)) {
-            keyHandlersByOwner.put(owner, new HashSet<KeyHandler>());
+            keyHandlersByOwner.put(owner, new HashSet<>());
         }
         keyHandlersByOwner.get(owner).add(l);
     }
@@ -97,12 +100,9 @@ public class Keyboard implements Reconfigurable {
         if (!keyHandlersByOwner.containsKey(owner)) {
             return;
         }
-        for (KeyHandler handler : keyHandlersByOwner.get(owner)) {
-            if (!keyHandlersByKey.containsKey(handler.key)) {
-                continue;
-            }
+        keyHandlersByOwner.get(owner).stream().filter((handler) -> !(!keyHandlersByKey.containsKey(handler.key))).forEach((handler) -> {
             keyHandlersByKey.get(handler.key).remove(handler);
-        }
+        });
     }
 
     public static void processKeyDownEvents(KeyEvent e) {
@@ -216,7 +216,7 @@ public class Keyboard implements Reconfigurable {
                     EmulatorUILogic.toggleDebugPanel();
                 }
                 if ((code == KeyEvent.VK_F12 || code == KeyEvent.VK_PAGE_UP || code == KeyEvent.VK_BACK_SPACE || code == KeyEvent.VK_PAUSE) && ((e.getModifiers() & KeyEvent.CTRL_MASK) > 0)) {
-                    Computer.getComputer().warmStart();
+                    computer.warmStart();
                 }
                 if (code == KeyEvent.VK_F1) {
                     EmulatorUILogic.showMediaManager();
@@ -243,7 +243,7 @@ public class Keyboard implements Reconfigurable {
                     } catch (IOException ex) {
                         Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    Computer.resume();
+                    computer.resume();
                 }
                 if ((e.getModifiers() & (KeyEvent.ALT_MASK|KeyEvent.META_MASK|KeyEvent.META_DOWN_MASK)) > 0) {
                     // explicit left and right here because other locations
@@ -261,27 +261,27 @@ public class Keyboard implements Reconfigurable {
             }
 
             private void pressOpenApple() {
-                Computer.pause();
+                computer.pause();
                 SoftSwitches.PB0.getSwitch().setState(true);
-                Computer.resume();
+                computer.resume();
             }
 
             private void pressSolidApple() {
-                Computer.pause();
+                computer.pause();
                 SoftSwitches.PB1.getSwitch().setState(true);
-                Computer.resume();
+                computer.resume();
             }
 
             private void releaseOpenApple() {
-                Computer.pause();
+                computer.pause();
                 SoftSwitches.PB0.getSwitch().setState(false);
-                Computer.resume();
+                computer.resume();
             }
 
             private void releaseSolidApple() {
-                Computer.pause();
+                computer.pause();
                 SoftSwitches.PB1.getSwitch().setState(false);
-                Computer.resume();
+                computer.resume();
             }
         };
     }
@@ -298,10 +298,7 @@ public class Keyboard implements Reconfigurable {
                 contents = contents.replaceAll("\\n(\\r)?", (char) 0x0d + "");
                 pasteBuffer = new StringReader(contents);
             }
-        } catch (UnsupportedFlavorException ex) {
-            Logger.getLogger(Keyboard.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
+        } catch (UnsupportedFlavorException | IOException ex) {
             Logger.getLogger(Keyboard.class
                     .getName()).log(Level.SEVERE, null, ex);
         }

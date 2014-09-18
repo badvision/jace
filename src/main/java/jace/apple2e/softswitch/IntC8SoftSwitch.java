@@ -76,8 +76,8 @@ public class IntC8SoftSwitch extends SoftSwitch {
 
     @Override
     public void stateChanged() {
-        if (Computer.getComputer().getMemory() != null) {
-            Computer.getComputer().getMemory().configureActiveMemory();
+        if (computer.getMemory() != null) {
+            computer.getMemory().configureActiveMemory();
         }
     }
 }

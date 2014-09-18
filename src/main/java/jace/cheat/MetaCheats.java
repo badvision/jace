@@ -44,16 +44,16 @@ public class MetaCheats extends Cheats {
     // This is used to help the handler exit faster when there is nothing to do
     boolean noCheats = true;
     
-    public MetaCheats() {
-        super();
+    public MetaCheats(Computer computer) {
+        super(computer);
         singleton = this;
     }
     
     
-    Map<Integer, Integer> holdBytes = new TreeMap<Integer,Integer>();
-    Map<Integer, Integer> holdWords = new TreeMap<Integer,Integer>();
-    Set<Integer> disabled = new HashSet<Integer>();
-    Map<Integer, Integer> results = new TreeMap<Integer,Integer>();
+    Map<Integer, Integer> holdBytes = new TreeMap<>();
+    Map<Integer, Integer> holdWords = new TreeMap<>();
+    Set<Integer> disabled = new HashSet<>();
+    Map<Integer, Integer> results = new TreeMap<>();
     @Override
     protected String getDeviceName() {
         return "Meta-cheat engine";
@@ -80,7 +80,7 @@ public class MetaCheats extends Cheats {
             Logger.getLogger(MetaCheats.class.getName()).log(Level.SEVERE, null, ex);
         }
         
-        RAM128k ram = (RAM128k) Computer.getComputer().getMemory();
+        RAM128k ram = (RAM128k) computer.getMemory();
         DefaultTableModel model = (DefaultTableModel) form.resultsTable.getModel();
         if (results.size() > MAX_RESULTS_SHOWN) {
             model.setRowCount(0);
@@ -90,8 +90,8 @@ public class MetaCheats extends Cheats {
         boolean useWord = form.searchForWord.isSelected();
         if (model.getRowCount() != results.size()) {
             model.setRowCount(0);
-            List<Integer> iter = new ArrayList<Integer>(results.keySet());
-            for (Integer i : iter) {
+            List<Integer> iter = new ArrayList<>(results.keySet());
+            iter.stream().forEach((i) -> {
                 int val = results.get(i);
                 if (useWord) {
                     int current = ram.readWordRaw(i) & 0x0ffff;
@@ -100,9 +100,9 @@ public class MetaCheats extends Cheats {
                     int current = ram.readRaw(i) & 0x0ff;
                     model.addRow(new Object[]{hex(i, 4), val + " ("+hex(val,2)+")", current + " ("+hex(current,2)+")"});
                 }
-            }
+            });
         } else {
-            List<Integer> iter = new ArrayList<Integer>(results.keySet());
+            List<Integer> iter = new ArrayList<>(results.keySet());
             for (int i=0; i < iter.size(); i++) {
                 int val = results.get(iter.get(i));
                 if (useWord) {
@@ -131,18 +131,18 @@ public class MetaCheats extends Cheats {
         noCheats = holdBytes.isEmpty() && holdWords.isEmpty() && disabled.isEmpty();
         DefaultTableModel model = (DefaultTableModel) form.activeCheatsTable.getModel();
         model.setRowCount(0);
-        for (Integer i : holdBytes.keySet()) {
+        holdBytes.keySet().stream().forEach((i) -> {
             String loc = hex(i, 4);
             if (disabled.contains(i)) loc += " (off)";
             int val = holdBytes.get(i);
             model.addRow(new Object[]{loc, val + " ("+hex(val,2)+")"});
-        }
-        for (Integer i : holdWords.keySet()) {
+        });
+        holdWords.keySet().stream().forEach((i) -> {
             String loc = hex(i, 4);
             if (disabled.contains(i)) loc += " (off)";
             int val = holdWords.get(i);
             model.addRow(new Object[]{loc, val + " ("+hex(val,4)+")"});
-        }
+        });
     }
     public void showCheatForm() {
         if (form == null) {
@@ -191,11 +191,8 @@ public class MetaCheats extends Cheats {
                 if (results.isEmpty()) return;                
                 if (results.size() > MAX_RESULTS_SHOWN || isDrawing) return;
                 if (results.containsKey(e.getAddress()) || results.containsKey(e.getAddress()-1)) {
-                    Thread t = new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            redrawResults();
-                        }
+                    Thread t = new Thread(() -> {
+                        redrawResults();
                     });
                     t.setName("Metacheat results updater");
                     t.start();
@@ -258,7 +255,7 @@ public class MetaCheats extends Cheats {
     }
 
     void performSearch(boolean useDeltaSearch, boolean searchForByteValues, int val) {
-        RAM128k ram = (RAM128k) Computer.getComputer().getMemory();
+        RAM128k ram = (RAM128k) computer.getMemory();
         if (results.isEmpty()) {
             int max = 0x010000;
             if (!searchForByteValues) max--;
@@ -272,8 +269,8 @@ public class MetaCheats extends Cheats {
                 }
             }
         } else {
-            Set<Integer> remove = new HashSet<Integer>();
-            for (Integer i : results.keySet()) {
+            Set<Integer> remove = new HashSet<>();
+            results.keySet().stream().forEach((i) -> {
                 int v = searchForByteValues ? ram.readRaw(i) & 0x0ff : ram.readWordRaw(i) & 0x0ffff;
                 if (useDeltaSearch) {
                     if (v - results.get(i) != val) {
@@ -288,10 +285,10 @@ public class MetaCheats extends Cheats {
                         results.put(i,v);
                     }
                 }
-            }
-            for (Integer i : remove) {
+            });
+            remove.stream().forEach((i) -> {
                 results.remove(i);
-            }
+            });
         }
         form.resultsStatusLabel.setText("Search found "+results.size()+" result(s).");
         redrawResults();
@@ -308,7 +305,7 @@ public class MetaCheats extends Cheats {
     }
 
     void addWatches(int addrStart, int addrEnd) {
-        RAM128k ram = (RAM128k) Computer.getComputer().getMemory();
+        RAM128k ram = (RAM128k) computer.getMemory();
         if (form == null) return;
         boolean searchForByteValues = form.searchForByte.isSelected();
         for (int i = addrStart; i <= addrEnd; i = i + (searchForByteValues ? 1 : 2)) {

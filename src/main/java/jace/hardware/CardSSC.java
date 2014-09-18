@@ -94,6 +94,10 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
     // Bitmask for stop bits (FF = 8, 7F = 7, etc)
     private int DATA_BITS = 0x07F;
 
+    public CardSSC(Computer computer) {
+        super(computer);
+    }
+
     public String getDeviceName() {
         return "Super Serial Card";
     }
@@ -390,7 +394,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
 
     private void triggerIRQ() {
         IRQ_TRIGGERED = true;
-        Computer.getComputer().getCpu().generateInterrupt();
+        computer.getCpu().generateInterrupt();
     }
 
     public void hangUp() {

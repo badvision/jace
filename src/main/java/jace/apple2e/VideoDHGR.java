@@ -70,7 +70,8 @@ public class VideoDHGR extends Video {
     /**
      * Creates a new instance of VideoDHGR
      */
-    public VideoDHGR() {
+    public VideoDHGR(Computer computer) {
+        super(computer);
         hiresPage1 = new VideoWriter() {
             @Override
             public int getYOffset(int y) {
@@ -292,10 +293,10 @@ public class VideoDHGR extends Video {
         if ((xOffset & 0x01) == 1) {
             return;
         }
-        int b1 = ((RAM128k) Computer.getComputer().getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset);
-        int b2 = ((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset);
-        int b3 = ((RAM128k) Computer.getComputer().getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset + 1);
-        int b4 = ((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
+        int b1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset);
+        int b2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset);
+        int b3 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset + 1);
+        int b4 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
         int useColOffset = xOffset << 1;
         // This shouldn't be necessary but prevents an index bounds exception when graphics modes are flipped (Race condition?)
         if (useColOffset >= 77) {
@@ -318,8 +319,8 @@ public class VideoDHGR extends Video {
         if ((xOffset & 0x01) == 1) {
             return;
         }
-        int b1 = 0x0ff & ((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset);
-        int b2 = 0x0ff & ((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
+        int b1 = 0x0ff & ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset);
+        int b2 = 0x0ff & ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
         int dhgrWord = hgrToDhgr[(extraHalfBit && xOffset > 0) ? b1 | 0x0100 : b1][b2];
         extraHalfBit = (dhgrWord & 0x10000000) != 0;
         showDhgr(screen, times14[xOffset], y, dhgrWord & 0xfffffff);
@@ -375,7 +376,7 @@ public class VideoDHGR extends Video {
     }
 
     protected void displayLores(BufferedImage screen, int xOffset, int y, int rowAddress) {
-        int c1 = ((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        int c1 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
             c1 &= 15;
         } else {
@@ -402,8 +403,8 @@ public class VideoDHGR extends Video {
     }
 
     private void displayDoubleLores(BufferedImage screen, int xOffset, int y, int rowAddress) {
-        int c1 = ((RAM128k) Computer.getComputer().getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
-        int c2 = ((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        int c1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        int c2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
             c1 &= 15;
             c2 &= 15;
@@ -549,8 +550,8 @@ public class VideoDHGR extends Video {
             return;
         }
         int yOffset = y & 7;
-        byte byte2 = ((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
-        int c1 = getFontChar(((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset));
+        byte byte2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
+        int c1 = getFontChar(((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset));
         int c2 = getFontChar(byte2);
         int b1 = Font.getByte(c1, yOffset);
         int b2 = Font.getByte(c2, yOffset);
@@ -566,10 +567,10 @@ public class VideoDHGR extends Video {
             return;
         }
         int yOffset = y & 7;
-        int c1 = getFontChar(((RAM128k) Computer.getComputer().getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset));
-        int c2 = getFontChar(((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset));
-        int c3 = getFontChar(((RAM128k) Computer.getComputer().getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset + 1));
-        int c4 = getFontChar(((RAM128k) Computer.getComputer().getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1));
+        int c1 = getFontChar(((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset));
+        int c2 = getFontChar(((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset));
+        int c3 = getFontChar(((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset + 1));
+        int c4 = getFontChar(((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1));
         int bits = Font.getByte(c1, yOffset) | (Font.getByte(c2, yOffset) << 7)
                 | (Font.getByte(c3, yOffset) << 14) | (Font.getByte(c4, yOffset) << 21);
         showBW(screen, times14[xOffset], y, bits);
@@ -683,7 +684,7 @@ public class VideoDHGR extends Video {
     }
 
     private void registerDirtyFlagChecks() {
-        ((RAM128k) Computer.getComputer().getMemory()).addListener(new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
+        ((RAM128k) computer.getMemory()).addListener(new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
             @Override
             protected void doConfig() {
                 setScopeStart(0x0400);
@@ -705,7 +706,7 @@ public class VideoDHGR extends Video {
                 }
             }
         });
-        ((RAM128k) Computer.getComputer().getMemory()).addListener(new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
+        ((RAM128k) computer.getMemory()).addListener(new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
             @Override
             protected void doConfig() {
                 setScopeStart(0x2000);

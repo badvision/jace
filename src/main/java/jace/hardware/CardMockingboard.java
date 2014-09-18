@@ -86,12 +86,13 @@ public class CardMockingboard extends Card implements Runnable {
         return "Mockingboard";
     }
 
-    public CardMockingboard() {
+    public CardMockingboard(Computer computer) {
+        super(computer);
         controllers = new R6522[2];
         for (int i = 0; i < 2; i++) {
             //don't ask...
             final int j = i;
-            controllers[i] = new R6522() {
+            controllers[i] = new R6522(computer) {
                 @Override
                 public void sendOutputA(int value) {
                     if (activeChip != null) {
@@ -156,7 +157,7 @@ public class CardMockingboard extends Card implements Runnable {
         }
         if (activeChip == null) {
             System.err.println("Could not determine which PSG to communicate to");
-            e.setNewValue(Computer.getComputer().getVideo().getFloatingBus());
+            e.setNewValue(computer.getVideo().getFloatingBus());
             return;
         }
         R6522 controller = controllers[chip & 1];
@@ -172,7 +173,7 @@ public class CardMockingboard extends Card implements Runnable {
     @Override
     protected void handleIOAccess(int register, TYPE type, int value, RAMEvent e) {
         // Oddly, all IO is done at the firmware address bank.  It's a strange card.
-        e.setNewValue(Computer.getComputer().getVideo().getFloatingBus());
+        e.setNewValue(computer.getVideo().getFloatingBus());
     }
     long ticksSinceLastPlayback = 0;
 
@@ -305,7 +306,7 @@ public class CardMockingboard extends Card implements Runnable {
      */
     public void run() {
         try {
-            SourceDataLine out = Motherboard.mixer.getLine(this);
+            SourceDataLine out = computer.getMotherboard().mixer.getLine(this);
             int[] leftBuffer = new int[BUFFER_LENGTH];
             int[] rightBuffer = new int[BUFFER_LENGTH];
             int frameSize = out.getFormat().getFrameSize();
@@ -317,7 +318,7 @@ public class CardMockingboard extends Card implements Runnable {
             ticksSinceLastPlayback = 0;
             int zeroSamples = 0;
             while (isRunning()) {
-                Motherboard.requestSpeed(this);
+                computer.getMotherboard().requestSpeed(this);
                 playSound(leftBuffer, rightBuffer);
                 int p = 0;
                 for (int idx = 0; idx < BUFFER_LENGTH; idx++) {
@@ -345,7 +346,7 @@ public class CardMockingboard extends Card implements Runnable {
                 if (zeroSamples >= MAX_IDLE_SAMPLES) {
                     zeroSamples = 0;
                     pause = true;
-                    Motherboard.cancelSpeedRequest(this);
+                    computer.getMotherboard().cancelSpeedRequest(this);
                     while (pause && isRunning()) {
                         try {
                             Thread.sleep(50);
@@ -380,9 +381,9 @@ public class CardMockingboard extends Card implements Runnable {
             Logger.getLogger(CardMockingboard.class
                     .getName()).log(Level.SEVERE, null, ex);
         } finally {
-            Motherboard.cancelSpeedRequest(this);
+            computer.getMotherboard().cancelSpeedRequest(this);
             System.out.println("Mockingboard playback stopped");
-            Motherboard.mixer.returnLine(this);
+            computer.getMotherboard().mixer.returnLine(this);
         }
     }
 

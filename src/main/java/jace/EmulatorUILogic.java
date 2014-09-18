@@ -24,7 +24,6 @@ import jace.apple2e.SoftSwitches;
 import jace.config.ConfigurationPanel;
 import jace.config.InvokableAction;
 import jace.core.CPU;
-import jace.core.Computer;
 import jace.core.Debugger;
 import jace.core.RAM;
 import jace.core.RAMEvent;
@@ -69,7 +68,7 @@ public class EmulatorUILogic {
             @Override
             public void updateStatus() {
                 enableDebug(true);
-                MOS65C02 cpu = (MOS65C02) Computer.getComputer().getCpu();
+                MOS65C02 cpu = (MOS65C02) Emulator.computer.getCpu();
                 updateCPURegisters(cpu);
             }
         };
@@ -95,7 +94,7 @@ public class EmulatorUILogic {
     }
 
     public static void enableTrace(boolean b) {
-        Computer.getComputer().getCpu().setTraceEnabled(b);
+        Emulator.computer.getCpu().setTraceEnabled(b);
     }
 
     public static void stepForward() {
@@ -103,7 +102,7 @@ public class EmulatorUILogic {
     }
 
     static void registerDebugger() {
-        Computer.getComputer().getCpu().setDebug(debugger);
+        Emulator.computer.getCpu().setDebug(debugger);
     }
 
     public static Integer getValidAddress(String s) {
@@ -122,7 +121,7 @@ public class EmulatorUILogic {
     public static void updateWatchList(final DebuggerPanel panel) {
         java.awt.EventQueue.invokeLater(() -> {
             watches.stream().forEach((oldWatch) -> {
-                Computer.getComputer().getMemory().removeListener(oldWatch);
+                Emulator.computer.getMemory().removeListener(oldWatch);
             });
             if (panel == null) {
                 return;
@@ -149,10 +148,10 @@ public class EmulatorUILogic {
                     watchValue.setText(Integer.toHexString(e.getNewValue() & 0x0FF));
                 }
             };
-            Computer.getComputer().getMemory().addListener(newListener);
+            Emulator.computer.getMemory().addListener(newListener);
             watches.add(newListener);
             // Print out the current value right away
-            byte b = Computer.getComputer().getMemory().readRaw(address);
+            byte b = Emulator.computer.getMemory().readRaw(address);
             watchValue.setText(Integer.toString(b & 0x0ff, 16));
         } else {
             watchValue.setText("00");
@@ -192,12 +191,12 @@ public class EmulatorUILogic {
     description = "Loads a binary file in memory and executes it. File should end with #06xxxx, where xxxx is the start address in hex",
     alternatives = "Execute program;Load binary;Load program;Load rom;Play single-load game")
     public static void runFile() {
-        Computer.pause();
+        Emulator.computer.pause();
         JFileChooser select = new JFileChooser();
         select.showDialog(Emulator.getFrame(), "Execute binary file");
         File binary = select.getSelectedFile();
         if (binary == null) {
-            Computer.resume();
+            Emulator.computer.resume();
             return;
         }
         runFile(binary);
@@ -215,7 +214,7 @@ public class EmulatorUILogic {
             }
         } catch (NumberFormatException | IOException ex) {
         }
-        Computer.getComputer().getCpu().resume();
+        Emulator.computer.getCpu().resume();
     }
 
     public static void brun(File binary, int address) throws FileNotFoundException, IOException {
@@ -223,17 +222,17 @@ public class EmulatorUILogic {
         // If it was not yet halted, then it is the case that the CPU is processing another opcode
         // So if that is the case, the program counter will need to be decremented here to compensate
         // TODO: Find a better mousetrap for this one -- it's an ugly hack
-        Computer.pause();
+        Emulator.computer.pause();
         FileInputStream in = new FileInputStream(binary);
         byte[] data = new byte[in.available()];
         in.read(data);
-        RAM ram = Computer.getComputer().getMemory();
+        RAM ram = Emulator.computer.getMemory();
         for (int i = 0; i < data.length; i++) {
             ram.write(address + i, data[i], false, true);
         }
-        CPU cpu = Computer.getComputer().getCpu();
-        Computer.getComputer().getCpu().setProgramCounter(address);
-        Computer.resume();
+        CPU cpu = Emulator.computer.getCpu();
+        Emulator.computer.getCpu().setProgramCounter(address);
+        Emulator.computer.resume();
     }
 
     @InvokableAction(
@@ -246,9 +245,9 @@ public class EmulatorUILogic {
         if (frame == null) {
             return;
         }
-        Computer.pause();
+        Emulator.computer.pause();
         frame.enforceIntegerRatio();
-        Computer.resume();
+        Emulator.computer.resume();
     }
 
     @InvokableAction(
@@ -271,9 +270,9 @@ public class EmulatorUILogic {
         if (frame == null) {
             return;
         }
-        Computer.pause();
+        Emulator.computer.pause();
         frame.toggleFullscreen();
-        Computer.resume();
+        Emulator.computer.resume();
     }
 
     @InvokableAction(
@@ -285,7 +284,7 @@ public class EmulatorUILogic {
         SimpleDateFormat df = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
         String timestamp = df.format(new Date());
         String type;
-        int start = Computer.getComputer().getVideo().getCurrentWriter().actualWriter().getYOffset(0);
+        int start = Emulator.computer.getVideo().getCurrentWriter().actualWriter().getYOffset(0);
         int len;
         if (start < 0x02000) {
             // Lo-res or double-lores
@@ -302,8 +301,8 @@ public class EmulatorUILogic {
         }
         File outFile = new File("screen_" + type + "_a" + Integer.toHexString(start) + "_" + timestamp);
         try (FileOutputStream out = new FileOutputStream(outFile)) {
-            RAM128k ram = (RAM128k) Computer.getComputer().memory;
-            Computer.pause();
+            RAM128k ram = (RAM128k) Emulator.computer.memory;
+            Emulator.computer.pause();
             if (dres) {
                 for (int i = 0; i < len; i++) {
                     out.write(ram.getAuxVideoMemory().readByte(start + i));
@@ -323,8 +322,8 @@ public class EmulatorUILogic {
     alternatives = "Save image,save framebuffer,screenshot")
     public static void saveScreenshot() throws HeadlessException, IOException {
         JFileChooser select = new JFileChooser();
-        Computer.pause();
-        BufferedImage i = Computer.getComputer().getVideo().getFrameBuffer();
+        Emulator.computer.pause();
+        BufferedImage i = Emulator.computer.getVideo().getFrameBuffer();
         BufferedImage j = new BufferedImage(i.getWidth(), i.getHeight(), i.getType());
         j.getGraphics().drawImage(i, 0, 0, null);
         select.showSaveDialog(Emulator.getFrame());

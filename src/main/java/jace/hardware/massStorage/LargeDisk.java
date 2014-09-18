@@ -51,12 +51,13 @@ public class LargeDisk implements IDisk {
         }
     }
     
+    @Override
     public void mliFormat() throws IOException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    public void mliRead(int block, int bufferAddress) throws IOException {
-        RAM memory = Computer.getComputer().getMemory();
+    @Override
+    public void mliRead(int block, int bufferAddress, RAM memory) throws IOException {
         if (block < physicalBlocks) {
             diskImage.seek((block * BLOCK_SIZE) + dataOffset);
             for (int i = 0; i < BLOCK_SIZE; i++) {
@@ -69,9 +70,9 @@ public class LargeDisk implements IDisk {
         }
     }
 
-    public void mliWrite(int block, int bufferAddress) throws IOException {
+    @Override
+    public void mliWrite(int block, int bufferAddress, RAM memory) throws IOException {
         if (block < physicalBlocks) {
-            RAM memory = Computer.getComputer().getMemory();
             diskImage.seek((block * BLOCK_SIZE) + dataOffset);
             byte[] buf = new byte[BLOCK_SIZE];
             for (int i = 0; i < BLOCK_SIZE; i++) {
@@ -81,19 +82,20 @@ public class LargeDisk implements IDisk {
         }
     }
 
-    public void boot0(int slot) throws IOException {
-        Computer.getComputer().getCpu().suspend();
-        mliRead(0, 0x0800);
+    @Override
+    public void boot0(int slot, Computer computer) throws IOException {
+        computer.getCpu().suspend();
+        mliRead(0, 0x0800, computer.getMemory());
         byte slot16 = (byte) (slot << 4);
-        ((MOS65C02) Computer.getComputer().getCpu()).X = slot16;
-        RAM memory = Computer.getComputer().getMemory();
+        ((MOS65C02) computer.getCpu()).X = slot16;
+        RAM memory = computer.getMemory();
         memory.write(CardMassStorage.SLT16, slot16, false, false);
         memory.write(MLI_COMMAND, (byte) MLI_COMMAND_TYPE.READ.intValue, false, false);
         memory.write(MLI_UNITNUMBER, slot16, false, false);
         // Write location to block read routine to zero page
         memory.writeWord(0x048, 0x0c000 + CardMassStorage.DEVICE_DRIVER_OFFSET + (slot * 0x0100), false, false);
-        ((MOS65C02) Computer.getComputer().getCpu()).setProgramCounter(0x0800);
-        Computer.getComputer().getCpu().resume();
+        ((MOS65C02) computer.getCpu()).setProgramCounter(0x0800);
+        computer.getCpu().resume();
     }
 
     public File getPhysicalPath() {
@@ -123,7 +125,9 @@ public class LargeDisk implements IDisk {
             Logger.getLogger(LargeDisk.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
-                fis.close();
+                if (fis != null) {
+                    fis.close();
+                }
             } catch (IOException ex) {
                 Logger.getLogger(LargeDisk.class.getName()).log(Level.SEVERE, null, ex);
             }

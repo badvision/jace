@@ -18,6 +18,7 @@
  */
 package jace.ui;
 
+import jace.Emulator;
 import jace.core.Computer;
 import java.awt.Color;
 import java.awt.Graphics;
@@ -35,11 +36,15 @@ public class ScreenPanel extends JPanel {
         setBackground(new Color(0, 0, 64));
         setOpaque(false);
     }
+    
+    public Computer getComputer() {
+        return Emulator.computer;
+    }
 
     @Override
     public void paint(Graphics g) {
-        if (Computer.getComputer() != null) {
-            Computer.getComputer().getVideo().forceRefresh();
+        if (getComputer() != null) {
+            getComputer().getVideo().forceRefresh();
         }
     }
 }

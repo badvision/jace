@@ -163,7 +163,8 @@ public class Speaker extends Device {
     /**
      * Creates a new instance of Speaker
      */
-    public Speaker() {
+    public Speaker(Computer computer) {
+        super(computer);
         configureListener();
         reconfigure();
     }
@@ -189,7 +190,7 @@ public class Speaker extends Device {
     public void resume() {
         sdl = null;
         try {
-            sdl = Motherboard.mixer.getLine(this);
+            sdl = computer.getMotherboard().mixer.getLine(this);
         } catch (LineUnavailableException ex) {
             System.out.println("ERROR: Could not output sound: " + ex.getMessage());
         }
@@ -233,8 +234,9 @@ public class Speaker extends Device {
                                 }
                             }
                         }
-                        Motherboard.cancelSpeedRequest(this);
-                        Motherboard.mixer.returnLine(this);
+                        
+                        computer.getMotherboard().cancelSpeedRequest(this);
+                        computer.getMotherboard().mixer.returnLine(this);
 
                     }
                 });
@@ -280,9 +282,9 @@ public class Speaker extends Device {
             int wait = 0;
             while (bufferPos >= BUFFER_SIZE) {
                 if (wait++ > 1000) {
-                    Computer.pause();
+                    computer.pause();
                     detach();
-                    Computer.resume();
+                    computer.resume();
                     Motherboard.enableSpeaker = false;
                     gripe("Sound playback is not working properly.  Check your configuration and sound system to ensure they are set up properly.");
                     return;
@@ -322,11 +324,11 @@ public class Speaker extends Device {
      * Add a memory event listener for C03x for capturing speaker events
      */
     private void configureListener() {
-        Computer.getComputer().getMemory().addListener(listener);
+        computer.getMemory().addListener(listener);
     }
 
     private void removeListener() {
-        Computer.getComputer().getMemory().removeListener(listener);
+        computer.getMemory().removeListener(listener);
     }
 
     /**

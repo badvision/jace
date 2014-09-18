@@ -47,6 +47,7 @@ public abstract class SoftSwitch {
     private final List<Integer> exclusionQuery = new ArrayList<>();
     private String name;
     private boolean toggleType = false;
+    protected Computer computer;
 
     /**
      * Creates a new instance of SoftSwitch
@@ -235,18 +236,20 @@ public abstract class SoftSwitch {
         }
     }
 
-    public void register() {
-        RAM m = Computer.getComputer().getMemory();
+    public void register(Computer computer) {
+        this.computer = computer;
+        RAM m = computer.getMemory();
         listeners.stream().forEach((l) -> {
             m.addListener(l);
         });
     }
 
     public void unregister() {
-        RAM m = Computer.getComputer().getMemory();
+        RAM m = computer.getMemory();
         listeners.stream().forEach((l) -> {
             m.removeListener(l);
         });
+        this.computer = null;
     }
 
     public void setState(boolean newState) {
@@ -259,7 +262,7 @@ public abstract class SoftSwitch {
         state = newState;
         /*
          if (queryAddresses != null) {
-         RAM m = Computer.getComputer().getMemory();
+         RAM m = computer.getMemory();
          for (int i:queryAddresses) {
          byte old = m.read(i, false);
          m.write(i, (byte) (old & 0x7f | (state ? 0x080:0x000)), false);

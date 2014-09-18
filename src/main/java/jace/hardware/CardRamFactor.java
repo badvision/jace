@@ -22,6 +22,7 @@ import jace.Emulator;
 import jace.config.ConfigurableField;
 import jace.config.Name;
 import jace.core.Card;
+import jace.core.Computer;
 import jace.core.Motherboard;
 import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
@@ -64,7 +65,8 @@ public class CardRamFactor extends Card {
         return "RamFactor";
     }
     ImageIcon indicator;
-    public CardRamFactor() {
+    public CardRamFactor(Computer computer) {
+        super(computer);
         indicator=Utility.loadIcon("ram.png");
         try {
             loadRom("jace/data/RAMFactor14.rom");
@@ -162,7 +164,7 @@ public class CardRamFactor extends Card {
     @Override
     protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
         if (speedBoost) {
-            Motherboard.requestSpeed(this);
+            computer.getMotherboard().requestSpeed(this);
         }
     }
 
@@ -174,7 +176,7 @@ public class CardRamFactor extends Card {
     @Override
     protected void handleC8FirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
         if (speedBoost) {
-            Motherboard.requestSpeed(this);
+            computer.getMotherboard().requestSpeed(this);
         }
     }
 

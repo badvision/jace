@@ -68,8 +68,12 @@ public class MOS65C02 extends CPU {
     @ConfigurableField(name = "Ext. opcode warnings", description = "If on, uses of 65c02 extended opcodes (or undocumented 6502 opcodes -- which will fail) will be logged to stdout for debugging purposes")
     public boolean warnAboutExtendedOpcodes = false;
 
-    private static RAM getMemory() {
-        return Computer.getComputer().getMemory();
+    private RAM getMemory() {
+        return computer.getMemory();
+    }
+
+    public MOS65C02(Computer computer) {
+        super(computer);
     }
 
     @Override
@@ -344,7 +348,7 @@ public class MOS65C02 extends CPU {
 
         default int getValue(boolean isRead, MOS65C02 cpu) {
             int address = calculateAddress(cpu);
-            return (address > -1) ? (0x0ff & getMemory().read(address, TYPE.READ_DATA, isRead, false)) : 0;
+            return (address > -1) ? (0x0ff & cpu.getMemory().read(address, TYPE.READ_DATA, isRead, false)) : 0;
         }
     }
 
@@ -354,42 +358,42 @@ public class MOS65C02 extends CPU {
         //        RELATIVE(2, "#$~1 ($R)"),
         RELATIVE(2, "$R", (cpu) -> {
             int pc = cpu.getProgramCounter();
-            int address = pc + 2 + getMemory().read(pc + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+            int address = pc + 2 + cpu.getMemory().read(pc + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             // The wait cycles are not added unless the branch actually happens!
             cpu.setPageBoundaryPenalty((address & 0x00ff00) != (pc & 0x00ff00));
             return address;
         }),
         IMMEDIATE(2, "#$~1", (cpu) -> cpu.getProgramCounter() + 1),
-        ZEROPAGE(2, "$~1", (cpu) -> getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) & 0x00FF),
-        ZEROPAGE_X(2, "$~1,X", (cpu) -> 0x0FF & (getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X)),
-        ZEROPAGE_Y(2, "$~1,Y", (cpu) -> 0x0FF & (getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.Y)),
+        ZEROPAGE(2, "$~1", (cpu) -> cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) & 0x00FF),
+        ZEROPAGE_X(2, "$~1,X", (cpu) -> 0x0FF & (cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X)),
+        ZEROPAGE_Y(2, "$~1,Y", (cpu) -> 0x0FF & (cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.Y)),
         INDIRECT(3, "$(~2~1)", (cpu) -> {
-            int address = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
-            return getMemory().readWord(address, TYPE.READ_DATA, true, false);
+            int address = cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+            return cpu.getMemory().readWord(address, TYPE.READ_DATA, true, false);
         }),
         INDIRECT_X(3, "$(~2~1,X)", (cpu) -> {
-            int address = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X;
-            return getMemory().readWord(address & 0x0FFFF, TYPE.READ_DATA, true, false);
+            int address = cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X;
+            return cpu.getMemory().readWord(address & 0x0FFFF, TYPE.READ_DATA, true, false);
         }),
         INDIRECT_ZP(2, "$(~1)", (cpu) -> {
-            int address = getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
-            return getMemory().readWord(address & 0x0FF, TYPE.READ_DATA, true, false);
+            int address = cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+            return cpu.getMemory().readWord(address & 0x0FF, TYPE.READ_DATA, true, false);
         }),
         INDIRECT_ZP_X(2, "$(~1,X)", (cpu) -> {
-            int address = getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X;
-            return getMemory().readWord(address & 0x0FF, TYPE.READ_DATA, true, false);
+            int address = cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X;
+            return cpu.getMemory().readWord(address & 0x0FF, TYPE.READ_DATA, true, false);
         }),
         INDIRECT_ZP_Y(2, "$(~1),Y", (cpu) -> {
-            int address = 0x00FF & getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
-            address = getMemory().readWord(address, TYPE.READ_DATA, true, false) + cpu.Y;
+            int address = 0x00FF & cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+            address = cpu.getMemory().readWord(address, TYPE.READ_DATA, true, false) + cpu.Y;
             if ((address & 0x00ff00) > 0) {
                 cpu.addWaitCycles(1);
             }
             return address;
         }),
-        ABSOLUTE(3, "$~2~1", (cpu) -> getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false)),
+        ABSOLUTE(3, "$~2~1", (cpu) -> cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false)),
         ABSOLUTE_X(3, "$~2~1,X", (cpu) -> {
-            int address2 = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+            int address2 = cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             int address = 0x0FFFF & (address2 + cpu.X);
             if ((address & 0x00FF00) != (address2 & 0x00FF00)) {
                 cpu.addWaitCycles(1);
@@ -397,7 +401,7 @@ public class MOS65C02 extends CPU {
             return address;
         }),
         ABSOLUTE_Y(3, "$~2~1,Y", (cpu) -> {
-            int address2 = getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+            int address2 = cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             int address = 0x0FFFF & (address2 + cpu.Y);
             if ((address & 0x00FF00) != (address2 & 0x00FF00)) {
                 cpu.addWaitCycles(1);
@@ -407,9 +411,9 @@ public class MOS65C02 extends CPU {
         ZP_REL(2, "$~1,$R", new AddressCalculator() {
             @Override
             public int calculateAddress(MOS65C02 cpu) {
-                // Note: This is two's compliment addition and the getMemory().read() returns a signed 8-bit value
+                // Note: This is two's compliment addition and the cpu.getMemory().read() returns a signed 8-bit value
                 int pc = cpu.getProgramCounter();
-                int address = pc + 2 + getMemory().read(pc + 2, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+                int address = pc + 2 + cpu.getMemory().read(pc + 2, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
                 // The wait cycles are not added unless the branch actually happens!
                 cpu.setPageBoundaryPenalty((address & 0x00ff00) != (pc & 0x00ff00));
                 return address;
@@ -418,8 +422,8 @@ public class MOS65C02 extends CPU {
             @Override
             public int getValue(boolean isRead, MOS65C02 cpu) {
                 int pc = cpu.getProgramCounter();
-                int address = getMemory().read(pc + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
-                return getMemory().read(address, TYPE.READ_DATA, true, false);
+                int address = cpu.getMemory().read(pc + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+                return cpu.getMemory().read(address, TYPE.READ_DATA, true, false);
             }
         });
         private int size;
@@ -473,16 +477,16 @@ public class MOS65C02 extends CPU {
             return calculator;
         }
 
-        public String formatMode(int pc) {
+        public String formatMode(int pc, MOS65C02 cpu) {
             if (implied) {
                 return "";
             } else {
-                int b1 = 0x00ff & getMemory().readRaw((pc + 1) & 0x0FFFF);
+                int b1 = 0x00ff & cpu.getMemory().readRaw((pc + 1) & 0x0FFFF);
                 if (relative) {
                     String R = wordString(pc + 2 + (byte) b1);
                     return f1 + R;
                 } else if (twoByte) {
-                    int b2 = 0x00ff & getMemory().readRaw((pc + 2) & 0x0FFFF);
+                    int b2 = 0x00ff & cpu.getMemory().readRaw((pc + 2) & 0x0FFFF);
                     return f1 + byte2(b2) + byte2(b1) + f2;
                 } else {
                     return f1 + byte2(b1) + f2;
@@ -548,7 +552,7 @@ public class MOS65C02 extends CPU {
         public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
             int mask = 0x0ff ^ (1 << bit);
             value &= mask;
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
         }
     }
 
@@ -564,7 +568,7 @@ public class MOS65C02 extends CPU {
         public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
             int mask = 1 << bit;
             value |= mask;
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
         }
     }
 
@@ -620,8 +624,8 @@ public class MOS65C02 extends CPU {
             cpu.setNZ(value);
             // Emulate correct behavior of fetch-store-modify
             // http://forum.6502.org/viewtopic.php?f=4&t=1617&view=previous
-            getMemory().write(address, (byte) value, true, false);
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
         }),
         ASL_A((address, value, addressMode, cpu) -> {
             cpu.C = cpu.A >> 7;
@@ -738,8 +742,8 @@ public class MOS65C02 extends CPU {
         }),
         DEC((address, value, addressMode, cpu) -> {
             value = 0x0FF & (value - 1);
-            getMemory().write(address, (byte) value, true, false);
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
             cpu.setNZ(value);
         }),
         DEA((address, value, addressMode, cpu) -> {
@@ -761,8 +765,8 @@ public class MOS65C02 extends CPU {
         INC((address, value, addressMode, cpu) -> {
             value = 0x0ff & (value + 1);
             // emulator correct fetch-modify-store behavior
-            getMemory().write(address, (byte) value, true, false);
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
             cpu.setNZ(value);
         }),
         INA((address, value, addressMode, cpu) -> {
@@ -801,8 +805,8 @@ public class MOS65C02 extends CPU {
             value = (value >> 1) & 0x07F;
             cpu.setNZ(value);
             // emulator correct fetch-modify-store behavior
-            getMemory().write(address, (byte) value, true, false);
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
         }),
         LSR_A((address, value, addressMode, cpu) -> {
             cpu.C = cpu.A & 1;
@@ -856,8 +860,8 @@ public class MOS65C02 extends CPU {
             value = 0x0ff & ((value << 1) | oldC);
             cpu.setNZ(value);
             // emulator correct fetch-modify-store behavior
-            getMemory().write(address, (byte) value, true, false);
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
         }),
         ROL_A((address, value, addressMode, cpu) -> {
             int oldC = cpu.C;
@@ -871,8 +875,8 @@ public class MOS65C02 extends CPU {
             value = 0x0ff & ((value >> 1) | oldC);
             cpu.setNZ(value);
             // emulator correct fetch-modify-store behavior
-            getMemory().write(address, (byte) value, true, false);
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
         }),
         ROR_A((address, value, addressMode, cpu) -> {
             int oldC = cpu.C << 7;
@@ -947,19 +951,19 @@ public class MOS65C02 extends CPU {
         SMB6(new SMBCommand(6)),
         SMB7(new SMBCommand(7)),
         STA(true, (address, value, addressMode, cpu) -> {
-            getMemory().write(address, (byte) cpu.A, true, false);
+            cpu.getMemory().write(address, (byte) cpu.A, true, false);
         }),
         STP((address, value, addressMode, cpu) -> {
             cpu.suspend();
         }),
         STX(true, (address, value, addressMode, cpu) -> {
-            getMemory().write(address, (byte) cpu.X, true, false);
+            cpu.getMemory().write(address, (byte) cpu.X, true, false);
         }),
         STY(true, (address, value, addressMode, cpu) -> {
-            getMemory().write(address, (byte) cpu.Y, true, false);
+            cpu.getMemory().write(address, (byte) cpu.Y, true, false);
         }),
         STZ(true, (address, value, addressMode, cpu) -> {
-            getMemory().write(address, (byte) 0, true, false);
+            cpu.getMemory().write(address, (byte) 0, true, false);
         }),
         TAX((address, value, addressMode, cpu) -> {
             cpu.X = cpu.A;
@@ -972,12 +976,12 @@ public class MOS65C02 extends CPU {
         TRB((address, value, addressMode, cpu) -> {
             cpu.C = (value & cpu.A) != 0 ? 1 : 0;
             value &= ~cpu.A;
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
         }),
         TSB((address, value, addressMode, cpu) -> {
             cpu.C = (value & cpu.A) != 0 ? 1 : 0;
             value |= cpu.A;
-            getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) value, true, false);
         }),
         TSX((address, value, addressMode, cpu) -> {
             cpu.X = cpu.STACK;
@@ -1033,8 +1037,8 @@ public class MOS65C02 extends CPU {
         }
         int pc = getProgramCounter();
 
-//        RAM ram = getMemory();
-//        int op = 0x00ff & getMemory().read(pc, false);
+//        RAM ram = cpu.getMemory();
+//        int op = 0x00ff & cpu.getMemory().read(pc, false);
         // This makes it possible to trap the memory read of an opcode, when PC == Address, you know it is executing that opcode.
         int op = 0x00ff & getMemory().read(pc, TYPE.EXECUTE, true, false);
         OPCODE opcode = opcodes[op];
@@ -1203,7 +1207,7 @@ public class MOS65C02 extends CPU {
     // Cold/Warm boot procedure
     @Override
     public void reset() {
-        boolean restart = Computer.pause();
+        boolean restart = computer.pause();
         pushWord(getProgramCounter());
         push(getStatus());
         //        STACK = 0x0ff;
@@ -1219,7 +1223,7 @@ public class MOS65C02 extends CPU {
         System.out.println("Reset called, setting PC to (" + Integer.toString(RESET_VECTOR, 16) + ") = " + Integer.toString(newPC, 16));
         setProgramCounter(newPC);
         if (restart) {
-            Computer.resume();
+            computer.resume();
         }
     }
 
@@ -1276,13 +1280,13 @@ public class MOS65C02 extends CPU {
 
     public String disassemble() {
         int pc = getProgramCounter();
-//        RAM ram = getMemory();
+//        RAM ram = cpu.getMemory();
         int op = getMemory().readRaw(pc);
         OPCODE o = opcodes[op & 0x0ff];
         if (o == null) {
             return "???";
         }
-        String format = o.getMode().formatMode(pc);
+        String format = o.getMode().formatMode(pc, this);
 //        format = format.replaceAll("~1", byte2(b1));
 //        format = format.replaceAll("~2", byte2(b2));
 //        format = format.replaceAll("R", R);

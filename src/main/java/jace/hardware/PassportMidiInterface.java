@@ -43,6 +43,10 @@ import javax.sound.midi.Synthesizer;
 @Name(value = "Passport Midi Interface", description = "MIDI sound card")
 public class PassportMidiInterface extends Card {
 
+    public PassportMidiInterface(Computer computer) {
+        super(computer);
+    }
+
     @Override
     protected void handleC8FirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
         // There is no rom on this card, so nothing to do here
@@ -318,7 +322,7 @@ public class PassportMidiInterface extends Card {
                     if (t.irqEnabled) {
 //                        System.out.println("Timer generating interrupt!");
                         t.irqRequested = true;
-                        Computer.getComputer().getCpu().generateInterrupt();
+                        computer.getCpu().generateInterrupt();
                         ptmStatusReadSinceIRQ = false;
                     }
                     if (t.mode == TIMER_MODE.continuous || t.mode == TIMER_MODE.freqComparison) {

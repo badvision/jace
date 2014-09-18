@@ -87,6 +87,10 @@ public class SoundMixer extends Device {
     };
     private Mixer theMixer;
 
+    public SoundMixer(Computer computer) {
+        super(computer);
+    }
+
     @Override
     public String getDeviceName() {
         return "Sound Output";
@@ -132,7 +136,7 @@ public class SoundMixer extends Device {
         if (activeLines.containsKey(requester)) {
             return activeLines.get(requester);
         }
-        SourceDataLine sdl = null;
+        SourceDataLine sdl;
         if (availableLines.isEmpty()) {
             sdl = getNewLine();
         } else {

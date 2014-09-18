@@ -35,12 +35,12 @@ import java.io.IOException;
  */
 public abstract class Computer implements Reconfigurable {
 
-    static private Computer theComputer;
     public RAM memory;
     public CPU cpu;
     public Video video;
     public Keyboard keyboard;
     public StateManager stateManager;
+    public Motherboard motherboard;
     public MediaLibrary mediaLibrary = MediaLibrary.getInstance();
     @ConfigurableField(category = "advanced", name = "State management", shortName = "rewind", description = "This enables rewind support, but consumes a lot of memory when active.")
     public boolean enableStateManager;
@@ -49,12 +49,15 @@ public abstract class Computer implements Reconfigurable {
      * Creates a new instance of Computer
      */
     public Computer() {
-        theComputer = this;
         keyboard = new Keyboard();
     }
 
     public RAM getMemory() {
         return memory;
+    }
+
+    public Motherboard getMotherboard() {
+        return motherboard;
     }
 
     public void notifyVBLStateChanged(boolean state) {
@@ -105,21 +108,17 @@ public abstract class Computer implements Reconfigurable {
 
     @InvokableAction(
             name = "Cold boot",
-    description = "Process startup sequence from power-up",
-    category = "general",
-    alternatives = "Full reset;reset emulator")
+            description = "Process startup sequence from power-up",
+            category = "general",
+            alternatives = "Full reset;reset emulator")
     public abstract void coldStart();
 
     @InvokableAction(
             name = "Warm boot",
-    description = "Process user-initatiated reboot (ctrl+apple+reset)",
-    category = "general",
-    alternatives = "reboot;reset;three-finger-salute")
+            description = "Process user-initatiated reboot (ctrl+apple+reset)",
+            category = "general",
+            alternatives = "reboot;reset;three-finger-salute")
     public abstract void warmStart();
-
-    static public Computer getComputer() {
-        return theComputer;
-    }
 
     public Keyboard getKeyboard() {
         return this.keyboard;
@@ -132,28 +131,24 @@ public abstract class Computer implements Reconfigurable {
     protected abstract void doResume();
 
     @InvokableAction(name = "Pause", description = "Stops the computer, allowing reconfiguration of core elements", alternatives = "freeze;halt")
-    public static boolean pause() {
-        boolean result = false;
-        if (theComputer != null) {
-            result = theComputer.isRunning();
-            theComputer.doPause();
-        }
+    public boolean pause() {
+        boolean result = isRunning();
+        doPause();
         return result;
     }
 
     @InvokableAction(name = "Resume", description = "Resumes the computer if it was previously paused", alternatives = "unpause;unfreeze;resume")
-    public static void resume() {
-        if (theComputer != null) {
-            theComputer.doResume();
-        }
+    public void resume() {
+        doResume();
     }
 
+    @Override
     public void reconfigure() {
         if (enableStateManager) {
-            stateManager = StateManager.getInstance();
+            stateManager = StateManager.getInstance(this);
         } else {
             stateManager = null;
-            StateManager.getInstance().invalidate();
+            StateManager.getInstance(this).invalidate();
         }
     }
 }

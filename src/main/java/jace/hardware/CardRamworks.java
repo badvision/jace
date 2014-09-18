@@ -53,10 +53,10 @@ public class CardRamworks extends RAM128k {
     public int memorySize = 3072;
     public int maxBank = memorySize / 64;
     private Map<BankType, PagedMemory> generateBank() {
-            Map<BankType, PagedMemory> memoryBank = new EnumMap<BankType, PagedMemory>(BankType.class);
-            memoryBank.put(BankType.MAIN_MEMORY, new PagedMemory(0xc000, PagedMemory.Type.ram));
-            memoryBank.put(BankType.LANGUAGE_CARD_1, new PagedMemory(0x3000, PagedMemory.Type.languageCard));
-            memoryBank.put(BankType.LANGUAGE_CARD_2, new PagedMemory(0x1000, PagedMemory.Type.languageCard));
+            Map<BankType, PagedMemory> memoryBank = new EnumMap<>(BankType.class);
+            memoryBank.put(BankType.MAIN_MEMORY, new PagedMemory(0xc000, PagedMemory.Type.ram, computer));
+            memoryBank.put(BankType.LANGUAGE_CARD_1, new PagedMemory(0x3000, PagedMemory.Type.languageCard, computer));
+            memoryBank.put(BankType.LANGUAGE_CARD_2, new PagedMemory(0x1000, PagedMemory.Type.languageCard, computer));
             return memoryBank;
     }
 
@@ -64,9 +64,9 @@ public class CardRamworks extends RAM128k {
         MAIN_MEMORY, LANGUAGE_CARD_1, LANGUAGE_CARD_2
     };
 
-    public CardRamworks() {
-        super();
-        memory = new ArrayList<Map<BankType, PagedMemory>>(maxBank);
+    public CardRamworks(Computer computer) {
+        super(computer);
+        memory = new ArrayList<>(maxBank);
         reconfigure();
     }
     
@@ -115,7 +115,7 @@ public class CardRamworks extends RAM128k {
 
     @Override
     public void reconfigure() {
-        boolean resume = Computer.pause();
+        boolean resume = computer.pause();
         maxBank = memorySize / 64;
         if (maxBank < 1) maxBank = 1;
         if (maxBank > 128) maxBank = 128;
@@ -124,7 +124,7 @@ public class CardRamworks extends RAM128k {
         }
         configureActiveMemory();
         if (resume) {
-            Computer.resume();
+            computer.resume();
         }
     }
     RAMListener bankSelectListener = new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {

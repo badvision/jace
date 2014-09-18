@@ -59,7 +59,8 @@ public class CardThunderclock extends Card {
     @ConfigurableField(category = "OS", name = "Patch Prodos Year", description = "If enabled, the Prodos clock driver will be patched to use the current year.")
     public boolean attemptYearPatch = true;
 
-    public CardThunderclock() {
+    public CardThunderclock(Computer computer) {
+        super(computer);
         try {
             loadRom("jace/data/thunderclock_plus.rom");
         } catch (IOException ex) {
@@ -213,7 +214,7 @@ public class CardThunderclock extends Card {
                 ticks = 0;
                 irqAsserted = true;
                 if (irqEnabled) {
-                    Computer.getComputer().getCpu().generateInterrupt();
+                    computer.getCpu().generateInterrupt();
                 }
             }
         }
@@ -295,7 +296,7 @@ public class CardThunderclock extends Card {
      * always tell time correctly.
      */
     private void performProdosPatch() {
-        PagedMemory ram = Computer.getComputer().getMemory().activeRead;
+        PagedMemory ram = computer.getMemory().activeRead;
         if (patchLoc > 0) {
             // We've already patched, just validate
             if (ram.readByte(patchLoc) == (byte) MOS65C02.OPCODE.LDA_IMM.getCode()) {

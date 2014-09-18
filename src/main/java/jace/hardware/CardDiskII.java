@@ -23,7 +23,7 @@ import jace.config.ConfigurableField;
 import jace.config.Name;
 import jace.config.Reconfigurable;
 import jace.core.Card;
-import jace.core.Motherboard;
+import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
 import jace.core.Utility;
@@ -48,14 +48,15 @@ import java.util.logging.Logger;
 public class CardDiskII extends Card implements Reconfigurable, MediaConsumerParent {
 
     DiskIIDrive currentDrive;
-    DiskIIDrive drive1 = new DiskIIDrive();
-    DiskIIDrive drive2 = new DiskIIDrive();
+    DiskIIDrive drive1 = new DiskIIDrive(computer);
+    DiskIIDrive drive2 = new DiskIIDrive(computer);
     @ConfigurableField(category = "Disk", defaultValue = "254", name = "Default volume", description = "Value to use for disk volume number")
     static public int DEFAULT_VOLUME_NUMBER = 0x0FE;
     @ConfigurableField(category = "Disk", defaultValue = "true", name = "Speed boost", description = "If enabled, emulator will run at max speed during disk access")
     static public boolean USE_MAX_SPEED = true;
 
-    public CardDiskII() {
+    public CardDiskII(Computer computer) {
+        super(computer);
         try {
             loadRom("jace/data/DiskII.rom");
         } catch (IOException ex) {
@@ -195,10 +196,10 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     private void tweakTiming() {
         if (drive1.isOn() || drive2.isOn()) {
             if (USE_MAX_SPEED) {
-                Motherboard.requestSpeed(this);
+                computer.getMotherboard().requestSpeed(this);
             }
         } else {
-            Motherboard.cancelSpeedRequest(this);
+            computer.getMotherboard().cancelSpeedRequest(this);
         }
     }
 

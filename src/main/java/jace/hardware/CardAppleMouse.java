@@ -88,6 +88,10 @@ public class CardAppleMouse extends Card implements MouseListener {
     public boolean fullscreenFix = true;
     ImageIcon mouseActive = Utility.loadIcon("input-mouse.png");
 
+    public CardAppleMouse(Computer computer) {
+        super(computer);
+    }
+
     @Override
     public String getDeviceName() {
         return "Apple Mouse";
@@ -232,7 +236,7 @@ public class CardAppleMouse extends Card implements MouseListener {
     }
 
     private MOS65C02 getCPU() {
-        return (MOS65C02) Computer.getComputer().getCpu();
+        return (MOS65C02) computer.getCpu();
     }
 
     /*
@@ -321,7 +325,7 @@ public class CardAppleMouse extends Card implements MouseListener {
      *      //gs homes mouse to low address, but //c and //e do not
      */
     private void clampMouse() {
-        RAM128k memory = (RAM128k) Computer.getComputer().memory;
+        RAM128k memory = (RAM128k) computer.memory;
         byte clampMinLo = memory.getMainMemory().readByte(0x0478);
         byte clampMaxLo = memory.getMainMemory().readByte(0x04F8);
         byte clampMinHi = memory.getMainMemory().readByte(0x0578);
@@ -459,7 +463,7 @@ public class CardAppleMouse extends Card implements MouseListener {
         if (drawingArea == null) {
             return;
         }
-        Graphics2D screen = (Graphics2D) Computer.getComputer().getVideo().getScreen();
+        Graphics2D screen = (Graphics2D) computer.getVideo().getScreen();
 //        Point currentMouseLocation = MouseInfo.getPointerInfo().getLocation();
 //        Point topLeft = drawingArea.getLocationOnScreen();
         Point currentMouseLocation = Emulator.getFrame().getContentPane().getMousePosition();
@@ -506,7 +510,7 @@ public class CardAppleMouse extends Card implements MouseListener {
             y = clampMax.y;
         }
 
-        PagedMemory m = ((RAM128k) Computer.getComputer().getMemory()).getMainMemory();
+        PagedMemory m = ((RAM128k) computer.getMemory()).getMainMemory();
         int s = getSlot();
         /*
          * $0478 + slot Low byte of absolute X position 

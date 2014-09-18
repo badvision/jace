@@ -70,7 +70,8 @@ public class Joystick extends Device {
     Robot robot;
     Point centerPoint;
 
-    public Joystick(int port) {
+    public Joystick(int port, Computer computer) {
+        super(computer);
         centerPoint = new Point(screenSize.width / 2, screenSize.height / 2);
         this.port = port;
         if (port == 0) {
@@ -214,7 +215,7 @@ public class Joystick extends Device {
     };
 
     private void registerListeners() {
-        Computer.getComputer().getMemory().addListener(listener);
+        computer.getMemory().addListener(listener);
         if (useKeyboard) {
             System.out.println("Registering key handlers");
             Keyboard.registerKeyHandler(new KeyHandler(KeyEvent.VK_LEFT, -1) {
@@ -273,7 +274,7 @@ public class Joystick extends Device {
     }
 
     private void removeListeners() {
-        Computer.getComputer().getMemory().removeListener(listener);
+        computer.getMemory().removeListener(listener);
         Keyboard.unregisterAllHandlers(this);
     }
 }

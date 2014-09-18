@@ -18,7 +18,7 @@
  */
 package jace.cheat;
 
-import jace.core.Computer;
+import jace.Emulator;
 import jace.core.RAM;
 import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
@@ -56,17 +56,14 @@ public class MemorySpyGrid extends javax.swing.JPanel {
         gradient = bwGradient;
     }
     // This is used primarily during scroll events to repaint the whole area
-    ChangeListener viewportChangeListener = new ChangeListener() {
-        @Override
-        public void stateChanged(ChangeEvent e) {
-            repaint();
-        }
+    ChangeListener viewportChangeListener = (ChangeEvent e) -> {
+        repaint();
     };
 
     @Override
     public void validate() {
         super.validate();
-        if (Computer.getComputer() != null) {
+        if (Emulator.computer != null) {
             adjustSize();
         }
         if (getParent() != null) {
@@ -92,7 +89,7 @@ public class MemorySpyGrid extends javax.swing.JPanel {
                 }
             }
         } else {
-            RAM ram = Computer.getComputer().getMemory();
+            RAM ram = Emulator.computer.getMemory();
             for (int a = startAddress; a <= endAddress; a++) {
                 drawValue(a, ram.readRaw(a) & 0x0ff, (Graphics2D) g);
             }
@@ -198,35 +195,31 @@ public class MemorySpyGrid extends javax.swing.JPanel {
         if (mousePresent) {
             final int addr = convertXYtoAddr(mouseX, mouseY);
             if (addr >= 0) {
-                final int value = Computer.getComputer().getMemory().readRaw(addr) & 0x0ff;
-                java.awt.EventQueue.invokeLater(new Runnable() {
-                    public void run() {
-                        Integer lastChange = setBy.get(addr);
-                        Integer lastRead = readBy.get(addr);
-                        char c1 = (char) Math.max(32, value & 0x07f);
-                        char c2 = (char) (64 + (value % 32));
-                        char c3 = (char) (32 + (value % 96));
-
-                        status.setText("$"
-                                + spaceFill(Integer.toHexString(addr), 4) + ": "
-                                + spaceFill(String.valueOf(value), 3) + " ($"
-                                + spaceFill(Integer.toHexString(value), 2) + ") " + c1 + " " + c2 + " " + c3
-                                + (lastChange != null
-                                ? " Written by $"
-                                + spaceFill(Integer.toHexString(lastChange), 4)
-                                : "")
-                                + (lastRead != null
-                                ? " Read by $"
-                                + spaceFill(Integer.toHexString(lastRead), 4)
-                                : ""));
-                    }
+                final int value = Emulator.computer.getMemory().readRaw(addr) & 0x0ff;
+                java.awt.EventQueue.invokeLater(() -> {
+                    Integer lastChange = setBy.get(addr);
+                    Integer lastRead = readBy.get(addr);
+                    char c1 = (char) Math.max(32, value & 0x07f);
+                    char c2 = (char) (64 + (value % 32));
+                    char c3 = (char) (32 + (value % 96));
+                    
+                    status.setText("$"
+                            + spaceFill(Integer.toHexString(addr), 4) + ": "
+                            + spaceFill(String.valueOf(value), 3) + " ($"
+                            + spaceFill(Integer.toHexString(value), 2) + ") " + c1 + " " + c2 + " " + c3
+                            + (lastChange != null
+                                    ? " Written by $"
+                                            + spaceFill(Integer.toHexString(lastChange), 4)
+                                    : "")
+                            + (lastRead != null
+                                    ? " Read by $"
+                                            + spaceFill(Integer.toHexString(lastRead), 4)
+                                    : ""));
                 });
             }
         } else {
-            java.awt.EventQueue.invokeLater(new Runnable() {
-                public void run() {
-                    status.setText("Nothing selected");
-                }
+            java.awt.EventQueue.invokeLater(() -> {
+                status.setText("Nothing selected");
             });
         }
     }
@@ -274,20 +267,17 @@ public class MemorySpyGrid extends javax.swing.JPanel {
     }
 
     public void recalibrate() {
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                stopDisplay();
-                int size = endAddress - startAddress + 1;
-                int width = getParent().getWidth();
-                columns = ((width / zoomAmount) / 16) * 16;
-                int height = ((size / columns) + 1) * zoomAmount;
-                setSize(width, height);
-                setPreferredSize(new Dimension(width, height));
-                getParent().validate();
-                repaint();
-                startDisplay();
-            }
+        java.awt.EventQueue.invokeLater(() -> {
+            stopDisplay();
+            int size = endAddress - startAddress + 1;
+            int width1 = getParent().getWidth();
+            columns = ((width1 / zoomAmount) / 16) * 16;
+            int height1 = ((size / columns) + 1) * zoomAmount;
+            setSize(width1, height1);
+            setPreferredSize(new Dimension(width1, height1));
+            getParent().validate();
+            repaint();
+            startDisplay();
         });
     }
 
@@ -322,17 +312,17 @@ public class MemorySpyGrid extends javax.swing.JPanel {
     static int ACTIVITY_DECREMENT = 5;
     static int ACTIVITY_MAX = 255;
     RAMListener memoryListener = null;
-    Map<Integer, Integer> readActivity = new ConcurrentHashMap<Integer, Integer>();
-    Map<Integer, Integer> writeActivity = new ConcurrentHashMap<Integer, Integer>();
-    Map<Integer, Integer> pcActivity = new ConcurrentHashMap<Integer, Integer>();
-    Set<Integer> activeRam = new ConcurrentSkipListSet<Integer>();
-    Map<Integer, Integer> valueActivity = new ConcurrentHashMap<Integer, Integer>();
-    Map<Integer, Integer> setBy = new ConcurrentHashMap<Integer, Integer>();
-    Map<Integer, Integer> readBy = new ConcurrentHashMap<Integer, Integer>();
+    Map<Integer, Integer> readActivity = new ConcurrentHashMap<>();
+    Map<Integer, Integer> writeActivity = new ConcurrentHashMap<>();
+    Map<Integer, Integer> pcActivity = new ConcurrentHashMap<>();
+    Set<Integer> activeRam = new ConcurrentSkipListSet<>();
+    Map<Integer, Integer> valueActivity = new ConcurrentHashMap<>();
+    Map<Integer, Integer> setBy = new ConcurrentHashMap<>();
+    Map<Integer, Integer> readBy = new ConcurrentHashMap<>();
 
     void startDisplay() {
         if (memoryListener != null) {
-            Computer.getComputer().getMemory().removeListener(memoryListener);
+            Emulator.computer.getMemory().removeListener(memoryListener);
             memoryListener = null;
         }
         isDisplayActive = true;
@@ -349,7 +339,7 @@ public class MemorySpyGrid extends javax.swing.JPanel {
                 if (addr < startAddress || addr > endAddress) {
                     return;
                 }
-                int pc = Computer.getComputer().getCpu().programCounter;
+                int pc = Emulator.computer.getCpu().programCounter;
                 if (e.getType() == TYPE.EXECUTE || e.getType() == TYPE.READ_OPERAND) {
                     if (pcActivity.containsKey(addr)) {
                         pcActivity.put(addr, Math.min(ACTIVITY_MAX, getInt(pcActivity.get(addr)) + ACTIVITY_INCREMENT));
@@ -375,73 +365,70 @@ public class MemorySpyGrid extends javax.swing.JPanel {
                 activeRam.add(addr);
             }
         };
-        Computer.getComputer().getMemory().addListener(memoryListener);
-        redrawThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                if (mode == Modes.ACTIVITY) {
-                    // Activity heatmap mode
-                    while (isDisplayActive) {
-                        updateDetails();
-                        Graphics2D g = (Graphics2D) getGraphics();
-                        for (Iterator<Integer> i = activeRam.iterator(); i.hasNext();) {
-                            boolean remove = true;
-                            int addr = i.next();
-                            int read = getInt(readActivity.get(addr));
-                            if (read <= 0) {
-                                read = 0;
-                            } else {
-                                remove = false;
-                                readActivity.put(addr, read - ACTIVITY_DECREMENT);
-                            }
-                            int write = getInt(writeActivity.get(addr));
-                            if (write <= 0) {
-                                write = 0;
-                            } else {
-                                remove = false;
-                                writeActivity.put(addr, write - ACTIVITY_DECREMENT);
-                            }
-                            int pc = getInt(pcActivity.get(addr));
-                            if (pc <= 0) {
-                                pc = 0;
-                            } else {
-                                remove = false;
-                                pcActivity.put(addr, pc - ACTIVITY_DECREMENT);
-                            }
-
-                            if (remove) {
-                                i.remove();
-                                pcActivity.remove(addr);
-                                writeActivity.remove(addr);
-                                readActivity.remove(addr);
-                            }
-
-                            drawActivity(addr, write, read, pc, g);
+        Emulator.computer.getMemory().addListener(memoryListener);
+        redrawThread = new Thread(() -> {
+            if (mode == Modes.ACTIVITY) {
+                // Activity heatmap mode
+                while (isDisplayActive) {
+                    updateDetails();
+                    Graphics2D g = (Graphics2D) getGraphics();
+                    for (Iterator<Integer> i = activeRam.iterator(); i.hasNext();) {
+                        boolean remove = true;
+                        int addr = i.next();
+                        int read = getInt(readActivity.get(addr));
+                        if (read <= 0) {
+                            read = 0;
+                        } else {
+                            remove = false;
+                            readActivity.put(addr, read - ACTIVITY_DECREMENT);
                         }
-                        g.dispose();
-                        try {
-                            Thread.sleep(UPDATE_INTERVAL);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(MemorySpyGrid.class.getName()).log(Level.SEVERE, null, ex);
+                        int write = getInt(writeActivity.get(addr));
+                        if (write <= 0) {
+                            write = 0;
+                        } else {
+                            remove = false;
+                            writeActivity.put(addr, write - ACTIVITY_DECREMENT);
                         }
-                    }
-                } else {
-                    // Redraw value, no activity counts needed
-                    while (isDisplayActive) {
-                        updateDetails();
-                        Graphics2D g = (Graphics2D) getGraphics();
-                        for (Iterator<Integer> i = valueActivity.keySet().iterator(); i.hasNext();) {
-                            int addr = i.next();
-                            int value = getInt(valueActivity.get(addr));
+                        int pc = getInt(pcActivity.get(addr));
+                        if (pc <= 0) {
+                            pc = 0;
+                        } else {
+                            remove = false;
+                            pcActivity.put(addr, pc - ACTIVITY_DECREMENT);
+                        }
+                        
+                        if (remove) {
                             i.remove();
-                            drawValue(addr, value, g);
+                            pcActivity.remove(addr);
+                            writeActivity.remove(addr);
+                            readActivity.remove(addr);
                         }
-                        g.dispose();
-                        try {
-                            Thread.sleep(UPDATE_INTERVAL);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(MemorySpyGrid.class.getName()).log(Level.SEVERE, null, ex);
-                        }
+                        
+                        drawActivity(addr, write, read, pc, g);
+                    }
+                    g.dispose();
+                    try {
+                        Thread.sleep(UPDATE_INTERVAL);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(MemorySpyGrid.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            } else {
+                // Redraw value, no activity counts needed
+                while (isDisplayActive) {
+                    updateDetails();
+                    Graphics2D g = (Graphics2D) getGraphics();
+                    for (Iterator<Integer> i = valueActivity.keySet().iterator(); i.hasNext();) {
+                        int addr = i.next();
+                        int value = getInt(valueActivity.get(addr));
+                        i.remove();
+                        drawValue(addr, value, g);
+                    }
+                    g.dispose();
+                    try {
+                        Thread.sleep(UPDATE_INTERVAL);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(MemorySpyGrid.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
             }
@@ -453,7 +440,7 @@ public class MemorySpyGrid extends javax.swing.JPanel {
     void stopDisplay() {
         isDisplayActive = false;
         if (memoryListener != null) {
-            Computer.getComputer().getMemory().removeListener(memoryListener);
+            Emulator.computer.getMemory().removeListener(memoryListener);
             memoryListener = null;
         }
         if (redrawThread != null && redrawThread.isAlive()) {

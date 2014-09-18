@@ -71,10 +71,9 @@ public class ConvertDiskImage {
         // First read in the disk image, this decodes the disk as necessary
         FloppyDisk theDisk = null;
         try {
-            theDisk = new FloppyDisk(in);
+            theDisk = new FloppyDisk(in, null);
         } catch (IOException ex) {
             System.out.println("Couldn't read disk image");
-            ex.printStackTrace();
             return;
         }
         if (!writeNibblized) {

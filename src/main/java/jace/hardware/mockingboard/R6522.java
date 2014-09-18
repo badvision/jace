@@ -27,7 +27,8 @@ import jace.core.Device;
  */
 public abstract class R6522 extends Device {
 
-    public R6522() {
+    public R6522(Computer computer) {
+        super(computer);
     }
     
     // 6522 VIA
@@ -140,7 +141,7 @@ public abstract class R6522 extends Device {
                 if (timer1interruptEnabled) {
 //                    System.out.println("Timer 1 generated interrupt");
                     timer1IRQ = true;
-                    Computer.getComputer().getCpu().generateInterrupt();
+                    computer.getCpu().generateInterrupt();
                 }
             }
         }
@@ -151,7 +152,7 @@ public abstract class R6522 extends Device {
                 timer2counter = timer2latch;
                 if (timer2interruptEnabled) {
                     timer2IRQ = true;
-                    Computer.getComputer().getCpu().generateInterrupt();
+                    computer.getCpu().generateInterrupt();
                 }
             }
         }

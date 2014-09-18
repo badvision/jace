@@ -19,6 +19,7 @@
 package jace.hardware;
 
 import jace.apple2e.RAM128k;
+import jace.core.Computer;
 import jace.core.PagedMemory;
 import jace.state.Stateful;
 
@@ -45,11 +46,11 @@ public class CardExt80Col extends RAM128k {
         return "128kb";
     }
     
-    public CardExt80Col() {
-        super();
-        auxMemory = new PagedMemory(0xc000, PagedMemory.Type.ram);
-        auxLanguageCard = new PagedMemory(0x3000, PagedMemory.Type.languageCard);
-        auxLanguageCard2 = new PagedMemory(0x1000, PagedMemory.Type.languageCard);
+    public CardExt80Col(Computer computer) {
+        super(computer);
+        auxMemory = new PagedMemory(0xc000, PagedMemory.Type.ram, computer);
+        auxLanguageCard = new PagedMemory(0x3000, PagedMemory.Type.languageCard, computer);
+        auxLanguageCard2 = new PagedMemory(0x1000, PagedMemory.Type.languageCard, computer);
         initMemoryPattern(auxMemory);
      }
     

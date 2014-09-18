@@ -36,8 +36,12 @@ import jace.config.Reconfigurable;
  */
 @Stateful
 public abstract class Device implements Reconfigurable {
+    protected Computer computer;
+    public Device(Computer computer) {
+        this.computer = computer;
+    }
+    
     // Number of cycles to do nothing (for cpu/video cycle accuracy)
-
     @Stateful
     private int waitCycles = 0;
     @Stateful

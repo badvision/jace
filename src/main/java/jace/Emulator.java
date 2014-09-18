@@ -20,7 +20,6 @@ package jace;
 
 import jace.apple2e.Apple2e;
 import jace.config.Configuration;
-import jace.core.Computer;
 import jace.ui.AbstractEmulatorFrame;
 import jace.ui.EmulatorFrame;
 import java.awt.Component;
@@ -57,7 +56,7 @@ public class Emulator {
             return null;
         }
     }
-    public Apple2e computer;
+    public static Apple2e computer;
     public AbstractEmulatorFrame theApp;
 
     /**
@@ -91,7 +90,7 @@ public class Emulator {
         Configuration.applySettings(settings);
 
 //        theApp = new MainFrame();
-        theApp = new EmulatorFrame();
+        theApp = new EmulatorFrame(computer);
         try {
             theApp.setIconImage(ImageIO.read(Emulator.class.getClassLoader().getResourceAsStream("jace/data/woz_figure.gif")));
         } catch (IOException ex) {
@@ -139,12 +138,12 @@ public class Emulator {
 
             @Override
             public void windowIconified(WindowEvent e) {
-                Computer.getComputer().getVideo().suspend();
+                computer.getVideo().suspend();
             }
 
             @Override
             public void windowDeiconified(WindowEvent e) {
-                Computer.getComputer().getVideo().resume();
+                computer.getVideo().resume();
                 resizeVideo();
             }
 

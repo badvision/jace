@@ -18,6 +18,8 @@
  */
 package jace.hardware.massStorage;
 
+import jace.core.Computer;
+import jace.core.RAM;
 import java.io.IOException;
 
 /**
@@ -29,9 +31,9 @@ public interface IDisk {
     public static int MAX_BLOCK = 65535;
 
     public void mliFormat() throws IOException;
-    public void mliRead(int block, int bufferAddress) throws IOException;
-    public void mliWrite(int block, int bufferAddress) throws IOException;
-    public void boot0(int slot) throws IOException;
+    public void mliRead(int block, int bufferAddress, RAM memory) throws IOException;
+    public void mliWrite(int block, int bufferAddress, RAM memory) throws IOException;
+    public void boot0(int slot, Computer computer) throws IOException;
 
     // Return size in 512k blocks
     public int getSize();

@@ -31,7 +31,12 @@ import java.util.logging.Logger;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
  */
 public abstract class SmartportDriver {
+    Computer computer;
 
+    public SmartportDriver(Computer computer) {
+        this.computer = computer;
+    }
+    
     public static enum ERROR_CODE {
         NO_ERROR(0), INVALID_COMMAND(0x01), BAD_PARAM_COUNT(0x04), INVALID_UNIT(0x011), INVALID_CODE(0x021), BAD_BLOCK_NUMBER(0x02d);
         int intValue;
@@ -42,15 +47,15 @@ public abstract class SmartportDriver {
     
     public void handleSmartport() {
         int returnCode = callSmartport().intValue;
-        MOS65C02 cpu = (MOS65C02) Computer.getComputer().getCpu();
+        MOS65C02 cpu = (MOS65C02) computer.getCpu();
         cpu.A = returnCode;
         // Clear carry flag if no error, otherwise set carry flag
         cpu.C = (returnCode == 0x00) ? 00 : 01;
     }
 
     private ERROR_CODE callSmartport() {
-        MOS65C02 cpu = (MOS65C02) Computer.getComputer().getCpu();
-        RAM ram = Computer.getComputer().getMemory();
+        MOS65C02 cpu = (MOS65C02) computer.getCpu();
+        RAM ram = computer.getMemory();
         int callAddress = cpu.popWord() + 1;
         int command = ram.readRaw(callAddress);
         boolean extendedCall = command >= 0x040;

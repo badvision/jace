@@ -46,9 +46,9 @@ public class StateManager implements Reconfigurable {
 
     private static StateManager instance;
 
-    public static StateManager getInstance() {
+    public static StateManager getInstance(Computer computer) {
         if (instance == null) {
-            instance = new StateManager();
+            instance = new StateManager(computer);
         }
         return instance;
     }
@@ -63,9 +63,14 @@ public class StateManager implements Reconfigurable {
     public int captureFrequency = 3;
     private ObjectGraphNode<BufferedImage> imageGraphNode;
 
+    Computer computer;
+    private StateManager(Computer computer) {
+        this.computer = computer;
+    }
+
     private void buildStateMap() {
-        allStateVariables = new HashSet<ObjectGraphNode>();
-        objectLookup = new WeakHashMap<Object, ObjectGraphNode>();
+        allStateVariables = new HashSet<>();
+        objectLookup = new WeakHashMap<>();
         ObjectGraphNode emulator = new ObjectGraphNode(Emulator.instance);
         emulator.name = "Emulator";
         Set visited = new HashSet();
@@ -235,8 +240,8 @@ public class StateManager implements Reconfigurable {
         }
     }
 
-    public static void markDirtyValue(Object o) {
-        StateManager manager = getInstance();
+    public static void markDirtyValue(Object o, Computer computer) {
+        StateManager manager = getInstance(computer);
         if (manager.objectLookup == null) {
             return;
         }
@@ -259,8 +264,9 @@ public class StateManager implements Reconfigurable {
      * If reconfigure is called, it means the emulator state has changed too
      * greatly and we need to abandon captured states and start from scratch.
      */
+    @Override
     public void reconfigure() {
-        boolean resume = Computer.pause();
+        boolean resume = computer.pause();
         isValid = false;
 
         // Now figure out how much memory we're allowed to eat
@@ -269,7 +275,7 @@ public class StateManager implements Reconfigurable {
         freeRequired = maxMemory / 50L;
         frameCounter = captureFrequency;
         if (resume) {
-            Computer.resume();
+            computer.resume();
         }
     }
     boolean isValid = false;
@@ -329,7 +335,7 @@ public class StateManager implements Reconfigurable {
     }
 
     private BufferedImage getScreenshot() {
-        BufferedImage screen = Computer.getComputer().getVideo().getFrameBuffer();
+        BufferedImage screen = computer.getVideo().getFrameBuffer();
         ColorModel cm = screen.getColorModel();
         boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
         WritableRaster raster = screen.copyData(null);
@@ -391,7 +397,7 @@ public class StateManager implements Reconfigurable {
     }
 
     public void rewind(int numStates) {
-        boolean resume = Computer.pause();
+        boolean resume = computer.pause();
         State state = alphaState.tail;
         while (numStates > 0 && state.previousState != null) {
             state = state.previousState;
@@ -400,10 +406,10 @@ public class StateManager implements Reconfigurable {
         state.apply();
         alphaState.tail = state;
         state.nextState = null;
-        Computer.getComputer().getVideo().forceRefresh();
+        computer.getVideo().forceRefresh();
         System.gc();
         if (resume) {
-            Computer.resume();
+            computer.resume();
         }
     }
 }

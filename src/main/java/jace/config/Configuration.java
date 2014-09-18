@@ -18,6 +18,7 @@
  */
 package jace.config;
 
+import jace.Emulator;
 import jace.core.Computer;
 import jace.core.Utility;
 import java.io.File;
@@ -181,7 +182,7 @@ public class Configuration implements Reconfigurable {
         }
     }
     public final static ConfigNode BASE;
-    public static Computer emulator = Computer.getComputer();
+    public static Computer emulator = Emulator.computer;
     @ConfigurableField(name = "Autosave Changes", description = "If unchecked, changes are only saved when the Save button is pressed.")
     public static boolean saveAutomatically = false;
 
@@ -341,7 +342,7 @@ public class Configuration implements Reconfigurable {
     public static boolean applySettings(ConfigNode node) {
         boolean resume = false;
         if (node == BASE) {
-            resume = Computer.pause();
+            resume = Emulator.computer.pause();
         }
         boolean hasChanged = false;
         if (node.changed) {
@@ -360,7 +361,7 @@ public class Configuration implements Reconfigurable {
         }
 
         if (resume) {
-            Computer.resume();
+            Emulator.computer.resume();
         }
         
         return hasChanged;

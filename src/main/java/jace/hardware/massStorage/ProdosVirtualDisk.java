@@ -55,10 +55,10 @@ public class ProdosVirtualDisk implements IDisk {
         setPhysicalPath(rootPath);
     }
 
-    public void mliRead(int block, int bufferAddress) throws IOException {
+    @Override
+    public void mliRead(int block, int bufferAddress, RAM memory) throws IOException {
 //        System.out.println("Read block " + block + " to " + Integer.toHexString(bufferAddress));
         DiskNode node = physicalMap.get(block);
-        RAM memory = Computer.getComputer().getMemory();
         Arrays.fill(ioBuffer, (byte) (block & 0x0ff));
         if (node == null) {
             System.out.println("Reading unknown block?!");
@@ -83,11 +83,12 @@ public class ProdosVirtualDisk implements IDisk {
 //        System.out.println();
     }
 
-    public void mliWrite(int block, int bufferAddress) throws IOException {
+    @Override
+    public void mliWrite(int block, int bufferAddress, RAM memory) throws IOException {
         System.out.println("Write block " + block + " to " + Integer.toHexString(bufferAddress));
         throw new IOException("Write not implemented yet!");
 //        DiskNode node = physicalMap.get(block);
-//        RAM memory = Computer.getComputer().getMemory();
+//        RAM memory = computer.getMemory();
 //        if (node == null) {
 //            // CAPTURE WRITES TO UNUSED BLOCKS
 //        } else {
@@ -98,6 +99,7 @@ public class ProdosVirtualDisk implements IDisk {
 //        }
     }
 
+    @Override
     public void mliFormat() {
         throw new UnsupportedOperationException("Formatting for this type of media is not supported!");
     }
@@ -132,9 +134,9 @@ public class ProdosVirtualDisk implements IDisk {
     // Mark space occupied by node
     public void allocateEntry(DiskNode node) {
         physicalMap.put(node.baseBlock, node);
-        for (DiskNode sub : node.additionalNodes) {
+        node.additionalNodes.stream().forEach((sub) -> {
             physicalMap.put(sub.getBaseBlock(), sub);
-        }
+        });
     }
 
     // Mark space occupied by nodes as free (remove allocation mapping)
@@ -143,11 +145,11 @@ public class ProdosVirtualDisk implements IDisk {
         if (physicalMap.get(node.baseBlock) != null && physicalMap.get(node.baseBlock).equals(node)) {
             physicalMap.remove(node.baseBlock);
         }
-        for (DiskNode sub : node.additionalNodes) {
-            if (physicalMap.get(sub.getBaseBlock()) != null && physicalMap.get(sub.baseBlock).equals(sub)) {
-                physicalMap.remove(sub.getBaseBlock());
-            }
-        }
+        node.additionalNodes.stream().filter((sub) -> 
+                (physicalMap.get(sub.getBaseBlock()) != null && physicalMap.get(sub.baseBlock).equals(sub))).
+                forEach((sub) -> {
+            physicalMap.remove(sub.getBaseBlock());
+        });
     }
 
     // Is the specified block in use?
@@ -156,22 +158,22 @@ public class ProdosVirtualDisk implements IDisk {
     }
 
     @Override
-    public void boot0(int slot) throws IOException {
+    public void boot0(int slot, Computer computer) throws IOException {
         File prodos = locateFile(physicalRoot, "PRODOS.SYS");
         if (prodos == null || !prodos.exists()) {
             throw new IOException("Unable to locate PRODOS.SYS");
         }
-        Computer.getComputer().getCpu().suspend();
+        computer.getCpu().suspend();
         byte slot16 = (byte) (slot << 4);
-        ((MOS65C02) Computer.getComputer().getCpu()).X = slot16;
-        RAM memory = Computer.getComputer().getMemory();
+        ((MOS65C02) computer.getCpu()).X = slot16;
+        RAM memory = computer.getMemory();
         memory.write(CardMassStorage.SLT16, slot16, false, false);
         memory.write(MLI_COMMAND, (byte) MLI_COMMAND_TYPE.READ.intValue, false, false);
         memory.write(MLI_UNITNUMBER, slot16, false, false);
         // Write location to block read routine to zero page
         memory.writeWord(0x048, 0x0c000 + CardMassStorage.DEVICE_DRIVER_OFFSET + (slot * 0x0100), false, false);
         EmulatorUILogic.brun(prodos, 0x02000);
-        Computer.getComputer().getCpu().resume();
+        computer.getCpu().resume();
     }
 
     public File getPhysicalPath() {
@@ -183,7 +185,7 @@ public class ProdosVirtualDisk implements IDisk {
             return;
         }
         physicalRoot = f;
-        physicalMap = new HashMap<Integer, DiskNode>();
+        physicalMap = new HashMap<>();
         if (!physicalRoot.exists() || !physicalRoot.isDirectory()) {
             try {
                 throw new IOException("Root path must be a directory that exists!");
@@ -201,6 +203,7 @@ public class ProdosVirtualDisk implements IDisk {
 
     }
 
+    @Override
     public void eject() {
         // Nothing to do here...
     }

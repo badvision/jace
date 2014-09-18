@@ -38,21 +38,18 @@ import java.util.Set;
  */
 public class Motherboard extends TimedDevice {
 
-    static final Computer computer = Computer.getComputer();
-    static final CPU cpu = computer.getCpu();
-    static Motherboard instance;
-    static final public Set<Device> miscDevices = new HashSet<Device>();
+    static final public Set<Device> miscDevices = new HashSet<>();
     @ConfigurableField(name = "Enable Speaker", shortName = "speaker", defaultValue = "true")
     public static boolean enableSpeaker = true;
-    public static Speaker speaker;
-    public static SoundMixer mixer = new SoundMixer();
+    public Speaker speaker;
+    public SoundMixer mixer;
 
-    static void vblankEnd() {
+    void vblankEnd() {
         SoftSwitches.VBL.getSwitch().setState(true);
         computer.notifyVBLStateChanged(true);
     }
 
-    static void vblankStart() {
+    void vblankStart() {
         SoftSwitches.VBL.getSwitch().setState(false);
         computer.notifyVBLStateChanged(false);
     }
@@ -60,10 +57,12 @@ public class Motherboard extends TimedDevice {
     /**
      * Creates a new instance of Motherboard
      */
-    public Motherboard() {
-        instance = this;
+    public Motherboard(Computer computer) {
+        super(computer);
+        mixer = new SoundMixer(computer);
     }
 
+    @Override
     protected String getDeviceName() {
         return "Motherboard";
     }
@@ -77,15 +76,16 @@ public class Motherboard extends TimedDevice {
     public int clockCounter = 1;
     public Card[] cards;
 
+    @Override
     public void tick() {
         try {
             clockCounter--;
-            cpu.doTick();
+            computer.getCpu().doTick();
             if (clockCounter > 0) {
                 return;
             }
             clockCounter = cpuPerClock;
-            Computer.getComputer().getVideo().doTick();
+            computer.getVideo().doTick();
             // Unrolled loop since this happens so often
             if (cards[0] != null) {
                 cards[0].doTick();
@@ -108,9 +108,9 @@ public class Motherboard extends TimedDevice {
             if (cards[6] != null) {
                 cards[6].doTick();
             }
-            for (Device m : miscDevices) {
+            miscDevices.stream().forEach((m) -> {
                 m.doTick();
-            }
+            });
         } catch (Throwable t) {
             t.printStackTrace();
         }
@@ -120,10 +120,12 @@ public class Motherboard extends TimedDevice {
     public static long SPEED = 1020484L; // (NTSC)
     //public static long SPEED = 1015625L; // (PAL)
 
+    @Override
     public long defaultCyclesPerSecond() {
         return SPEED;
     }
 
+    @Override
     public synchronized void reconfigure() {
         boolean startAgain = pause();
         accelorationRequestors.clear();
@@ -136,7 +138,7 @@ public class Motherboard extends TimedDevice {
         if (enableSpeaker) {
             try {
                 if (speaker == null) {
-                    speaker = new Speaker();
+                    speaker = new Speaker(computer);
                 } else {
                     speaker.attach();
                 }
@@ -154,30 +156,28 @@ public class Motherboard extends TimedDevice {
                 Motherboard.miscDevices.remove(speaker);
             }
         }
-        if (startAgain && Computer.getComputer().getMemory() != null) {
+        if (startAgain && computer.getMemory() != null) {
             resume();
         }
     }
-    static HashSet<Object> accelorationRequestors = new HashSet<Object>();
+    static HashSet<Object> accelorationRequestors = new HashSet<>();
 
-    static public void requestSpeed(Object requester) {
+    public void requestSpeed(Object requester) {
         accelorationRequestors.add(requester);
-        if (instance != null) {
-            instance.enableTempMaxSpeed();
-        }
+        enableTempMaxSpeed();
     }
 
-    static public void cancelSpeedRequest(Object requester) {
+    public void cancelSpeedRequest(Object requester) {
         accelorationRequestors.remove(requester);
-        if (instance != null && accelorationRequestors.isEmpty()) {
-            instance.disableTempMaxSpeed();
+        if (accelorationRequestors.isEmpty()) {
+            disableTempMaxSpeed();
         }
     }
 
     @Override
     public void attach() {
     }
-    Map<Card, Boolean> resume = new HashMap<Card, Boolean>();
+    Map<Card, Boolean> resume = new HashMap<>();
 
     @Override
     public boolean suspend() {

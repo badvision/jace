@@ -65,21 +65,21 @@ public enum SoftSwitches {
     PAGE2(new VideoSoftSwitch("Page2", 0x0c054, 0x0c055, 0x0c01c, RAMEvent.TYPE.ANY, false) {
         @Override
         public void stateChanged() {
-//            if (Computer.getComputer() == null) {
+//            if (computer == null) {
 //                return;
 //            }
-//            if (Computer.getComputer() == null && Computer.getComputer().getMemory() == null) {
+//            if (computer == null && computer.getMemory() == null) {
 //                return;
 //            }
-//            if (Computer.getComputer() == null && Computer.getComputer().getVideo() == null) {
+//            if (computer == null && computer.getVideo() == null) {
 //                return;
 //            }
 
             // PAGE2 is a hybrid switch; 80STORE ? memory : video
             if (_80STORE.isOn()) {
-                Computer.getComputer().getMemory().configureActiveMemory();
+                computer.getMemory().configureActiveMemory();
             } else {
-                Computer.getComputer().getVideo().configureVideoMode();
+                computer.getVideo().configureVideoMode();
             }
         }
     }),
@@ -127,10 +127,10 @@ public enum SoftSwitches {
     FLOATING_BUS(new SoftSwitch("FloatingBus", null, null, new int[]{0x0C050, 0x0C051, 0x0C052, 0x0C053, 0x0C054}, RAMEvent.TYPE.READ, null) {
         @Override
         protected byte readSwitch() {
-            if (Computer.getComputer().getVideo() == null) {
+            if (computer.getVideo() == null) {
                 return 0;
             }
-            return Computer.getComputer().getVideo().getFloatingBus();
+            return computer.getVideo().getFloatingBus();
         }
 
         @Override

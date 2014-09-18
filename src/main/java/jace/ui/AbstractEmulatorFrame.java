@@ -50,11 +50,16 @@ import javax.swing.JPanel;
  */
 public abstract class AbstractEmulatorFrame extends javax.swing.JFrame implements Reconfigurable {
 
+    Computer computer;
     /**
      * Creates new form AbstractEmulatorFrame
      */
     public AbstractEmulatorFrame() {
         initComponents();
+    }
+    
+    public void setComputer(Computer computer) {
+        this.computer = computer;
     }
 
     @Override
@@ -252,39 +257,32 @@ public abstract class AbstractEmulatorFrame extends javax.swing.JFrame implement
     private Map<Object, Set<ImageIcon>> indicators = new HashMap<Object, Set<ImageIcon>>();
 
     public void resizeVideo() {
-        EventQueue.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                Computer.pause();
-                Computer.getComputer().getVideo().suspend();
-                JPanel debugger = getDebuggerPanel();
-                Component screen = getScreen();
-                Rectangle bounds = screen.getParent().getBounds();
-                int width = (int) bounds.getWidth();
-                int height = (int) bounds.getHeight();
-                if (debugger.isVisible()) {
-                    debugger.setBounds(width - debugger.getWidth(), 0, debugger.getWidth(), height);
-                    width = (int) bounds.getWidth() - debugger.getWidth() + 1;
-                    screen.setSize(
-                            width,
-                            height);
-                    debugger.revalidate();
-                } else {
-                    screen.setSize(
-                            width,
-                            height);
-                }
-                Computer.getComputer().getVideo().setWidth(width);
-                Computer.getComputer().getVideo().setHeight(height);
-                if (!isFullscreen || !fullscreenEnforceRatio) {
-                    Computer.getComputer().getVideo().setScreen(getScreenGraphics());
-                }
-                Computer.getComputer().getVideo().forceRefresh();
-                screen.validate();
-                screen.requestFocusInWindow();
-                Computer.resume();
-                Computer.getComputer().getVideo().resume();
+        EventQueue.invokeLater(() -> {
+            computer.pause();
+            computer.getVideo().suspend();
+            JPanel debugger = getDebuggerPanel();
+            Component screen = getScreen();
+            Rectangle bounds = screen.getParent().getBounds();
+            int width1 = (int) bounds.getWidth();
+            int height1 = (int) bounds.getHeight();
+            if (debugger.isVisible()) {
+                debugger.setBounds(width1 - debugger.getWidth(), 0, debugger.getWidth(), height1);
+                width1 = (int) bounds.getWidth() - debugger.getWidth() + 1;
+                screen.setSize(width1, height1);
+                debugger.revalidate();
+            } else {
+                screen.setSize(width1, height1);
             }
+            computer.getVideo().setWidth(width1);
+            computer.getVideo().setHeight(height1);
+            if (!isFullscreen || !fullscreenEnforceRatio) {
+                computer.getVideo().setScreen(getScreenGraphics());
+            }
+            computer.getVideo().forceRefresh();
+            screen.validate();
+            screen.requestFocusInWindow();
+            computer.resume();
+            computer.getVideo().resume();
         });
     }
 
@@ -324,8 +322,8 @@ public abstract class AbstractEmulatorFrame extends javax.swing.JFrame implement
                         b.setSize(560 * scale, 384 * scale);
                         b.x = (w / 2) - (b.width / 2);
                         b.y = (h / 2) - (b.height / 2);
-                        Computer.pause();
-                        Computer.getComputer().getVideo().suspend();
+                        computer.pause();
+                        computer.getVideo().suspend();
                         try {
                             Thread.sleep(100);
                         } catch (InterruptedException ex) {
@@ -335,9 +333,9 @@ public abstract class AbstractEmulatorFrame extends javax.swing.JFrame implement
                         g.fill(getBounds());
                         Graphics2D gg = (Graphics2D) g.create(b.x, b.y, b.width, b.height);
                         gg.scale((double) b.width / (double) sw, (double) b.height / (double) sh);
-                        Computer.getComputer().getVideo().setScreen(gg);
-                        Computer.getComputer().getVideo().resume();
-                        Computer.resume();
+                        computer.getVideo().setScreen(gg);
+                        computer.getVideo().resume();
+                        computer.resume();
                     } else {
                         b = getBounds();
                         getScreen().setBounds(getBounds());
@@ -364,8 +362,8 @@ public abstract class AbstractEmulatorFrame extends javax.swing.JFrame implement
         EventQueue.invokeLater(new Runnable() {
             @Override
             public void run() {
-                Computer.pause();
-                Computer.getComputer().getVideo().suspend();
+                computer.pause();
+                computer.getVideo().suspend();
                 isFullscreen = !isFullscreen;
                 GraphicsDevice device = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
                 if (isFullscreen) {
@@ -382,8 +380,8 @@ public abstract class AbstractEmulatorFrame extends javax.swing.JFrame implement
                     device.setFullScreenWindow(null);
                 }
                 resizeVideo();
-                Computer.getComputer().getVideo().resume();
-                Computer.resume();
+                computer.getVideo().resume();
+                computer.resume();
             }
         });
     }

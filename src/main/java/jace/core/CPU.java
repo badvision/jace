@@ -34,12 +34,10 @@ import java.util.logging.Logger;
  */
 public abstract class CPU extends Device {
 
-    /**
-     * Creates a new instance of CPU
-     */
-    public CPU() {
+    public CPU(Computer computer) {
+        super(computer);
     }
-
+    
     @Override
     public String getShortName() {
         return "cpu";
@@ -74,11 +72,11 @@ public abstract class CPU extends Device {
     }
 
     public void dumpTrace() {
-        Computer.pause();
+        computer.pause();
         ArrayList<String> newLog = new ArrayList<>();
         ArrayList<String> log = traceLog;
         traceLog = newLog;
-        Computer.resume();
+        computer.resume();
         System.out.println("Most recent " + traceLength + " instructions:");
         log.stream().forEach((s) -> {
             System.out.println(s);

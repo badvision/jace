@@ -31,7 +31,8 @@ public abstract class TimedDevice extends Device {
     /**
      * Creates a new instance of TimedDevice
      */
-    public TimedDevice() {
+    public TimedDevice(Computer computer) {
+        super(computer);
         setSpeed(cyclesPerSecond);
     }
     @ConfigurableField(name = "Speed", description = "(in hertz)")

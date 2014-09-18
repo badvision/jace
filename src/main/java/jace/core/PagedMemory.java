@@ -60,7 +60,9 @@ public class PagedMemory {
     /**
      * Creates a new instance of PagedMemory
      */
-    public PagedMemory(int size, Type memType) {
+    Computer computer;
+    public PagedMemory(int size, Type memType, Computer computer) {
+        this.computer = computer;
         type = memType;
         internalMemory = new byte[size >> 8][256];
         for (int i = 0; i < size; i += 256) {
@@ -127,7 +129,7 @@ public class PagedMemory {
 
     public void writeByte(int address, byte value) {
         byte[] page = getMemoryPage(address);
-        StateManager.markDirtyValue(page);
+        StateManager.markDirtyValue(page, computer);
         getMemoryPage(address)[address & 0x0ff] = value;
     }
 

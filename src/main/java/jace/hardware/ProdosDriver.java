@@ -29,6 +29,12 @@ import java.io.IOException;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
  */
 public abstract class ProdosDriver {
+    Computer computer;
+
+    public ProdosDriver(Computer computer) {
+        this.computer = computer;
+    }
+    
     public static int MLI_COMMAND = 0x042;
     public static int MLI_UNITNUMBER = 0x043;
     public static int MLI_BUFFER_ADDRESS = 0x044;
@@ -71,7 +77,7 @@ public abstract class ProdosDriver {
     
     public void handleMLI() {
         int returnCode = prodosMLI().intValue;
-        MOS65C02 cpu = (MOS65C02) Computer.getComputer().getCpu();
+        MOS65C02 cpu = (MOS65C02) computer.getCpu();
         cpu.A = returnCode;
         // Clear carry flag if no error, otherwise set carry flag
         cpu.C = (returnCode == 0x00) ? 00 : 01;        
@@ -79,7 +85,7 @@ public abstract class ProdosDriver {
     
     private MLI_RETURN prodosMLI() {
         try {
-            RAM memory = Computer.getComputer().getMemory();
+            RAM memory = computer.getMemory();
             int cmd = memory.readRaw(MLI_COMMAND);
             MLI_COMMAND_TYPE command = MLI_COMMAND_TYPE.fromInt(cmd);
             int unit = (memory.readWordRaw(MLI_UNITNUMBER) & 0x080) > 0 ? 1 : 0;
@@ -96,7 +102,7 @@ public abstract class ProdosDriver {
             switch (command) {
                 case STATUS:
                     int blocks = getSize();
-                    MOS65C02 cpu = (MOS65C02) Computer.getComputer().getCpu();
+                    MOS65C02 cpu = (MOS65C02) computer.getCpu();
                     cpu.X = blocks & 0x0ff;
                     cpu.Y = (blocks >> 8) & 0x0ff;
                     if (isWriteProtected()) {

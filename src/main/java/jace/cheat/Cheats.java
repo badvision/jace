@@ -30,18 +30,22 @@ import java.util.Set;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
  */
 public abstract class Cheats extends Device {
-    Set<RAMListener> listeners = new HashSet<RAMListener>();
+    Set<RAMListener> listeners = new HashSet<>();
+
+    public Cheats(Computer computer) {
+        super(computer);
+    }
     
     public void addCheat(RAMListener l) {
         listeners.add(l);
-        Computer.getComputer().getMemory().addListener(l);
+        computer.getMemory().addListener(l);
     }
 
     @Override
     public void detach() {
-        for (RAMListener l : listeners) {
-            Computer.getComputer().getMemory().removeListener(l);
-        }
+        listeners.stream().forEach((l) -> {
+            computer.getMemory().removeListener(l);
+        });
         listeners.clear();
     }
     
@@ -51,6 +55,7 @@ public abstract class Cheats extends Device {
         attach();
     }
     
+    @Override
     public String getShortName() {
         return "cheat";
     }

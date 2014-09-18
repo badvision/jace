@@ -40,8 +40,8 @@ public class VideoSoftSwitch extends SoftSwitch {
 
     public void stateChanged() {
 //        System.out.println("Set "+getName()+" -> "+getState());
-        if (Computer.getComputer().getVideo() != null) {
-            Computer.getComputer().getVideo().configureVideoMode();
+        if (computer.getVideo() != null) {
+            computer.getVideo().configureVideoMode();
         }
     }
 

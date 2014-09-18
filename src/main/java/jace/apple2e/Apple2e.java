@@ -37,6 +37,7 @@ import jace.hardware.Joystick;
 import jace.hardware.massStorage.CardMassStorage;
 import java.awt.Graphics;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -49,13 +50,12 @@ import java.util.logging.Logger;
  * overall configuration of the computer, but the actual operation of the
  * computer and its timing characteristics are managed in the Motherboard class.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Stateful
 public class Apple2e extends Computer {
 
     static int IRQ_VECTOR = 0x003F2;
-    public Motherboard motherboard;
     @ConfigurableField(name = "Slot 1", shortName = "s1card")
     public ClassSelection card1 = new ClassSelection(Card.class, null);
     @ConfigurableField(name = "Slot 2", shortName = "s2card")
@@ -96,9 +96,9 @@ public class Apple2e extends Computer {
         try {
             reconfigure();
             // Setup core resources
-            joystick1 = new Joystick(0);
-            joystick2 = new Joystick(1);
-            setCpu(new MOS65C02());
+            joystick1 = new Joystick(0, this);
+            joystick2 = new Joystick(1, this);
+            setCpu(new MOS65C02(this));
             reinitMotherboard();
         } catch (Throwable t) {
             System.err.println("Unable to initalize virtual machine");
@@ -115,7 +115,7 @@ public class Apple2e extends Computer {
         if (motherboard != null && motherboard.isRunning()) {
             motherboard.suspend();
         }
-        motherboard = new Motherboard();
+        motherboard = new Motherboard(this);
         motherboard.reconfigure();
         Motherboard.miscDevices.add(joystick1);
         Motherboard.miscDevices.add(joystick2);
@@ -123,7 +123,7 @@ public class Apple2e extends Computer {
 
     @Override
     public void coldStart() {
-        Computer.pause();
+        pause();
         reinitMotherboard();
         reboot();
         //getMemory().dump();
@@ -139,7 +139,7 @@ public class Apple2e extends Computer {
             }
         }
 
-        Computer.resume();
+        resume();
         /*
          getCpu().resume();
          getVideo().resume();
@@ -156,7 +156,7 @@ public class Apple2e extends Computer {
 
     @Override
     public void warmStart() {
-        boolean restart = Computer.pause();
+        boolean restart = pause();
         for (SoftSwitches s : SoftSwitches.values()) {
             s.getSwitch().reset();
         }
@@ -169,10 +169,10 @@ public class Apple2e extends Computer {
             }
         }
         getCpu().resume();
-        Computer.resume();
+        resume();
     }
 
-    private void insertCard(Class<? extends Card> type, int slot) {
+    private void insertCard(Class<? extends Card> type, int slot) throws NoSuchMethodException, IllegalArgumentException, InvocationTargetException {
         if (getMemory().getCard(slot) != null) {
             if (getMemory().getCard(slot).getClass().equals(type)) {
                 return;
@@ -181,7 +181,8 @@ public class Apple2e extends Computer {
         }
         if (type != null) {
             try {
-                getMemory().addCard(type.newInstance(), slot);
+                Card card = type.getConstructor(Computer.class).newInstance(this);
+                getMemory().addCard(card, slot);
             } catch (InstantiationException | IllegalAccessException ex) {
                 Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -190,10 +191,10 @@ public class Apple2e extends Computer {
 
     @Override
     public final void reconfigure() {
-        boolean restart = Computer.pause();
+        boolean restart = pause();
 
         super.reconfigure();
-        
+
         RAM128k currentMemory = (RAM128k) getMemory();
         if (currentMemory != null && !(currentMemory.getClass().equals(ramCard.getValue()))) {
             try {
@@ -212,7 +213,7 @@ public class Apple2e extends Computer {
             try {
                 setMemory(currentMemory);
                 for (SoftSwitches s : SoftSwitches.values()) {
-                    s.getSwitch().register();
+                    s.getSwitch().register(this);
                 }
             } catch (Throwable ex) {
             }
@@ -250,14 +251,18 @@ public class Apple2e extends Computer {
                 }
             }
 
-            // Add all new cards
-            insertCard(card1.getValue(), 1);
-            insertCard(card2.getValue(), 2);
-            insertCard(card3.getValue(), 3);
-            insertCard(card4.getValue(), 4);
-            insertCard(card5.getValue(), 5);
-            insertCard(card6.getValue(), 6);
-            insertCard(card7.getValue(), 7);
+            try {
+                // Add all new cards
+                insertCard(card1.getValue(), 1);
+                insertCard(card2.getValue(), 2);
+                insertCard(card3.getValue(), 3);
+                insertCard(card4.getValue(), 4);
+                insertCard(card5.getValue(), 5);
+                insertCard(card6.getValue(), 6);
+                insertCard(card7.getValue(), 7);
+            } catch (NoSuchMethodException | IllegalArgumentException | InvocationTargetException ex) {
+                Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
+            }
             if (enableHints) {
                 enableHints();
             } else {
@@ -293,7 +298,7 @@ public class Apple2e extends Computer {
             Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
         }
         if (restart) {
-            Computer.resume();
+            resume();
         }
     }
 
@@ -342,7 +347,7 @@ public class Apple2e extends Computer {
                             if (getCpu().getProgramCounter() >> 8 != 0x0c6) {
                                 return;
                             }
-                            
+
                             int row = 2;
                             for (String s : new String[]{
                                 "              Welcome to",

@@ -18,6 +18,7 @@
  */
 package jace.config;
 
+import jace.Emulator;
 import jace.apple2e.Apple2e;
 import jace.config.Configuration.ConfigNode;
 import java.awt.Component;
@@ -42,8 +43,7 @@ import javax.swing.JTree;
 public class ConfigurationPanel extends javax.swing.JPanel {
 
     public static void main(String... args) {
-        new Apple2e();
-        Apple2e.getComputer().reconfigure();
+        Emulator.computer.reconfigure();
         Configuration.loadSettings();
         JFrame f = new JFrame();
         f.setContentPane(new ConfigurationPanel());

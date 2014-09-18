@@ -18,6 +18,7 @@
  */
 package jace.apple2e;
 
+import jace.core.CPU;
 import jace.core.Card;
 import jace.core.Computer;
 import jace.core.PagedMemory;
@@ -44,16 +45,16 @@ abstract public class RAM128k extends RAM {
     public PagedMemory rom;
     public PagedMemory blank;
 
-    public RAM128k() {
-        super();
-        mainMemory = new PagedMemory(0xc000, PagedMemory.Type.ram);
-        rom = new PagedMemory(0x3000, PagedMemory.Type.firmwareMain);
-        cPageRom = new PagedMemory(0x1000, PagedMemory.Type.slotRom);
-        languageCard = new PagedMemory(0x3000, PagedMemory.Type.languageCard);
-        languageCard2 = new PagedMemory(0x1000, PagedMemory.Type.languageCard);
-        activeRead = new PagedMemory(0x10000, PagedMemory.Type.ram);
-        activeWrite = new PagedMemory(0x10000, PagedMemory.Type.ram);
-        blank = new PagedMemory(0x100, PagedMemory.Type.ram);
+    public RAM128k(Computer computer) {
+        super(computer);
+        mainMemory = new PagedMemory(0xc000, PagedMemory.Type.ram, computer);
+        rom = new PagedMemory(0x3000, PagedMemory.Type.firmwareMain, computer);
+        cPageRom = new PagedMemory(0x1000, PagedMemory.Type.slotRom, computer);
+        languageCard = new PagedMemory(0x3000, PagedMemory.Type.languageCard, computer);
+        languageCard2 = new PagedMemory(0x1000, PagedMemory.Type.languageCard, computer);
+        activeRead = new PagedMemory(0x10000, PagedMemory.Type.ram, computer);
+        activeWrite = new PagedMemory(0x10000, PagedMemory.Type.ram, computer);
+        blank = new PagedMemory(0x100, PagedMemory.Type.ram, computer);
 
         // Format memory with FF FF 00 00 pattern
         for (int i = 0; i < 0x0100; i++) {
@@ -191,13 +192,14 @@ abstract public class RAM128k extends RAM {
     }
 
     public void log(String message) {
-        if (Computer.getComputer().cpu != null && Computer.getComputer().cpu.isLogEnabled()) {
+        CPU cpu = computer.getCpu();
+        if (cpu != null && cpu.isLogEnabled()) {
             String stack = "";
             for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
                 stack += e.getClassName() + "." + e.getMethodName() + "(" + e.getLineNumber() + ");";
             }
-            Computer.getComputer().cpu.log(stack);
-            Computer.getComputer().cpu.log(message + ";" + SoftSwitches.RAMRD + ";" + SoftSwitches.RAMWRT + ";" + SoftSwitches.AUXZP + ";" + SoftSwitches._80STORE + ";" + SoftSwitches.HIRES + ";" + SoftSwitches.PAGE2 + ";" + SoftSwitches.LCBANK1 + ";" + SoftSwitches.LCRAM + ";" + SoftSwitches.LCWRITE);
+            cpu.log(stack);
+            cpu.log(message + ";" + SoftSwitches.RAMRD + ";" + SoftSwitches.RAMWRT + ";" + SoftSwitches.AUXZP + ";" + SoftSwitches._80STORE + ";" + SoftSwitches.HIRES + ";" + SoftSwitches.PAGE2 + ";" + SoftSwitches.LCBANK1 + ";" + SoftSwitches.LCRAM + ";" + SoftSwitches.LCWRITE);
         }
     }
 

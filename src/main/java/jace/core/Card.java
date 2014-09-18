@@ -45,9 +45,10 @@ public abstract class Card extends Device {
     /**
      * Creates a new instance of Card
      */
-    public Card() {
-        cxRom = new PagedMemory(0x0100, PagedMemory.Type.cardFirmware);
-        c8Rom = new PagedMemory(0x0800, PagedMemory.Type.cardFirmware);
+    public Card(Computer computer) {
+        super(computer);
+        cxRom = new PagedMemory(0x0100, PagedMemory.Type.cardFirmware, computer);
+        c8Rom = new PagedMemory(0x0800, PagedMemory.Type.cardFirmware, computer);
     }
 
     @Override
@@ -68,11 +69,13 @@ public abstract class Card extends Device {
                 RAMEvent.TYPE.ANY,
                 RAMEvent.SCOPE.RANGE,
                 RAMEvent.VALUE.ANY) {
+            @Override
             protected void doConfig() {
                 setScopeStart(slot * 16 + 0x00c080);
                 setScopeEnd(slot * 16 + 0x00c08F);
             }
 
+            @Override
             protected void doEvent(RAMEvent e) {
                 int address = e.getAddress() & 0x0f;
                 handleIOAccess(address, e.getType(), e.getNewValue(), e);
@@ -83,13 +86,15 @@ public abstract class Card extends Device {
                 RAMEvent.TYPE.ANY,
                 RAMEvent.SCOPE.RANGE,
                 RAMEvent.VALUE.ANY) {
+            @Override
             protected void doConfig() {
                 setScopeStart(slot * 256 + 0x00c000);
                 setScopeEnd(slot * 256 + 0x00c0ff);
             }
 
+            @Override
             protected void doEvent(RAMEvent e) {
-                Computer.getComputer().getMemory().setActiveCard(slot);
+                computer.getMemory().setActiveCard(slot);
                 if (SoftSwitches.CXROM.getState()) {
                     return;
                 }
@@ -108,7 +113,7 @@ public abstract class Card extends Device {
 
             protected void doEvent(RAMEvent e) {
                 if (SoftSwitches.CXROM.getState()
-                        || Computer.getComputer().getMemory().getActiveSlot() != getSlot()
+                        || computer.getMemory().getActiveSlot() != getSlot()
                         || SoftSwitches.INTC8ROM.getState()) {
                     return;
                 }
@@ -116,17 +121,17 @@ public abstract class Card extends Device {
             }
         };
 
-        Computer.getComputer().getMemory().addListener(ioListener);
-        Computer.getComputer().getMemory().addListener(firmwareListener);
-        Computer.getComputer().getMemory().addListener(c8firmwareListener);
+        computer.getMemory().addListener(ioListener);
+        computer.getMemory().addListener(firmwareListener);
+        computer.getMemory().addListener(c8firmwareListener);
     }
 
     @Override
     public void detach() {
         suspend();
-        Computer.getComputer().getMemory().removeListener(ioListener);
-        Computer.getComputer().getMemory().removeListener(firmwareListener);
-        Computer.getComputer().getMemory().removeListener(c8firmwareListener);
+        computer.getMemory().removeListener(ioListener);
+        computer.getMemory().removeListener(firmwareListener);
+        computer.getMemory().removeListener(c8firmwareListener);
     }
 
     abstract protected void handleIOAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e);

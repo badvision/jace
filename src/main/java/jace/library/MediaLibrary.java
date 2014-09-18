@@ -18,10 +18,10 @@
  */
 package jace.library;
 
+import jace.Emulator;
 import jace.config.ConfigurableField;
 import jace.config.Reconfigurable;
 import jace.core.Card;
-import jace.core.Computer;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -50,14 +50,17 @@ public class MediaLibrary implements Reconfigurable {
     @ConfigurableField(category = "Library", defaultValue = "true", name = "Keep local copy", description = "Automatically download and save local copies of disks when written.")
     public static boolean CREATE_LOCAL_ON_SAVE = true;
 
+    @Override
     public String getName() {
         return "Media Library";
     }
 
+    @Override
     public String getShortName() {
         return "media";
     }
 
+    @Override
     public void reconfigure() {
         rebuildDriveList();
     }
@@ -76,7 +79,7 @@ public class MediaLibrary implements Reconfigurable {
             return;
         }
         userInterface.Drives.removeAll();
-        for (Card card : Computer.getComputer().memory.getAllCards()) {
+        for (Card card : Emulator.computer.memory.getAllCards()) {
             if (card == null || !(card instanceof MediaConsumerParent)) {
                 continue;
             }
