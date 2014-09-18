@@ -198,16 +198,19 @@ public class Apple2e extends Computer {
         RAM128k currentMemory = (RAM128k) getMemory();
         if (currentMemory != null && !(currentMemory.getClass().equals(ramCard.getValue()))) {
             try {
-                RAM128k newMemory = (RAM128k) ramCard.getValue().newInstance();
+                RAM128k newMemory = (RAM128k) ramCard.getValue().getConstructor(Computer.class).newInstance(this);
                 newMemory.copyFrom(currentMemory);
                 setMemory(newMemory);
-            } catch (InstantiationException | IllegalAccessException ex) {
+            } catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException ex) {
+                Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
         if (getMemory() == null) {
             try {
-                currentMemory = (RAM128k) ramCard.getValue().newInstance();
-            } catch (InstantiationException | IllegalAccessException ex) {
+                currentMemory = (RAM128k) ramCard.getValue().getConstructor(Computer.class).newInstance(this);
+            } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException ex) {
+                Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (IllegalArgumentException | InvocationTargetException ex) {
                 Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
@@ -240,13 +243,15 @@ public class Apple2e extends Computer {
                     g = getVideo().getScreen();
                 }
                 try {
-                    setVideo((Video) videoRenderer.getValue().newInstance());
+                    setVideo((Video) videoRenderer.getValue().getConstructor(Computer.class).newInstance(this));
                     getVideo().configureVideoMode();
                     getVideo().reconfigure();
                     getVideo().setScreen(g);
                     Emulator.resizeVideo();
                     getVideo().resume();
                 } catch (InstantiationException | IllegalAccessException ex) {
+                    Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (NoSuchMethodException | SecurityException | IllegalArgumentException | InvocationTargetException ex) {
                     Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
