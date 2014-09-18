@@ -23,6 +23,7 @@ import jace.apple2e.Speaker;
 import jace.config.ConfigurableField;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,7 +39,7 @@ import java.util.Set;
  */
 public class Motherboard extends TimedDevice {
 
-    static final public Set<Device> miscDevices = new HashSet<>();
+    final public Set<Device> miscDevices = new LinkedHashSet<>();
     @ConfigurableField(name = "Enable Speaker", shortName = "speaker", defaultValue = "true")
     public static boolean enableSpeaker = true;
     public Speaker speaker;
@@ -74,10 +75,10 @@ public class Motherboard extends TimedDevice {
     @ConfigurableField(category = "advanced", name = "CPU per clock", defaultValue = "1", description = "Number of CPU cycles per clock cycle (normal = 1)")
     public static int cpuPerClock = 1;
     public int clockCounter = 1;
-    public Card[] cards;
 
     @Override
     public void tick() {
+        Card[] cards = computer.getMemory().getAllCards();
         try {
             clockCounter--;
             computer.getCpu().doTick();
@@ -130,30 +131,32 @@ public class Motherboard extends TimedDevice {
         boolean startAgain = pause();
         accelorationRequestors.clear();
         super.reconfigure();
-        Card[] cards = computer.getMemory().getAllCards();
         // Now create devices as needed, e.g. sound
-        Motherboard.miscDevices.add(mixer);
+        miscDevices.add(mixer);
         mixer.reconfigure();
 
         if (enableSpeaker) {
             try {
                 if (speaker == null) {
                     speaker = new Speaker(computer);
-                } else {
-                    speaker.attach();
                 }
                 if (mixer.lineAvailable) {
-                    Motherboard.miscDevices.add(speaker);
+                    speaker.reconfigure();
+                    speaker.attach();
+                    miscDevices.add(speaker);
+                } else {
+                    System.out.print("No lines available!  Speaker not running.");
                 }
             } catch (Throwable t) {
                 System.out.println("Unable to initalize sound -- deactivating speaker out");
                 speaker.detach();
-                Motherboard.miscDevices.remove(speaker);
+                miscDevices.remove(speaker);
             }
         } else {
+            System.out.println("Speaker not enabled, leaving it off.");
             if (speaker != null) {
                 speaker.detach();
-                Motherboard.miscDevices.remove(speaker);
+                miscDevices.remove(speaker);
             }
         }
         if (startAgain && computer.getMemory() != null) {
@@ -177,17 +180,19 @@ public class Motherboard extends TimedDevice {
     @Override
     public void attach() {
     }
-    Map<Card, Boolean> resume = new HashMap<>();
+    final Set<Card> resume = new HashSet<>();
 
     @Override
     public boolean suspend() {
         synchronized (resume) {
             resume.clear();
-            for (Card c : cards) {
+            for (Card c : computer.getMemory().getAllCards()) {
                 if (c == null || !c.suspendWithCPU() || !c.isRunning()) {
                     continue;
                 }
-                resume.put(c, c.suspend());
+                if (c.suspend()) {
+                    resume.add(c);
+                }
             }
         }
         return super.suspend();
@@ -195,22 +200,21 @@ public class Motherboard extends TimedDevice {
 
     @Override
     public void resume() {
-        cards = computer.getMemory().getAllCards();
         super.resume();
         synchronized (resume) {
-            for (Card c : cards) {
-                if (Boolean.TRUE.equals(resume.get(c))) {
-                    c.resume();
-                }
-            }
+            resume.stream().forEach((c) -> {
+                c.resume();
+            });
         }
     }
 
     @Override
     public void detach() {
-        for (Device d : miscDevices) {
+        System.out.println("Detaching motherboard");
+        miscDevices.stream().forEach((d) -> {
             d.suspend();
-        }
+            d.detach();
+        });
         miscDevices.clear();
 //        halt();
     }

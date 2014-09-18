@@ -117,8 +117,8 @@ public class Apple2e extends Computer {
         }
         motherboard = new Motherboard(this);
         motherboard.reconfigure();
-        Motherboard.miscDevices.add(joystick1);
-        Motherboard.miscDevices.add(joystick2);
+        motherboard.miscDevices.add(joystick1);
+        motherboard.miscDevices.add(joystick2);
     }
 
     @Override

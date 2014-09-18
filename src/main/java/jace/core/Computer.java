@@ -49,7 +49,7 @@ public abstract class Computer implements Reconfigurable {
      * Creates a new instance of Computer
      */
     public Computer() {
-        keyboard = new Keyboard();
+        keyboard = new Keyboard(this);
     }
 
     public RAM getMemory() {

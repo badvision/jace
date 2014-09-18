@@ -35,8 +35,9 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
-import static jace.core.Utility.*;
 import java.io.FileNotFoundException;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * Apple // Speaker Emulation Created on May 9, 2007, 9:55 PM
@@ -128,13 +129,12 @@ public class Speaker extends Device {
      * Double-buffer used for playing processed sound -- as one is played the
      * other fills up.
      */
-    byte[] soundBuffer1;
-    byte[] soundBuffer2;
-    int currentBuffer = 1;
+    byte[] primaryBuffer;
+    byte[] secondaryBuffer;
     int bufferPos = 0;
+    Timer playbackTimer;
     private double TICKS_PER_SAMPLE = ((double) Motherboard.SPEED) / ((double) SoundMixer.RATE);
     private double TICKS_PER_SAMPLE_FLOOR = Math.floor(TICKS_PER_SAMPLE);
-    Thread playbackThread;
     private final RAMListener listener
             = new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
 
@@ -165,21 +165,22 @@ public class Speaker extends Device {
      */
     public Speaker(Computer computer) {
         super(computer);
-        configureListener();
-        reconfigure();
     }
 
     /**
      * Suspend playback of sound
-     * @return 
+     *
+     * @return
      */
     @Override
     public boolean suspend() {
         boolean result = super.suspend();
+        playbackTimer.cancel();
         speakerBit = false;
-        if (playbackThread != null && playbackThread.isAlive()) {
-            playbackThread = null;
-        }
+        sdl = null;
+        computer.getMotherboard().cancelSpeedRequest(this);
+        computer.getMotherboard().mixer.returnLine(this);
+
         return result;
     }
 
@@ -188,62 +189,42 @@ public class Speaker extends Device {
      */
     @Override
     public void resume() {
+        System.out.println("Resuming speaker sound");
         sdl = null;
         try {
             sdl = computer.getMotherboard().mixer.getLine(this);
+            sdl.start();
+            setRun(true);
+            playbackTimer = new Timer();
+            playbackTimer.scheduleAtFixedRate(new TimerTask() {          
+                @Override
+                public void run() {
+                    playCurrentBuffer();
+                }
+            }, 25, 50);
         } catch (LineUnavailableException ex) {
             System.out.println("ERROR: Could not output sound: " + ex.getMessage());
         }
         if (sdl != null) {
-            setRun(true);
             counter = 0;
             idleCycles = 0;
             level = 0;
             bufferPos = 0;
-            if (playbackThread == null || !playbackThread.isAlive()) {
-                playbackThread = new Thread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        int len;
-                        while (isRunning()) {
-//                            Motherboard.requestSpeed(this);                            
-                            len = bufferPos;
-                            if (len >= MIN_SAMPLE_PLAYBACK) {
-                                byte[] buffer;
-                                synchronized (bufferLock) {
-                                    len = bufferPos;
-                                    buffer = (currentBuffer == 1) ? soundBuffer1 : soundBuffer2;
-                                    currentBuffer = (currentBuffer == 1) ? 2 : 1;
-                                    bufferPos = 0;
-                                }
-                                sdl.write(buffer, 0, len);
-                                if (fileOutputActive && out != null) {
-                                    try {
-                                        out.write(buffer, 0, len);
-                                    } catch (IOException ex) {
-                                        Logger.getLogger(Speaker.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            } else {
-                                try {
-                                    // Wait 12.5 ms, which is 1/8 the total duration of the buffer
-                                    Thread.sleep(10);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(Speaker.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                            }
-                        }
-                        
-                        computer.getMotherboard().cancelSpeedRequest(this);
-                        computer.getMotherboard().mixer.returnLine(this);
-
-                    }
-                });
-                playbackThread.setName("Speaker playback");
-                playbackThread.start();
-            }
         }
+    }
+
+    public void playCurrentBuffer() {
+        byte[] buffer;
+        int len;
+        synchronized (bufferLock) {
+            len = bufferPos;
+            buffer = primaryBuffer;
+            primaryBuffer = secondaryBuffer;
+            bufferPos = 0;
+        }
+        secondaryBuffer = buffer;
+        sdl.write(buffer, 0, len);
+        sdl.start();
     }
 
     /**
@@ -263,7 +244,7 @@ public class Speaker extends Device {
      */
     @Override
     public void tick() {
-        if (!isRunning() || playbackThread == null) {
+        if (!isRunning() || sdl == null) {
             return;
         }
         if (idleCycles++ >= MAX_IDLE_CYCLES) {
@@ -278,36 +259,14 @@ public class Speaker extends Device {
             int bytes = SoundMixer.BITS >> 3;
             int shift = SoundMixer.BITS;
 
-            // Force emulator to wait until sound buffer has been processed
-            int wait = 0;
-            while (bufferPos >= BUFFER_SIZE) {
-                if (wait++ > 1000) {
-                    computer.pause();
-                    detach();
-                    computer.resume();
-                    Motherboard.enableSpeaker = false;
-                    gripe("Sound playback is not working properly.  Check your configuration and sound system to ensure they are set up properly.");
-                    return;
-                }
-                try {
-                    // Yield to other threads (e.g. sound) so that the buffer can drain
-                    Thread.sleep(5);
-                } catch (InterruptedException ex) {
-
-                }
+            while (bufferPos >= primaryBuffer.length) {
+                Thread.yield();
             }
-
-            byte[] buf;
             synchronized (bufferLock) {
-                if (currentBuffer == 1) {
-                    buf = soundBuffer1;
-                } else {
-                    buf = soundBuffer2;
-                }
                 int index = bufferPos;
                 for (int i = 0; i < SoundMixer.BITS; i += 8, index++) {
                     shift -= 8;
-                    buf[index] = buf[index + bytes] = (byte) ((sample >> shift) & 0x0ff);
+                    primaryBuffer[index] = primaryBuffer[index + bytes] = (byte) ((sample >> shift) & 0x0ff);
                 }
 
                 bufferPos += bytes * 2;
@@ -348,17 +307,18 @@ public class Speaker extends Device {
 
     @Override
     public final void reconfigure() {
-        if (soundBuffer1 != null && soundBuffer2 != null) {
+        if (primaryBuffer != null && secondaryBuffer != null) {
             return;
         }
         BUFFER_SIZE = 10000 * (SoundMixer.BITS >> 3);
         MIN_SAMPLE_PLAYBACK = SoundMixer.BITS * 8;
-        soundBuffer1 = new byte[BUFFER_SIZE];
-        soundBuffer2 = new byte[BUFFER_SIZE];
+        primaryBuffer = new byte[BUFFER_SIZE];
+        secondaryBuffer = new byte[BUFFER_SIZE];
     }
 
     @Override
     public void attach() {
+        reconfigure();
         configureListener();
         resume();
     }

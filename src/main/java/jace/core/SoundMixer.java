@@ -108,7 +108,6 @@ public class SoundMixer extends Device {
             initMixer();
             if (lineAvailable) {
                 initAudio();
-                System.out.println("Started sound");
             } else {
                 System.out.println("Sound not stared: Line not available");
             }
@@ -153,8 +152,8 @@ public class SoundMixer extends Device {
             SourceDataLine sdl = activeLines.remove(requester);
 // Calling drain on pulse driver can cause it to freeze up (?)
 //            sdl.drain();
-            sdl.stop();
             sdl.flush();
+            sdl.stop();
             availableLines.add(sdl);
         }
     }
@@ -180,26 +179,7 @@ public class SoundMixer extends Device {
             throw new LineUnavailableException("Line is not an output line!");
         }
         final SourceDataLine sdl = (SourceDataLine) l;
-//        sdl.open(af);
-//        if (false) {
-//            return sdl;
-//        }
         sdl.open();
-        sdl.start();
-//        new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                System.out.println("Going into an infinite loop!!!");
-//                try {
-//                    while (true) {
-//                        sdl.write(new byte[]{randomByte(),randomByte(),randomByte(),randomByte()}, 0, 4);
-//                    }
-//                } catch (Throwable t) {
-//                    t.printStackTrace();
-//                }
-//                System.out.println("Thread dying...");
-//            }
-//        }).start();
         return sdl;
     }
 
