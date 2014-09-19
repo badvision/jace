@@ -99,8 +99,6 @@ public class Speaker extends Device {
     // Number of samples available in output stream before playback happens (avoid extra blocking)
 //    static int MIN_PLAYBACK_BUFFER = BUFFER_SIZE / 2;
     static int MIN_PLAYBACK_BUFFER = 64;
-    // Number of samples in buffer to wait until playback (avoid underrun)
-    private int MIN_SAMPLE_PLAYBACK = 64;
     /**
      * Playback volume (should be < 1423)
      */
@@ -110,7 +108,7 @@ public class Speaker extends Device {
      * Number of idle cycles until speaker playback is deactivated
      */
     @ConfigurableField(name = "Idle cycles before sleep", shortName = "idle")
-    public static int MAX_IDLE_CYCLES = 100000;
+    public static int MAX_IDLE_CYCLES = 2000000;
     /**
      * Java sound output
      */
@@ -189,11 +187,16 @@ public class Speaker extends Device {
      */
     @Override
     public void resume() {
+        if (sdl != null && isRunning()) return;
         System.out.println("Resuming speaker sound");
         sdl = null;
         try {
-            sdl = computer.getMotherboard().mixer.getLine(this);
+            sdl = computer.getMotherboard().mixer.getLine(this);            
             sdl.start();
+            counter = 0;
+            idleCycles = 0;
+            level = 0;
+            bufferPos = 0;
             setRun(true);
             playbackTimer = new Timer();
             playbackTimer.scheduleAtFixedRate(new TimerTask() {          
@@ -201,15 +204,9 @@ public class Speaker extends Device {
                 public void run() {
                     playCurrentBuffer();
                 }
-            }, 25, 50);
+            }, 10, 30);
         } catch (LineUnavailableException ex) {
             System.out.println("ERROR: Could not output sound: " + ex.getMessage());
-        }
-        if (sdl != null) {
-            counter = 0;
-            idleCycles = 0;
-            level = 0;
-            bufferPos = 0;
         }
     }
 
@@ -224,7 +221,6 @@ public class Speaker extends Device {
         }
         secondaryBuffer = buffer;
         sdl.write(buffer, 0, len);
-        sdl.start();
     }
 
     /**
@@ -310,15 +306,13 @@ public class Speaker extends Device {
         if (primaryBuffer != null && secondaryBuffer != null) {
             return;
         }
-        BUFFER_SIZE = 10000 * (SoundMixer.BITS >> 3);
-        MIN_SAMPLE_PLAYBACK = SoundMixer.BITS * 8;
+        BUFFER_SIZE = 20000 * (SoundMixer.BITS >> 3);
         primaryBuffer = new byte[BUFFER_SIZE];
         secondaryBuffer = new byte[BUFFER_SIZE];
     }
 
     @Override
     public void attach() {
-        reconfigure();
         configureListener();
         resume();
     }
