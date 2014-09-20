@@ -24,6 +24,7 @@ import jace.config.Reconfigurable;
 import jace.library.MediaLibrary;
 import jace.state.StateManager;
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * This is a very generic stub of a Computer and provides a generic set of
@@ -61,11 +62,8 @@ public abstract class Computer implements Reconfigurable {
     }
 
     public void notifyVBLStateChanged(boolean state) {
-        for (Card c : getMemory().cards) {
-            if (c == null) {
-                continue;
-            }
-            c.notifyVBLStateChanged(state);
+        for (Optional<Card> c : getMemory().cards) {
+            c.ifPresent(card -> card.notifyVBLStateChanged(state));
         }
         if (state && stateManager != null) {
             stateManager.notifyVBLActive();

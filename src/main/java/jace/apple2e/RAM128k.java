@@ -160,22 +160,15 @@ abstract public class RAM128k extends RAM {
             } else {
                 // Enable C1-CF to point to slots
                 for (int slot = 1; slot <= 7; slot++) {
-                    Card c = getCard(slot);
-                    if (c != null) {
-                        // Enable card slot ROM
-                        activeRead.setBanks(0, 1, 0x0C0 + slot, c.getCxRom());
-                        if (getActiveSlot() == slot) {
-                            activeRead.setBanks(0, 8, 0x0C8, c.getC8Rom());
-                        }
-                    } else {
-                        // Disable card slot ROM (TODO: floating bus)
-                        activeRead.set(0x0C0 + slot, blank.get(0));
-                    }
+                    PagedMemory page = getCard(slot).map(Card::getCxRom).orElse(blank);
+                    activeRead.setBanks(0, 1, 0x0c0 + slot, page);
                 }
                 if (getActiveSlot() == 0) {
                     for (int i = 0x0C8; i < 0x0D0; i++) {
                         activeRead.set(i, blank.get(0));
                     }
+                } else {
+                    getCard(getActiveSlot()).ifPresent(c -> activeRead.setBanks(0,8,0x0c8, c.getC8Rom()));
                 }
                 if (SoftSwitches.SLOTC3ROM.isOff()) {
                     // Enable C3 to point to internal ROM

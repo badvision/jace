@@ -25,6 +25,7 @@ import jace.core.Card;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.util.Optional;
 import javax.swing.JPanel;
 
 /**
@@ -79,21 +80,19 @@ public class MediaLibrary implements Reconfigurable {
             return;
         }
         userInterface.Drives.removeAll();
-        for (Card card : Emulator.computer.memory.getAllCards()) {
-            if (card == null || !(card instanceof MediaConsumerParent)) {
-                continue;
-            }
-            MediaConsumerParent parent = (MediaConsumerParent) card;
-            GridBagLayout layout = (GridBagLayout) userInterface.Drives.getLayout();
-            GridBagConstraints c = new GridBagConstraints();            
-            for (MediaConsumer consumer : parent.getConsumers()) {
-                DriveIcon drive = new DriveIcon(consumer);
-                drive.setSize(100, 70);
-                drive.setPreferredSize(new Dimension(100, 70));
-                c.gridwidth = GridBagConstraints.REMAINDER;
-                layout.setConstraints(drive, c);
-                userInterface.Drives.add(drive);
-            }
+        for (Optional<Card> card : Emulator.computer.memory.getAllCards()) {
+            card.filter(c -> c instanceof MediaConsumerParent).ifPresent(parent -> {
+                GridBagLayout layout = (GridBagLayout) userInterface.Drives.getLayout();
+                GridBagConstraints c = new GridBagConstraints();
+                for (MediaConsumer consumer : ((MediaConsumerParent) parent).getConsumers()) {
+                    DriveIcon drive = new DriveIcon(consumer);
+                    drive.setSize(100, 70);
+                    drive.setPreferredSize(new Dimension(100, 70));
+                    c.gridwidth = GridBagConstraints.REMAINDER;
+                    layout.setConstraints(drive, c);
+                    userInterface.Drives.add(drive);
+                }
+            });
         }
         userInterface.Drives.revalidate();
     }
@@ -119,7 +118,7 @@ public class MediaLibrary implements Reconfigurable {
             form.setCreate(false);
             form.populate(entry);
         }
-        form.setParentLibary(library);        
+        form.setParentLibary(library);
         return form;
     }
 }

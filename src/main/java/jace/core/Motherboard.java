@@ -21,10 +21,9 @@ package jace.core;
 import jace.apple2e.SoftSwitches;
 import jace.apple2e.Speaker;
 import jace.config.ConfigurableField;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -78,7 +77,7 @@ public class Motherboard extends TimedDevice {
 
     @Override
     public void tick() {
-        Card[] cards = computer.getMemory().getAllCards();
+        Optional<Card>[] cards = computer.getMemory().getAllCards();
         try {
             clockCounter--;
             computer.getCpu().doTick();
@@ -88,26 +87,8 @@ public class Motherboard extends TimedDevice {
             clockCounter = cpuPerClock;
             computer.getVideo().doTick();
             // Unrolled loop since this happens so often
-            if (cards[0] != null) {
-                cards[0].doTick();
-            }
-            if (cards[1] != null) {
-                cards[1].doTick();
-            }
-            if (cards[2] != null) {
-                cards[2].doTick();
-            }
-            if (cards[3] != null) {
-                cards[3].doTick();
-            }
-            if (cards[4] != null) {
-                cards[4].doTick();
-            }
-            if (cards[5] != null) {
-                cards[5].doTick();
-            }
-            if (cards[6] != null) {
-                cards[6].doTick();
+            for (Optional<Card> card : cards) {
+                card.ifPresent(Card::doTick);
             }
             miscDevices.stream().forEach((m) -> {
                 m.doTick();
@@ -186,12 +167,13 @@ public class Motherboard extends TimedDevice {
     public boolean suspend() {
         synchronized (resume) {
             resume.clear();
-            for (Card c : computer.getMemory().getAllCards()) {
-                if (c == null || !c.suspendWithCPU() || !c.isRunning()) {
+            for (Optional<Card> c : computer.getMemory().getAllCards()) {
+                if (!c.isPresent()) continue;
+                if (!c.get().suspendWithCPU() || !c.get().isRunning()) {
                     continue;
                 }
-                if (c.suspend()) {
-                    resume.add(c);
+                if (c.get().suspend()) {
+                    resume.add(c.get());
                 }
             }
         }

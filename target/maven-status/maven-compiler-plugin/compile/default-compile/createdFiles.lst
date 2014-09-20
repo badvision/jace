@@ -114,6 +114,7 @@ jace/hardware/massStorage/DirectoryNode.class
 jace/cheat/MetaCheatForm$2.class
 jace/hardware/ConsoleProbe$KeyReader.class
 jace/hardware/massStorage/FreespaceBitmap.class
+jace/tracker/PlaybackEngine$1.class
 jace/apple2e/MOS65C02$SMBCommand.class
 jace/hardware/massStorage/DiskNode.class
 jace/hardware/mockingboard/TimedGenerator.class
@@ -145,7 +146,6 @@ jace/library/MediaLibraryUI$tocOptions$3.class
 jace/apple2e/Apple2e.class
 jace/cheat/MemorySpy$6.class
 jace/hardware/PassportMidiInterface$PTMTimer.class
-jace/hardware/DiskIIDrive$1.class
 jace/library/DriveIcon.class
 jace/EmulatorUILogic$2.class
 jace/cheat/MetaCheatForm$11.class
@@ -157,7 +157,6 @@ jace/cheat/MetaCheatForm$4.class
 jace/apple2e/SoftSwitches$1.class
 jace/config/ClassSelection$1.class
 jace/hardware/CardExt80Col.class
-jace/ui/EmulatorFrame$2.class
 jace/library/MediaLibraryUI$tocOptions$4.class
 jace/hardware/ConsoleProbe$ScreenReader.class
 jace/config/FileComponent$2.class
@@ -167,8 +166,6 @@ jace/hardware/Joystick$1.class
 jace/library/MediaEditUI$5.class
 jace/tracker/EditableLabel.class
 jace/apple2e/VideoDHGR.class
-jace/ui/MainFrame$1.class
-jace/ui/AbstractEmulatorFrame$4.class
 jace/hardware/CardRamworks$1.class
 jace/apple2e/VideoDHGR$1.class
 jace/cheat/MetaCheatForm$10.class
@@ -178,7 +175,6 @@ jace/core/SoundMixer$1.class
 jace/JaceApplication.class
 jace/tracker/EditableLabel$2$1.class
 jace/applesoft/Command$ByteOrToken.class
-jace/cheat/MemorySpyGrid$7.class
 jace/config/Configuration$ConfigNode.class
 jace/state/Stateful.class
 jace/cheat/MetaCheatForm$6.class
@@ -196,7 +192,6 @@ jace/apple2e/MOS65C02$BBRCommand.class
 jace/apple2e/VideoDHGR$7.class
 jace/library/TocTreeModel$1.class
 jace/ui/DebuggerPanel$11.class
-jace/cheat/MetaCheats$2$1.class
 jace/state/ObjectGraphNode.class
 jace/hardware/massStorage/DirectoryNode$1.class
 jace/JaceUIController.class
@@ -219,7 +214,6 @@ jace/hardware/Joystick$3.class
 jace/cheat/MemorySpy$2.class
 jace/cheat/MemorySpy$9.class
 jace/hardware/CardSSC$2.class
-jace/cheat/MemorySpyGrid$8.class
 jace/core/Computer.class
 jace/hardware/massStorage/FileNode$1.class
 jace/apple2e/softswitch/IntC8SoftSwitch$1.class
@@ -292,7 +286,6 @@ jace/hardware/mockingboard/PSG$1.class
 jace/hardware/CardRamworks$BankType.class
 jace/tracker/PlaybackEngine.class
 jace/apple2e/VideoNTSC$2.class
-jace/cheat/MemorySpyGrid$6.class
 jace/apple2e/Speaker.class
 jace/ui/ScreenCanvas.class
 jace/config/IntegerComponent.class
@@ -323,7 +316,6 @@ jace/apple2e/VideoNTSC$3.class
 jace/library/MediaLibraryUI$tocOptions.class
 jace/hardware/ConsoleProbe$1.class
 jace/hardware/ProdosDriver$MLI_RETURN.class
-jace/cheat/MemorySpyGrid$5.class
 jace/cheat/MetaCheats.class
 jace/hardware/massStorage/FileNode$FileType.class
 jace/config/DynamicSelectComponent.class
@@ -331,7 +323,6 @@ jace/core/SoftSwitch$1.class
 jace/hardware/CardRamworks.class
 jace/library/MediaLibraryUI$8.class
 jace/ui/DebuggerPanel$7.class
-jace/cheat/MemorySpyGrid$4.class
 jace/config/ISelection.class
 jace/apple2e/MOS65C02$AddressCalculator.class
 jace/library/MediaLibraryUI$9.class

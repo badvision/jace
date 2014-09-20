@@ -23,6 +23,7 @@ import jace.config.Reconfigurable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * RAM is a 64K address space of paged memory. It also manages sets of memory
@@ -38,7 +39,7 @@ public abstract class RAM implements Reconfigurable {
     public List<RAMListener> listeners;
     public List<RAMListener>[] listenerMap;
     public List<RAMListener>[] ioListenerMap;
-    protected Card[] cards;
+    protected Optional<Card>[] cards;
     // card 0 = 80 column card firmware / system rom
     public int activeSlot = 0;
     protected final Computer computer;
@@ -49,7 +50,10 @@ public abstract class RAM implements Reconfigurable {
     public RAM(Computer computer) {
         this.computer = computer;
         listeners = new ArrayList<>();
-        cards = new Card[8];
+        cards = new Optional[8];
+        for (int i=0; i < 8; i ++) {
+            cards[i] = Optional.empty();
+        }
         refreshListenerMap();
     }
 
@@ -66,19 +70,19 @@ public abstract class RAM implements Reconfigurable {
         return activeSlot;
     }
 
-    public Card[] getAllCards() {
+    public Optional<Card>[] getAllCards() {
         return cards;
     }
 
-    public Card getCard(int slot) {
+    public Optional<Card> getCard(int slot) {
         if (slot >= 1 && slot <= 7) {
             return cards[slot];
         }
-        return null;
+        return Optional.empty();
     }
 
     public void addCard(Card c, int slot) {
-        cards[slot] = c;
+        cards[slot] = Optional.of(c);
         c.setSlot(slot);
         c.attach();
     }
@@ -90,11 +94,9 @@ public abstract class RAM implements Reconfigurable {
     }
 
     public void removeCard(int slot) {
-        if (cards[slot] != null) {
-            cards[slot].suspend();
-            cards[slot].detach();
-        }
-        cards[slot] = null;
+        cards[slot].ifPresent(Card::suspend);
+        cards[slot].ifPresent(Card::detach);
+        cards[slot] = Optional.empty();
     }
 
     abstract public void configureActiveMemory();

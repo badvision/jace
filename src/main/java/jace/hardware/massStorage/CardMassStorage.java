@@ -31,6 +31,7 @@ import jace.hardware.SmartportDriver;
 import jace.library.MediaConsumer;
 import jace.library.MediaConsumerParent;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -135,8 +136,8 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
                 // This is a convenience to boot a hard-drive if the emulator has started waiting for a currentDisk
                 currentDrive = drive1;
                 getCurrentDisk().boot0(getSlot(), computer);
-                Card[] cards = computer.getMemory().getAllCards();
-                computer.getMotherboard().cancelSpeedRequest(cards[6]);
+                Optional<Card>[] cards = computer.getMemory().getAllCards();
+                cards[6].ifPresent(card->computer.getMotherboard().cancelSpeedRequest(card));
             }
             attach();
         } catch (IOException ex) {

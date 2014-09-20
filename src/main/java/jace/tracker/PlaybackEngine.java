@@ -24,6 +24,7 @@ import jace.core.Computer;
 import jace.core.Motherboard;
 import jace.hardware.CardExt80Col;
 import jace.hardware.CardMockingboard;
+import java.util.Optional;
 
 /**
  *
@@ -79,19 +80,15 @@ public class PlaybackEngine extends Computer {
 
     @Override
     public void coldStart() {
-        for (Card c : getMemory().getAllCards()) {
-            if (c != null) {
-                c.reset();
-            }
+        for (Optional<Card> c : getMemory().getAllCards()) {
+            c.ifPresent(Card::reset);
         }
     }
 
     @Override
     public void warmStart() {
-        for (Card c : getMemory().getAllCards()) {
-            if (c != null) {
-                c.reset();
-            }
+        for (Optional<Card> c : getMemory().getAllCards()) {
+            c.ifPresent(Card::reset);
         }
     }
 

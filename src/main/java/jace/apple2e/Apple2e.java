@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -133,10 +134,8 @@ public class Apple2e extends Computer {
         getMemory().configureActiveMemory();
         getVideo().configureVideoMode();
         getCpu().reset();
-        for (Card c : getMemory().getAllCards()) {
-            if (c != null) {
-                c.reset();
-            }
+        for (Optional<Card> c : getMemory().getAllCards()) {
+            c.ifPresent(Card::reset);
         }
 
         resume();
@@ -163,10 +162,8 @@ public class Apple2e extends Computer {
         getMemory().configureActiveMemory();
         getVideo().configureVideoMode();
         getCpu().reset();
-        for (Card c : getMemory().getAllCards()) {
-            if (c != null) {
-                c.reset();
-            }
+        for (Optional<Card> c : getMemory().getAllCards()) {
+            c.ifPresent(Card::reset);
         }
         getCpu().resume();
         resume();
