@@ -36,6 +36,7 @@ public class EnvelopeGenerator extends TimedGenerator {
         super(_clock, _sampleRate);
     }
 
+    @Override
     public int stepsPerCycle() {
         return 8;
     }
@@ -104,6 +105,7 @@ public class EnvelopeGenerator extends TimedGenerator {
         return amplitude;
     }
 
+    @Override
     public void reset() {
         super.reset();
         setShape(0);

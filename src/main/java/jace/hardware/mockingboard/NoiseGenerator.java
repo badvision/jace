@@ -28,6 +28,7 @@ public class NoiseGenerator extends TimedGenerator {
     public NoiseGenerator(int _clock,int _sampleRate) {
         super(_clock, _sampleRate);
     }
+    @Override
     public int stepsPerCycle() {
         return 8;
     }

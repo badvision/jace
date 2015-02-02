@@ -110,7 +110,7 @@ public class PSG {
     public PSG(int base, int clock, int sample_rate, String name) {
         this.name = name;
         baseReg = base;
-        channels = new ArrayList<SoundGenerator>();
+        channels = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             channels.add(new SoundGenerator(clock, sample_rate));
         }
@@ -155,9 +155,9 @@ public class PSG {
     public void setRate(int clock, int sample_rate) {
         CLOCK = clock;
         SAMPLE_RATE = sample_rate;
-        for (SoundGenerator c : channels) {
+        channels.stream().forEach((c) -> {
             c.setRate(clock, sample_rate);
-        }
+        });
         envelopeGenerator.setRate(clock, sample_rate);
         noiseGenerator.setRate(clock, sample_rate);
         reset();
@@ -170,9 +170,9 @@ public class PSG {
         }
         envelopeGenerator.reset();
         noiseGenerator.reset();
-        for (SoundGenerator c : channels) {
+        channels.parallelStream().forEach((c) -> {
             c.reset();
-        }
+        });
     }
 
     public void setReg(Reg r, int value) {

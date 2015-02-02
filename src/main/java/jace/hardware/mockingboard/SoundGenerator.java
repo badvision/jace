@@ -70,6 +70,7 @@ public class SoundGenerator extends TimedGenerator {
         return invert ? -CardMockingboard.VolTable[vol] : CardMockingboard.VolTable[vol];
     }
     
+    @Override
     public void reset() {
         super.reset();
         amplitude = 0;

@@ -86,9 +86,8 @@ public class Motherboard extends TimedDevice {
             }
             clockCounter = cpuPerClock;
             computer.getVideo().doTick();
-            // Unrolled loop since this happens so often
             for (Optional<Card> card : cards) {
-                card.ifPresent(Card::doTick);
+                card.ifPresent(c -> c.doTick());
             }
             miscDevices.stream().forEach((m) -> {
                 m.doTick();
