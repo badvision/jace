@@ -6,10 +6,12 @@
 
 package jace;
 
+import java.io.IOException;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 
 /**
@@ -17,15 +19,25 @@ import javafx.stage.Stage;
  * @author blurry
  */
 public class JaceApplication extends Application {
+
+    Stage primaryStage;
+    JaceUIController controller;
     
     @Override
     public void start(Stage stage) throws Exception {
-        Parent root = FXMLLoader.load(getClass().getResource("fxml/JaceUI.fxml"));
+        primaryStage = stage;
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/JaceUI.fxml"));
+        fxmlLoader.setResources(null);
+        try {
+            AnchorPane node = (AnchorPane) fxmlLoader.load();
+            controller = fxmlLoader.getController();
+            Scene s = new Scene(node);
+            primaryStage.setScene(s);
+        } catch (IOException exception) {
+            throw new RuntimeException(exception);
+        }
         
-        Scene scene = new Scene(root);
-        
-        stage.setScene(scene);
-        stage.show();
+        primaryStage.show();
     }
 
     /**

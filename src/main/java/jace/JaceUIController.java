@@ -6,7 +6,7 @@
 
 package jace;
 
-import java.awt.Canvas;
+import javafx.scene.canvas.Canvas;
 import java.net.URL;
 import java.util.ResourceBundle;
 import javafx.fxml.FXML;
