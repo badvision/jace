@@ -7,10 +7,12 @@
 package jace;
 
 import jace.core.Video;
+import java.net.URL;
 import javafx.scene.canvas.Canvas;
 import java.util.ResourceBundle;
 import javafx.fxml.FXML;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Region;
 
 /**
@@ -19,19 +21,24 @@ import javafx.scene.layout.Region;
  */
 public class JaceUIController {
     @FXML
-    private ResourceBundle resources;
+    private URL location;
+
+    @FXML
+    private AnchorPane rootPane;
 
     @FXML
     private Region notificationRegion;
-    
+
     @FXML
     private ImageView appleScreen;
 
-    
     @FXML
-    public void initialize() {
+    void initialize() {
+        assert rootPane != null : "fx:id=\"rootPane\" was not injected: check your FXML file 'JaceUI.fxml'.";
         assert notificationRegion != null : "fx:id=\"notificationRegion\" was not injected: check your FXML file 'JaceUI.fxml'.";
         assert appleScreen != null : "fx:id=\"appleScreen\" was not injected: check your FXML file 'JaceUI.fxml'.";
+        appleScreen.fitWidthProperty().bind(rootPane.widthProperty());
+        appleScreen.fitHeightProperty().bind(rootPane.heightProperty());
     }
     
     public void connectScreen(Video video) {
