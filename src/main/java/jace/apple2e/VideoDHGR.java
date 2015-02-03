@@ -25,10 +25,10 @@ import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.core.Video;
 import jace.core.VideoWriter;
-import java.awt.Color;
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
 import java.util.logging.Logger;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
+import javafx.scene.paint.Color;
 
 /**
  * This is the primary video rendering class, which provides all necessary video
@@ -36,7 +36,7 @@ import java.util.logging.Logger;
  * configureVideoMode). The quality of the color rendering is sub-par compared
  * to VideoNTSC.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class VideoDHGR extends Video {
     // Reorder bits 3,2,1,0 -> 0,3,2,1
@@ -79,7 +79,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayHires(screen, xOffset, y, yGraphicsOffset + 0x02000);
             }
         };
@@ -90,7 +90,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayHires(screen, xOffset, y, yGraphicsOffset + 0x04000);
             }
         };
@@ -101,7 +101,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayDoubleHires(screen, xOffset, y, yGraphicsOffset + 0x02000);
             }
 
@@ -117,7 +117,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayDoubleHires(screen, xOffset, y, yGraphicsOffset + 0x04000);
             }
 
@@ -133,7 +133,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayText(screen, xOffset, y, yTextOffset + 0x0400);
             }
         };
@@ -144,7 +144,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayText(screen, xOffset, y, yTextOffset + 0x0800);
             }
         };
@@ -155,7 +155,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayText80(screen, xOffset, y, yTextOffset + 0x0400);
             }
 
@@ -171,7 +171,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayText80(screen, xOffset, y, yTextOffset + 0x0800);
             }
 
@@ -187,7 +187,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayLores(screen, xOffset, y, yTextOffset + 0x0400);
             }
 
@@ -203,7 +203,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayLores(screen, xOffset, y, yTextOffset + 0x0800);
             }
 
@@ -219,7 +219,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayDoubleLores(screen, xOffset, y, yTextOffset + 0x0400);
             }
 
@@ -235,7 +235,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayDoubleLores(screen, xOffset, y, yTextOffset + 0x0800);
             }
 
@@ -251,7 +251,7 @@ public class VideoDHGR extends Video {
             }
 
             @Override
-            public void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
                 displayMixed(screen, xOffset, y, yTextOffset, yGraphicsOffset);
             }
 
@@ -288,7 +288,7 @@ public class VideoDHGR extends Video {
     // color burst per byte (chat mauve compatibility)
     boolean[] useColor = new boolean[80];
 
-    protected void displayDoubleHires(BufferedImage screen, int xOffset, int y, int rowAddress) {
+    protected void displayDoubleHires(WritableImage screen, int xOffset, int y, int rowAddress) {
         // Skip odd columns since this does two at once
         if ((xOffset & 0x01) == 1) {
             return;
@@ -314,7 +314,7 @@ public class VideoDHGR extends Video {
     }
     boolean extraHalfBit = false;
 
-    protected void displayHires(BufferedImage screen, int xOffset, int y, int rowAddress) {
+    protected void displayHires(WritableImage screen, int xOffset, int y, int rowAddress) {
         // Skip odd columns since this does two at once
         if ((xOffset & 0x01) == 1) {
             return;
@@ -369,40 +369,40 @@ public class VideoDHGR extends Video {
                     value |= 0x10000000;
                 }
                 hgrToDhgr[bb1][bb2] = value;
-                hgrToDhgrBW[bb1 & 0x0ff][bb2] =
-                        byteDoubler((byte) bb1) | (byteDoubler((byte) bb2) << 14);
+                hgrToDhgrBW[bb1 & 0x0ff][bb2]
+                        = byteDoubler((byte) bb1) | (byteDoubler((byte) bb2) << 14);
             }
         }
     }
 
-    protected void displayLores(BufferedImage screen, int xOffset, int y, int rowAddress) {
+    protected void displayLores(WritableImage screen, int xOffset, int y, int rowAddress) {
         int c1 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
             c1 &= 15;
         } else {
             c1 >>= 4;
         }
-        DataBuffer b = screen.getRaster().getDataBuffer();
-        int yOffset = xyOffset[y][times14[xOffset]];
-        int color = Palette.color[c1].getRGB();
+        Color color = Palette.color[c1];
         // Unrolled loop, faster
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
+        PixelWriter writer = screen.getPixelWriter();
+        int x = xOffset * 7;
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
     }
 
-    private void displayDoubleLores(BufferedImage screen, int xOffset, int y, int rowAddress) {
+    private void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
         int c1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
         int c2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
@@ -412,25 +412,26 @@ public class VideoDHGR extends Video {
             c1 >>= 4;
             c2 >>= 4;
         }
-        DataBuffer b = screen.getRaster().getDataBuffer();
-        int yOffset = xyOffset[y][times14[xOffset]];
-        int color = Palette.color[c1].getRGB();
-        int color2 = Palette.color[c2].getRGB();
+        PixelWriter writer = screen.getPixelWriter();
+//        int yOffset = xyOffset[y][times14[xOffset]];
+        Color color = Palette.color[c1];
         // Unrolled loop, faster
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color);
-        b.setElem(yOffset++, color2);
-        b.setElem(yOffset++, color2);
-        b.setElem(yOffset++, color2);
-        b.setElem(yOffset++, color2);
-        b.setElem(yOffset++, color2);
-        b.setElem(yOffset++, color2);
-        b.setElem(yOffset++, color2);
+        int x = xOffset * 7;
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        color = Palette.color[c2];
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
+        writer.setColor(x++, y, color);
     }
     boolean flashInverse = false;
     int flashTimer = 0;
@@ -456,8 +457,6 @@ public class VideoDHGR extends Video {
         // 80-BF - Normal characters (uppercase only)
         // C0-DF - Normal characters (repeat 80-9F)
         // E0-FF - Normal characters (lowercase)
-
-
         // MAP1: Normal map, flash inverse = false
         CHAR_MAP1 = new int[256];
         // MAP2: Normal map, flash inverse = true
@@ -544,7 +543,7 @@ public class VideoDHGR extends Video {
         return currentCharMap[b & 0x0ff];
     }
 
-    protected void displayText(BufferedImage screen, int xOffset, int y, int rowAddress) {
+    protected void displayText(WritableImage screen, int xOffset, int y, int rowAddress) {
         // Skip odd columns since this does two at once
         if ((xOffset & 0x01) == 1) {
             return;
@@ -561,7 +560,7 @@ public class VideoDHGR extends Video {
         showBW(screen, times14[xOffset], y, out);
     }
 
-    protected void displayText80(BufferedImage screen, int xOffset, int y, int rowAddress) {
+    protected void displayText80(WritableImage screen, int xOffset, int y, int rowAddress) {
         // Skip odd columns since this does two at once
         if ((xOffset & 0x01) == 1) {
             return;
@@ -576,7 +575,7 @@ public class VideoDHGR extends Video {
         showBW(screen, times14[xOffset], y, bits);
     }
 
-    private void displayMixed(BufferedImage screen, int xOffset, int y, int textOffset, int graphicsOffset) {
+    private void displayMixed(WritableImage screen, int xOffset, int y, int textOffset, int graphicsOffset) {
         mixed.actualWriter().displayByte(screen, xOffset, y, textOffset, graphicsOffset);
     }
     protected boolean hiresMode = false;
@@ -586,50 +585,50 @@ public class VideoDHGR extends Video {
     public void configureVideoMode() {
         boolean page2 = SoftSwitches.PAGE2.isOn() && SoftSwitches._80STORE.isOff();
         dhgrMode = SoftSwitches._80COL.getState() && SoftSwitches.DHIRES.getState() && SoftSwitches.HIRES.getState();
-        currentTextWriter =
-                SoftSwitches._80COL.getState()
-                ? page2
-                ? text80Page2 : text80Page1
-                : page2
-                ? textPage2 : textPage1;
-        currentGraphicsWriter =
-                SoftSwitches._80COL.getState() && SoftSwitches.DHIRES.getState()
-                ? SoftSwitches.HIRES.getState()
-                ? page2
-                ? dhiresPage2 : dhiresPage1
-                : page2
-                ? dloresPage2 : dloresPage1
-                : SoftSwitches.HIRES.getState()
-                ? page2
-                ? hiresPage2 : hiresPage1
-                : page2
-                ? loresPage2 : loresPage1;
+        currentTextWriter
+                = SoftSwitches._80COL.getState()
+                        ? page2
+                                ? text80Page2 : text80Page1
+                        : page2
+                                ? textPage2 : textPage1;
+        currentGraphicsWriter
+                = SoftSwitches._80COL.getState() && SoftSwitches.DHIRES.getState()
+                        ? SoftSwitches.HIRES.getState()
+                                ? page2
+                                        ? dhiresPage2 : dhiresPage1
+                                : page2
+                                        ? dloresPage2 : dloresPage1
+                        : SoftSwitches.HIRES.getState()
+                                ? page2
+                                        ? hiresPage2 : hiresPage1
+                                : page2
+                                        ? loresPage2 : loresPage1;
         setCurrentWriter(
                 SoftSwitches.TEXT.getState() ? currentTextWriter
-                : SoftSwitches.MIXED.getState() ? mixed
-                : currentGraphicsWriter);
+                        : SoftSwitches.MIXED.getState() ? mixed
+                                : currentGraphicsWriter);
         hiresMode = !SoftSwitches.DHIRES.getState();
     }
 
-    protected void showDhgr(BufferedImage screen, int xOffset, int y, int dhgrWord) {
+    protected void showDhgr(WritableImage screen, int xOffset, int y, int dhgrWord) {
         //Graphics2D g = (Graphics2D) screen.getGraphics();
-        DataBuffer b = screen.getRaster().getDataBuffer();
-        int yOffset = xyOffset[y][xOffset];
+        int x = xOffset * 7;
+        PixelWriter writer = screen.getPixelWriter();
         try {
             for (int i = 0; i < 7; i++) {
-                int color = Palette.color[flipNybble[dhgrWord & 15]].getRGB();
-                b.setElem(yOffset++, color);
-                b.setElem(yOffset++, color);
-                b.setElem(yOffset++, color);
-                b.setElem(yOffset++, color);
+                Color color = Palette.color[flipNybble[dhgrWord & 15]];
+                writer.setColor(x++, y, color);
+                writer.setColor(x++, y, color);
+                writer.setColor(x++, y, color);
+                writer.setColor(x++, y, color);
                 dhgrWord >>= 4;
             }
         } catch (ArrayIndexOutOfBoundsException ex) {
             Logger.getLogger(getClass().getName()).warning("Went out of bounds in video display");
         }
     }
-    static final int BLACK = Color.BLACK.getRGB();
-    static final int WHITE = Color.WHITE.getRGB();
+    static final Color BLACK = Color.BLACK;
+    static final Color WHITE = Color.WHITE;
     static final int[][] xyOffset;
 
     static {
@@ -641,21 +640,20 @@ public class VideoDHGR extends Video {
         }
     }
 
-    protected void showBW(BufferedImage screen, int xOffset, int y, int dhgrWord) {
+    protected void showBW(WritableImage screen, int xOffset, int y, int dhgrWord) {
         int color = 0;
         // Using the data buffer directly is about 15 times faster than setRGB
         // This is because setRGB does extra (useless) color model logic
         // For that matter even Graphics.drawLine is faster than setRGB!
-        DataBuffer b = screen.getRaster().getDataBuffer();
         // This is equivilant to y*560 but is 5% faster
         // Also, adding xOffset now makes it additionally 5% faster
         //int yOffset = ((y << 4) + (y << 5) + (y << 9))+xOffset;
 
-        //is this lookup faster?
-        int yOffset = xyOffset[y][xOffset];
+        int x = xOffset * 7;
+        PixelWriter writer = screen.getPixelWriter();
         for (int i = 0; i < 28; i++) {
             // yOffset++ is used instead of yOffset+i, because it is faster
-            b.setElem(yOffset++, (dhgrWord & 1) == 1 ? WHITE : BLACK);
+            writer.setColor(x++, y, (dhgrWord & 1) == 1 ? WHITE : BLACK);
             dhgrWord >>= 1;
         }
     }
@@ -742,7 +740,7 @@ public class VideoDHGR extends Video {
     }
 
     @Override
-    public void hblankStart(BufferedImage screen, int y, boolean isDirty) {
+    public void hblankStart(WritableImage screen, int y, boolean isDirty) {
         // Do nothing
     }
 }

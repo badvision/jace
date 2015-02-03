@@ -349,7 +349,7 @@ public class CardAppleMouse extends Card implements MouseListener {
      */
     private void initMouse() {
         mouseActive.setDescription("Active");
-        Emulator.getFrame().addIndicator(this, mouseActive, 2000);
+//        Emulator.getFrame().addIndicator(this, mouseActive, 2000);
         setClampWindowX(0, 0x3ff);
         setClampWindowY(0, 0x3ff);
         clearMouse();
@@ -463,31 +463,32 @@ public class CardAppleMouse extends Card implements MouseListener {
         if (drawingArea == null) {
             return;
         }
-        Graphics2D screen = (Graphics2D) computer.getVideo().getScreen();
+//        Graphics2D screen = (Graphics2D) computer.getVideo().getScreen();
 //        Point currentMouseLocation = MouseInfo.getPointerInfo().getLocation();
 //        Point topLeft = drawingArea.getLocationOnScreen();
-        Point currentMouseLocation = Emulator.getFrame().getContentPane().getMousePosition();
-        if (currentMouseLocation == null) return;
+        Point currentMouseLocation = null; //        = Emulator.getFrame().getContentPane().getMousePosition();
+//        if (currentMouseLocation == null) return;
 //        Point topLeft = drawingArea.getLocationOnScreen();
         Point topLeft = new Point(0,0);
 
         Dimension d = drawingArea.getBounds().getSize();
-        if (screen.getTransform() != null) {
-            d = new Dimension((int) (screen.getTransform().getScaleX() * d.width),
-                    (int) (screen.getTransform().getScaleY() * d.height));
-            topLeft.x += screen.getTransform().getTranslateX();
-            topLeft.y += screen.getTransform().getTranslateY();
-        }
+//        if (screen.getTransform() != null) {
+//            d = new Dimension((int) (screen.getTransform().getScaleX() * d.width),
+//                    (int) (screen.getTransform().getScaleY() * d.height));
+//            topLeft.x += screen.getTransform().getTranslateX();
+//            topLeft.y += screen.getTransform().getTranslateY();
+//        }
         if (fullscreenFix) {
-            if (Emulator.getFrame().isFullscreenActive()) {
-                Toolkit t = Toolkit.getDefaultToolkit();
-                topLeft.y -= t.getScreenInsets(GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration()).top;
-            }
+//            if (Emulator.getFrame().isFullscreenActive()) {
+//                Toolkit t = Toolkit.getDefaultToolkit();
+//                topLeft.y -= t.getScreenInsets(GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration()).top;
+//            }
         }
 
         // Scale X and Y to the clamping range of the mouse (will this work for most software?)
         double width = clampMax.x - clampMin.x;
-        double x = currentMouseLocation.getX() - topLeft.x;
+        double x = 0;
+//        double x = currentMouseLocation.getX() - topLeft.x;
         x *= width;
         x /= d.width;
         x += clampMin.x;
@@ -499,7 +500,8 @@ public class CardAppleMouse extends Card implements MouseListener {
         }
 
         double height = clampMax.y - clampMin.y;
-        double y = currentMouseLocation.getY() - topLeft.y;
+        double y = 0;
+//        double y = currentMouseLocation.getY() - topLeft.y;
         y *= height;
         y /= d.height;
         y += clampMin.y;

@@ -37,6 +37,8 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
 
 /**
  *
@@ -334,12 +336,9 @@ public class StateManager implements Reconfigurable {
         stateCount++;
     }
 
-    private BufferedImage getScreenshot() {
-        BufferedImage screen = computer.getVideo().getFrameBuffer();
-        ColorModel cm = screen.getColorModel();
-        boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
-        WritableRaster raster = screen.copyData(null);
-        return new BufferedImage(cm, raster, isAlphaPremultiplied, null);
+    private Image getScreenshot() {
+        Image screen = computer.getVideo().getFrameBuffer();
+        return new WritableImage(screen.getPixelReader(), (int) screen.getWidth(), (int) screen.getHeight());
     }
 
     private State captureAlphaState() {

@@ -243,11 +243,11 @@ public class MediaLibraryUI extends javax.swing.JPanel {
             return;
         }
         System.out.println(getSelectedEntry().name);
-        Emulator.getFrame().registerModalDialog(
-                MediaLibrary.getInstance().buildEditInstance(this, getSelectedEntry()),
-                MEDIA_MANAGER_EDIT_DIALOG_NAME,
-                MEDIA_MANAGER_DIALOG_NAME, true);
-        Emulator.getFrame().showDialog(MEDIA_MANAGER_EDIT_DIALOG_NAME);
+//        Emulator.getFrame().registerModalDialog(
+//                MediaLibrary.getInstance().buildEditInstance(this, getSelectedEntry()),
+//                MEDIA_MANAGER_EDIT_DIALOG_NAME,
+//                MEDIA_MANAGER_DIALOG_NAME, true);
+//        Emulator.getFrame().showDialog(MEDIA_MANAGER_EDIT_DIALOG_NAME);
     }//GEN-LAST:event_ViewEditActionPerformed
 
     private void RemoveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_RemoveActionPerformed
@@ -264,11 +264,11 @@ public class MediaLibraryUI extends javax.swing.JPanel {
     }//GEN-LAST:event_RemoveActionPerformed
 
     private void CreateNewActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CreateNewActionPerformed
-        Emulator.getFrame().registerModalDialog(
-                MediaLibrary.getInstance().buildEditInstance(this, null),
-                MEDIA_MANAGER_EDIT_DIALOG_NAME,
-                MEDIA_MANAGER_DIALOG_NAME, true);
-        Emulator.getFrame().showDialog(MEDIA_MANAGER_EDIT_DIALOG_NAME);
+//        Emulator.getFrame().registerModalDialog(
+//                MediaLibrary.getInstance().buildEditInstance(this, null),
+//                MEDIA_MANAGER_EDIT_DIALOG_NAME,
+//                MEDIA_MANAGER_DIALOG_NAME, true);
+//        Emulator.getFrame().showDialog(MEDIA_MANAGER_EDIT_DIALOG_NAME);
     }//GEN-LAST:event_CreateNewActionPerformed
 
     private void FavoriteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_FavoriteActionPerformed

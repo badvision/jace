@@ -96,13 +96,13 @@ public class Utility {
                     try {
                         // Try to create an instance of the object
                         String className = pckgname + "." + classname;
-//                        System.out.println("Class: " + className);
+                        System.out.println("Class: " + className);
                         Class c = Class.forName(className);
                         if (clazz.isAssignableFrom(c)) {
                             output.add(c);
                         }
-                    } catch (ClassNotFoundException cnfex) {
-                        System.err.println(cnfex);
+                    } catch (Throwable ex) {
+                        System.err.println(ex);
                     }
                 } else {
 //                    System.out.println("Skipping non class: " + filename);
@@ -284,7 +284,7 @@ public class Utility {
     }
 
     public static void runModalProcess(String title, final Runnable runnable) {
-        final JDialog frame = new JDialog(Emulator.getFrame());
+//        final JDialog frame = new JDialog(Emulator.getFrame());
         final JProgressBar progressBar = new JProgressBar();
         progressBar.setIndeterminate(true);
         final JPanel contentPane = new JPanel();
@@ -292,16 +292,16 @@ public class Utility {
         contentPane.setLayout(new BorderLayout());
         contentPane.add(new JLabel(title), BorderLayout.NORTH);
         contentPane.add(progressBar, BorderLayout.CENTER);
-        frame.setContentPane(contentPane);
-        frame.pack();
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
-
-        new Thread(() -> {
-            runnable.run();
-            frame.setVisible(false);
-            frame.dispose();
-        }).start();
+//        frame.setContentPane(contentPane);
+//        frame.pack();
+//        frame.setLocationRelativeTo(null);
+//        frame.setVisible(true);
+//
+//        new Thread(() -> {
+//            runnable.run();
+//            frame.setVisible(false);
+//            frame.dispose();
+//        }).start();
     }
 
     public static class RankingComparator implements Comparator<String> {
@@ -399,7 +399,7 @@ public class Utility {
 
     public static void gripe(final String message) {
         EventQueue.invokeLater(() -> {
-            JOptionPane.showMessageDialog(Emulator.getFrame(), message, "Error", JOptionPane.ERROR_MESSAGE);
+//            JOptionPane.showMessageDialog(Emulator.getFrame(), message, "Error", JOptionPane.ERROR_MESSAGE);
         });
     }
 

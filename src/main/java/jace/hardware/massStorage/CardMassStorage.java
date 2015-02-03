@@ -159,7 +159,7 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
         MOS65C02 cpu = (MOS65C02) computer.getCpu();
 //                System.out.println(e.getType()+" "+Integer.toHexString(e.getAddress())+" from instruction at  "+Integer.toHexString(cpu.getProgramCounter()));
         if (type.isRead()) {
-            Emulator.getFrame().addIndicator(this, currentDrive.getIcon());
+//            Emulator.getFrame().addIndicator(this, currentDrive.getIcon());
             if (drive1.getCurrentDisk() == null && drive2.getCurrentDisk() == null) {
                 e.setNewValue(0);
                 return;

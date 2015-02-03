@@ -92,7 +92,7 @@ public class CardRamFactor extends Card {
 
     @Override
     protected void handleIOAccess(int register, TYPE type, int value, RAMEvent e) {
-        Emulator.getFrame().addIndicator(this, indicator);
+//        Emulator.getFrame().addIndicator(this, indicator);
         value &= 0x0ff;
         switch (register) {
             case 0:

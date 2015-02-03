@@ -18,11 +18,11 @@
  */
 package jace.state;
 
-import java.awt.image.BufferedImage;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import javafx.scene.image.Image;
 
 /**
  * A state is nothing more than a map of captured variable values, except that a
@@ -40,7 +40,7 @@ public class State extends HashMap<ObjectGraphNode, StateValue> implements Seria
     State nextState;
     // Tail is only correct on the head node, everything else will likely be null
     State tail;
-    BufferedImage screenshot;
+    Image screenshot;
 
     /**
      * Removing the next state allows a LRU buffer of states -- but states can't

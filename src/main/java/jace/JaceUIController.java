@@ -6,11 +6,11 @@
 
 package jace;
 
+import jace.core.Video;
 import javafx.scene.canvas.Canvas;
-import java.net.URL;
 import java.util.ResourceBundle;
 import javafx.fxml.FXML;
-import javafx.fxml.Initializable;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.Region;
 
 /**
@@ -22,17 +22,19 @@ public class JaceUIController {
     private ResourceBundle resources;
 
     @FXML
-    private Canvas displayCanvas;
-
-    @FXML
     private Region notificationRegion;
+    
+    @FXML
+    private ImageView appleScreen;
 
     
     @FXML
     public void initialize() {
-        assert displayCanvas != null : "fx:id=\"displayCanvas\" was not injected: check your FXML file 'JaceUI.fxml'.";
         assert notificationRegion != null : "fx:id=\"notificationRegion\" was not injected: check your FXML file 'JaceUI.fxml'.";
+        assert appleScreen != null : "fx:id=\"appleScreen\" was not injected: check your FXML file 'JaceUI.fxml'.";
     }
-
     
+    public void connectScreen(Video video) {
+        appleScreen.setImage(video.getFrameBuffer());
+    }
 }

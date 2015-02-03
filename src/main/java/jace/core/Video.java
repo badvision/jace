@@ -22,8 +22,8 @@ import jace.state.Stateful;
 import jace.Emulator;
 import jace.config.ConfigurableField;
 import jace.config.InvokableAction;
-import java.awt.Graphics;
-import java.awt.image.BufferedImage;
+import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
 
 /**
  * Generic abstraction of a 560x192 video output device which renders 40 columns
@@ -38,9 +38,9 @@ import java.awt.image.BufferedImage;
 public abstract class Video extends Device {
 
     @Stateful
-    BufferedImage video;
+    WritableImage video;
+    WritableImage visible;
     VideoWriter currentWriter;
-    Graphics screen;
     private byte floatingBus = 0;
     private int width = 560;
     private int height = 192;
@@ -94,7 +94,8 @@ public abstract class Video extends Device {
     public Video(Computer computer) {
         super(computer);
         suspend();
-        video = new BufferedImage(560, 192, BufferedImage.TYPE_INT_RGB);
+        video = new WritableImage(560, 192);
+        visible = new WritableImage(560, 192);
         vPeriod = 0;
         hPeriod = 0;
         forceRefresh();
@@ -116,15 +117,6 @@ public abstract class Video extends Device {
         return height;
     }
 
-    public void setScreen(Graphics g) {
-        screen = g;
-
-    }
-
-    public Graphics getScreen() {
-        return screen;
-    }
-
     public VideoWriter getCurrentWriter() {
         return currentWriter;
     }
@@ -139,14 +131,14 @@ public abstract class Video extends Device {
     public static int MIN_SCREEN_REFRESH = 15;
 
     public void redraw() {
-        if (screen == null || video == null) {
-            return;
-        }
         screenDirty = false;
-        screen.drawImage(video, 0, 0, width, height, null);
-        if (Emulator.getFrame() != null) {
-            Emulator.getFrame().repaintIndicators();
-        }
+        javafx.application.Platform.runLater(() -> {
+            visible.getPixelWriter().setPixels(0, 0, 560, 192, video.getPixelReader(), 0, 0);
+        });
+//        screen.drawImage(video, 0, 0, width, height, null);
+//        if (Emulator.getFrame() != null) {
+//            Emulator.getFrame().repaintIndicators();
+//        }
     }
 
     public void vblankStart() {
@@ -157,7 +149,7 @@ public abstract class Video extends Device {
 
     abstract public void vblankEnd();
 
-    abstract public void hblankStart(BufferedImage screen, int y, boolean isDirty);
+    abstract public void hblankStart(WritableImage screen, int y, boolean isDirty);
 
     public void setScannerLocation(int loc) {
         scannerAddress = loc;
@@ -294,7 +286,7 @@ public abstract class Video extends Device {
         return "vid";
     }
 
-    public BufferedImage getFrameBuffer() {
-        return video;
+    public Image getFrameBuffer() {
+        return visible;
     }
 }

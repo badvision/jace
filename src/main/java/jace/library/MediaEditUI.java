@@ -287,7 +287,7 @@ public class MediaEditUI extends javax.swing.JPanel {
     private void SaveButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SaveButtonActionPerformed
         persist();
         library.refreshUI();
-        Emulator.getFrame().closeDialog(MEDIA_MANAGER_EDIT_DIALOG_NAME);
+//        Emulator.getFrame().closeDialog(MEDIA_MANAGER_EDIT_DIALOG_NAME);
     }//GEN-LAST:event_SaveButtonActionPerformed
 
     /**
@@ -310,7 +310,7 @@ public class MediaEditUI extends javax.swing.JPanel {
 
     private void CancellationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CancellationButtonActionPerformed
         if (EmulatorUILogic.confirm("Abandon unsaved changes?  Are you sure?")) {
-            Emulator.getFrame().closeDialog(MEDIA_MANAGER_EDIT_DIALOG_NAME);
+//            Emulator.getFrame().closeDialog(MEDIA_MANAGER_EDIT_DIALOG_NAME);
         }
     }//GEN-LAST:event_CancellationButtonActionPerformed
 

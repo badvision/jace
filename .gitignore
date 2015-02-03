@@ -12,3 +12,4 @@
 hs_err_pid*
 /jace/nbproject/private/
 /jace/target/
+*.jace.conf

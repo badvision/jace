@@ -77,9 +77,9 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
         currentDrive = drive1;
         drive1.reset();
         drive2.reset();
-        if (Emulator.getFrame() != null) {
-            Emulator.getFrame().removeIndicators(this);
-        }
+//        if (Emulator.getFrame() != null) {
+//            Emulator.getFrame().removeIndicators(this);
+//        }
 //        Motherboard.cancelSpeedRequest(this);
     }
 
@@ -108,7 +108,7 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
             case 0x9:
                 // drive on
                 currentDrive.setOn(true);
-                Emulator.getFrame().addIndicator(this, currentDrive.getIcon());
+//                Emulator.getFrame().addIndicator(this, currentDrive.getIcon());
                 break;
 
             case 0xA:

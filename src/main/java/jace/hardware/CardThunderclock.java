@@ -157,7 +157,7 @@ public class CardThunderclock extends Card {
                 clockIcon.setDescription("Slot " + getSlot());
                 long now = System.currentTimeMillis();
                 if ((now - lastShownIcon) > MIN_WAIT) {
-                    Emulator.getFrame().addIndicator(this, clockIcon, 3000);
+//                    Emulator.getFrame().addIndicator(this, clockIcon, 3000);
                 }
                 lastShownIcon = now;
             }
@@ -325,6 +325,6 @@ public class CardThunderclock extends Card {
         ram.writeByte(patchLoc + 1, (byte) year);
         ram.writeByte(patchLoc + 2, (byte) MOS65C02.OPCODE.NOP.getCode());
         ram.writeByte(patchLoc + 3, (byte) MOS65C02.OPCODE.NOP.getCode());
-        Emulator.getFrame().addIndicator(this, clockFixIcon, 4000);
+//        Emulator.getFrame().addIndicator(this, clockFixIcon, 4000);
     }
 }

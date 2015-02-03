@@ -276,7 +276,7 @@ public abstract class AbstractEmulatorFrame extends javax.swing.JFrame implement
             computer.getVideo().setWidth(width1);
             computer.getVideo().setHeight(height1);
             if (!isFullscreen || !fullscreenEnforceRatio) {
-                computer.getVideo().setScreen(getScreenGraphics());
+//                computer.getVideo().setScreen(getScreenGraphics());
             }
             computer.getVideo().forceRefresh();
             screen.validate();
@@ -333,7 +333,7 @@ public abstract class AbstractEmulatorFrame extends javax.swing.JFrame implement
                         g.fill(getBounds());
                         Graphics2D gg = (Graphics2D) g.create(b.x, b.y, b.width, b.height);
                         gg.scale((double) b.width / (double) sw, (double) b.height / (double) sh);
-                        computer.getVideo().setScreen(gg);
+//                        computer.getVideo().setScreen(gg);
                         computer.getVideo().resume();
                         computer.resume();
                     } else {

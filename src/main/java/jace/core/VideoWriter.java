@@ -18,7 +18,7 @@
  */
 package jace.core;
 
-import java.awt.image.BufferedImage;
+import javafx.scene.image.WritableImage;
 
 /**
  * VideoWriter is an abstraction of a graphics display mode that knows how to
@@ -32,7 +32,7 @@ import java.awt.image.BufferedImage;
  */
 public abstract class VideoWriter {
 
-    public abstract void displayByte(BufferedImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset);
+    public abstract void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset);
 
     // This is used to support composite mixed-mode writers so that we can talk to the writer being used for a scanline
     public VideoWriter actualWriter() {

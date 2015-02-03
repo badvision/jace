@@ -33,6 +33,7 @@ import jace.library.MediaLibrary;
 import jace.ui.AbstractEmulatorFrame;
 import jace.ui.DebuggerPanel;
 import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.HeadlessException;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -44,6 +45,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
 import javax.imageio.ImageIO;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -75,22 +79,22 @@ public class EmulatorUILogic {
     }
 
     public static void updateCPURegisters(MOS65C02 cpu) {
-        DebuggerPanel debuggerPanel = Emulator.getFrame().getDebuggerPanel();
-        debuggerPanel.valueA.setText(Integer.toHexString(cpu.A));
-        debuggerPanel.valueX.setText(Integer.toHexString(cpu.X));
-        debuggerPanel.valueY.setText(Integer.toHexString(cpu.Y));
-        debuggerPanel.valuePC.setText(Integer.toHexString(cpu.getProgramCounter()));
-        debuggerPanel.valueSP.setText(Integer.toHexString(cpu.getSTACK()));
-        debuggerPanel.valuePC2.setText(cpu.getFlags());
-        debuggerPanel.valueINST.setText(cpu.disassemble());
+//        DebuggerPanel debuggerPanel = Emulator.getFrame().getDebuggerPanel();
+//        debuggerPanel.valueA.setText(Integer.toHexString(cpu.A));
+//        debuggerPanel.valueX.setText(Integer.toHexString(cpu.X));
+//        debuggerPanel.valueY.setText(Integer.toHexString(cpu.Y));
+//        debuggerPanel.valuePC.setText(Integer.toHexString(cpu.getProgramCounter()));
+//        debuggerPanel.valueSP.setText(Integer.toHexString(cpu.getSTACK()));
+//        debuggerPanel.valuePC2.setText(cpu.getFlags());
+//        debuggerPanel.valueINST.setText(cpu.disassemble());
     }
 
     public static void enableDebug(boolean b) {
-        DebuggerPanel debuggerPanel = Emulator.getFrame().getDebuggerPanel();
-        debugger.setActive(b);
-        debuggerPanel.enableDebug.setSelected(b);
-        debuggerPanel.setBackground(
-                b ? Color.RED : new Color(0, 0, 0x040));
+//        DebuggerPanel debuggerPanel = Emulator.getFrame().getDebuggerPanel();
+//        debugger.setActive(b);
+//        debuggerPanel.enableDebug.setSelected(b);
+//        debuggerPanel.setBackground(
+//                b ? Color.RED : new Color(0, 0, 0x040));
     }
 
     public static void enableTrace(boolean b) {
@@ -187,13 +191,13 @@ public class EmulatorUILogic {
 
     @InvokableAction(
             name = "BRUN file",
-    category = "file",
-    description = "Loads a binary file in memory and executes it. File should end with #06xxxx, where xxxx is the start address in hex",
-    alternatives = "Execute program;Load binary;Load program;Load rom;Play single-load game")
+            category = "file",
+            description = "Loads a binary file in memory and executes it. File should end with #06xxxx, where xxxx is the start address in hex",
+            alternatives = "Execute program;Load binary;Load program;Load rom;Play single-load game")
     public static void runFile() {
         Emulator.computer.pause();
         JFileChooser select = new JFileChooser();
-        select.showDialog(Emulator.getFrame(), "Execute binary file");
+//        select.showDialog(Emulator.getFrame(), "Execute binary file");
         File binary = select.getSelectedFile();
         if (binary == null) {
             Emulator.computer.resume();
@@ -237,49 +241,49 @@ public class EmulatorUILogic {
 
     @InvokableAction(
             name = "Adjust display",
-    category = "display",
-    description = "Adjusts window size to 1:1 aspect ratio for optimal viewing.",
-    alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;")
+            category = "display",
+            description = "Adjusts window size to 1:1 aspect ratio for optimal viewing.",
+            alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;")
     static public void scaleIntegerRatio() {
-        AbstractEmulatorFrame frame = Emulator.getFrame();
-        if (frame == null) {
-            return;
-        }
-        Emulator.computer.pause();
-        frame.enforceIntegerRatio();
-        Emulator.computer.resume();
+//        AbstractEmulatorFrame frame = Emulator.getFrame();
+//        if (frame == null) {
+//            return;
+//        }
+//        Emulator.computer.pause();
+//        frame.enforceIntegerRatio();
+//        Emulator.computer.resume();
     }
 
     @InvokableAction(
             name = "Toggle Debug",
-    category = "debug",
-    description = "Show/hide the debug panel",
-    alternatives = "Show Debug;Hide Debug")
+            category = "debug",
+            description = "Show/hide the debug panel",
+            alternatives = "Show Debug;Hide Debug")
     public static void toggleDebugPanel() {
-        AbstractEmulatorFrame frame = Emulator.getFrame();
-        if (frame == null) {
-            return;
-        }
-        frame.setShowDebug(!frame.isShowDebug());
-        frame.reconfigure();
-        Emulator.resizeVideo();
+//        AbstractEmulatorFrame frame = Emulator.getFrame();
+//        if (frame == null) {
+//            return;
+//        }
+//        frame.setShowDebug(!frame.isShowDebug());
+//        frame.reconfigure();
+//        Emulator.resizeVideo();
     }
 
     public static void toggleFullscreen() {
-        AbstractEmulatorFrame frame = Emulator.getFrame();
-        if (frame == null) {
-            return;
-        }
-        Emulator.computer.pause();
-        frame.toggleFullscreen();
-        Emulator.computer.resume();
+//        AbstractEmulatorFrame frame = Emulator.getFrame();
+//        if (frame == null) {
+//            return;
+//        }
+//        Emulator.computer.pause();
+//        frame.toggleFullscreen();
+//        Emulator.computer.resume();
     }
 
     @InvokableAction(
             name = "Save Raw Screenshot",
-    category = "general",
-    description = "Save raw (RAM) format of visible screen",
-    alternatives = "screendump, raw screenshot")
+            category = "general",
+            description = "Save raw (RAM) format of visible screen",
+            alternatives = "screendump, raw screenshot")
     public static void saveScreenshotRaw() throws FileNotFoundException, IOException {
         SimpleDateFormat df = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
         String timestamp = df.format(new Date());
@@ -317,16 +321,15 @@ public class EmulatorUILogic {
 
     @InvokableAction(
             name = "Save Screenshot",
-    category = "general",
-    description = "Save image of visible screen",
-    alternatives = "Save image,save framebuffer,screenshot")
+            category = "general",
+            description = "Save image of visible screen",
+            alternatives = "Save image,save framebuffer,screenshot")
     public static void saveScreenshot() throws HeadlessException, IOException {
         JFileChooser select = new JFileChooser();
         Emulator.computer.pause();
-        BufferedImage i = Emulator.computer.getVideo().getFrameBuffer();
-        BufferedImage j = new BufferedImage(i.getWidth(), i.getHeight(), i.getType());
-        j.getGraphics().drawImage(i, 0, 0, null);
-        select.showSaveDialog(Emulator.getFrame());
+        Image i = Emulator.computer.getVideo().getFrameBuffer();
+        BufferedImage bufImageARGB = SwingFXUtils.fromFXImage(i, null);
+//        select.showSaveDialog(Emulator.getFrame());
         File targetFile = select.getSelectedFile();
         if (targetFile == null) {
             return;
@@ -334,38 +337,47 @@ public class EmulatorUILogic {
         String filename = targetFile.getName();
         System.out.println("Writing screenshot to " + filename);
         String extension = filename.substring(filename.lastIndexOf(".") + 1);
-        ImageIO.write(j, extension, targetFile);
+        BufferedImage bufImageRGB = new BufferedImage(bufImageARGB.getWidth(), bufImageARGB.getHeight(), BufferedImage.OPAQUE);
+
+        Graphics2D graphics = bufImageRGB.createGraphics();
+        graphics.drawImage(bufImageARGB, 0, 0, null);
+
+        ImageIO.write(bufImageRGB, extension, targetFile);
+        graphics.dispose();
     }
 
     public static final String CONFIGURATION_DIALOG_NAME = "Configuration";
+
     @InvokableAction(
             name = "Configuration",
-    category = "general",
-    description = "Edit emulator configuraion",
-    alternatives = "Reconfigure,Preferences,Settings")
+            category = "general",
+            description = "Edit emulator configuraion",
+            alternatives = "Reconfigure,Preferences,Settings")
     public static void showConfig() {
-        if (Emulator.getFrame().getModalDialogUI(CONFIGURATION_DIALOG_NAME) == null) {
-            JPanel ui = new ConfigurationPanel();
-            Emulator.getFrame().registerModalDialog(ui, CONFIGURATION_DIALOG_NAME, null, false);            
-        }
-        Emulator.getFrame().showDialog(CONFIGURATION_DIALOG_NAME);
+//        if (Emulator.getFrame().getModalDialogUI(CONFIGURATION_DIALOG_NAME) == null) {
+//            JPanel ui = new ConfigurationPanel();
+//            Emulator.getFrame().registerModalDialog(ui, CONFIGURATION_DIALOG_NAME, null, false);
+//        }
+//        Emulator.getFrame().showDialog(CONFIGURATION_DIALOG_NAME);
     }
 
     public static final String MEDIA_MANAGER_DIALOG_NAME = "Media Manager";
     public static final String MEDIA_MANAGER_EDIT_DIALOG_NAME = "Media Details";
+
     @InvokableAction(
             name = "Media Manager",
-    category = "general",
-    description = "Show the media manager",
-    alternatives = "Insert disk;Eject disk;Browse;Download;Select")
+            category = "general",
+            description = "Show the media manager",
+            alternatives = "Insert disk;Eject disk;Browse;Download;Select")
     public static void showMediaManager() {
-        if (Emulator.getFrame().getModalDialogUI(MEDIA_MANAGER_DIALOG_NAME) == null) {
-            Emulator.getFrame().registerModalDialog(MediaLibrary.getInstance().buildUserInterface(), MEDIA_MANAGER_DIALOG_NAME, null, false);            
-        }
-        Emulator.getFrame().showDialog(MEDIA_MANAGER_DIALOG_NAME);
+//        if (Emulator.getFrame().getModalDialogUI(MEDIA_MANAGER_DIALOG_NAME) == null) {
+//            Emulator.getFrame().registerModalDialog(MediaLibrary.getInstance().buildUserInterface(), MEDIA_MANAGER_DIALOG_NAME, null, false);
+//        }
+//        Emulator.getFrame().showDialog(MEDIA_MANAGER_DIALOG_NAME);
     }
 
     public static boolean confirm(String message) {
-        return JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(Emulator.getFrame(), message);
+//        return JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(Emulator.getFrame(), message);
+        return false;
     }
 }

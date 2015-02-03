@@ -23,24 +23,24 @@ import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.core.Video;
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
 import java.util.HashSet;
 import java.util.Set;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
 
 /**
  * Provides a clean color monitor simulation, complete with text-friendly
  * palette and mixed color/bw (mode 7) rendering. This class extends the
  * VideoDHGR class to provide all necessary video writers and other rendering
- * mechanics, and then overrides the actual output routines (showBW, showDhgr) with more suitable
- * (and much prettier) alternatives. Rather than draw to the video buffer every
- * cycle, rendered screen info is pushed into a buffer with mask bits (to
- * indicate B&W vs color) And the actual conversion happens at the end of the
- * scanline during the HBLANK period. This video rendering was inspired by
- * Blargg but was ultimately rewritten from scratch once the color palette was
- * implemented.
+ * mechanics, and then overrides the actual output routines (showBW, showDhgr)
+ * with more suitable (and much prettier) alternatives. Rather than draw to the
+ * video buffer every cycle, rendered screen info is pushed into a buffer with
+ * mask bits (to indicate B&W vs color) And the actual conversion happens at the
+ * end of the scanline during the HBLANK period. This video rendering was
+ * inspired by Blargg but was ultimately rewritten from scratch once the color
+ * palette was implemented.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class VideoNTSC extends VideoDHGR {
 
@@ -69,19 +69,21 @@ public class VideoNTSC extends VideoDHGR {
     }
 
     @Override
-    protected void showBW(BufferedImage screen, int xOffset, int y, int dhgrWord) {
+    protected void showBW(WritableImage screen, int xOffset, int y, int dhgrWord) {
         if (lastKnownY != y) {
             lastKnownY = y;
             pos = rowStart = divBy28[xOffset];
             colorActive = false;
         } else {
-             if (pos > 20) pos-=20;   
+            if (pos > 20) {
+                pos -= 20;
+            }
         }
         doDisplay(screen, xOffset, y, dhgrWord);
     }
 
     @Override
-    protected void showDhgr(BufferedImage screen, int xOffset, int y, int dhgrWord) {
+    protected void showDhgr(WritableImage screen, int xOffset, int y, int dhgrWord) {
         if (lastKnownY != y) {
             lastKnownY = y;
             pos = rowStart = divBy28[xOffset];
@@ -91,7 +93,7 @@ public class VideoNTSC extends VideoDHGR {
     }
 
     @Override
-    protected void displayLores(BufferedImage screen, int xOffset, int y, int rowAddress) {
+    protected void displayLores(WritableImage screen, int xOffset, int y, int rowAddress) {
         // Skip odd columns since this does two at once
         if ((xOffset & 0x01) == 1) {
             return;
@@ -119,14 +121,16 @@ public class VideoNTSC extends VideoDHGR {
         scanline[pos++] = pat;
     }
 
-    private void doDisplay(BufferedImage screen, int xOffset, int y, int dhgrWord) {
-        if (pos >= 20) pos -= 20;
+    private void doDisplay(WritableImage screen, int xOffset, int y, int dhgrWord) {
+        if (pos >= 20) {
+            pos -= 20;
+        }
         scanline[pos] = dhgrWord;
         pos++;
     }
 
     @Override
-    public void hblankStart(BufferedImage screen, int y, boolean isDirty) {
+    public void hblankStart(WritableImage screen, int y, boolean isDirty) {
         if (isDirty) {
             renderScanline(screen, y);
         }
@@ -146,14 +150,14 @@ public class VideoNTSC extends VideoDHGR {
         }
     }
 
-    private void renderScanline(BufferedImage screen, int y) {
-        DataBuffer b = screen.getRaster().getDataBuffer();
+    private void renderScanline(WritableImage screen, int y) {
+        PixelWriter writer = screen.getPixelWriter();
         try {
             // This is equivilant to y*560 but is 5% faster
             //int yOffset = ((y << 4) + (y << 5) + (y << 9))+xOffset;
 
             // For some reason this jumps up to 40 in the wayout title screen (?)
-            int p = pyOffset[y][rowStart];
+            int p = 0;
             if (rowStart > 0) {
                 getCurrentWriter().markDirty(y);
             }
@@ -185,9 +189,9 @@ public class VideoNTSC extends VideoDHGR {
                                 byteCounter++;
                             }
                             if (isBW) {
-                                b.setElem(p++, ((bits & 0x8) == 0) ? BLACK : WHITE);
+                                writer.setColor(p++, y, ((bits & 0x8) == 0) ? BLACK : WHITE);
                             } else {
-                                b.setElem(p++, activePalette[i % 4][bits & 0x07f]);
+                                writer.setArgb(p++, y, activePalette[i % 4][bits & 0x07f]);
                             }
                             bits >>= 1;
                             if (i == 20) {
@@ -196,7 +200,7 @@ public class VideoNTSC extends VideoDHGR {
                         }
                     } else {
                         for (int i = 0; i < 28; i++) {
-                            b.setElem(p++, activePalette[i % 4][bits & 0x07f]);
+                            writer.setArgb(p++, y, activePalette[i % 4][bits & 0x07f]);
                             bits >>= 1;
                             if (i == 20) {
                                 bits |= add << (hiresMode ? 9 : 10);
@@ -208,7 +212,7 @@ public class VideoNTSC extends VideoDHGR {
                 for (int s = rowStart; s < 20; s++) {
                     int bits = scanline[s];
                     for (int i = 0; i < 28; i++) {
-                        b.setElem(p++, ((bits & 1) == 0) ? BLACK : WHITE);
+                        writer.setColor(p++, y, ((bits & 1) == 0) ? BLACK : WHITE);
                         bits >>= 1;
                     }
                 }
@@ -265,8 +269,8 @@ public class VideoNTSC extends VideoDHGR {
                 }
                 double y1 = yiq[col][0];
                 double y2 = ((double) level / (double) maxLevel);
-                solidPalette[offset][pattern] = (255 << 24) | yiqToRgb(y1, yiq[col][1] * MAX_I, yiq[col][2] * MAX_Q);
-                textPalette[offset][pattern] = (255 << 24) | yiqToRgb(y2, yiq[col][1] * MAX_I, yiq[col][2] * MAX_Q);
+                solidPalette[offset][pattern] = yiqToRgb(y1, yiq[col][1] * MAX_I, yiq[col][2] * MAX_Q);
+                textPalette[offset][pattern] = yiqToRgb(y2, yiq[col][1] * MAX_I, yiq[col][2] * MAX_Q);
             }
         }
         // Avoid NPE just in case.
@@ -277,7 +281,7 @@ public class VideoNTSC extends VideoDHGR {
         int r = (int) (normalize((y + 0.956 * i + 0.621 * q), 0, 1) * 255);
         int g = (int) (normalize((y - 0.272 * i - 0.647 * q), 0, 1) * 255);
         int b = (int) (normalize((y - 1.105 * i + 1.702 * q), 0, 1) * 255);
-        return (r << 16) | (g << 8) | b;
+        return (255 << 24) | (r << 16) | (g << 8) | b;
     }
 
     public static double normalize(double x, double minX, double maxX) {

@@ -237,13 +237,11 @@ public class Apple2e extends Computer {
                 Graphics g = null;
                 if (getVideo() != null) {
                     getVideo().suspend();
-                    g = getVideo().getScreen();
                 }
                 try {
                     setVideo((Video) videoRenderer.getValue().getConstructor(Computer.class).newInstance(this));
                     getVideo().configureVideoMode();
                     getVideo().reconfigure();
-                    getVideo().setScreen(g);
                     Emulator.resizeVideo();
                     getVideo().resume();
                 } catch (InstantiationException | IllegalAccessException ex) {

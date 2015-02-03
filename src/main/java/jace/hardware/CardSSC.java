@@ -204,7 +204,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
                         newValue |= (PORT_CONNECTED && inputAvailable()) ? 0x00 : 0x01;
                     }
                     if (register == ACIA_Data) {
-                        Emulator.getFrame().addIndicator(this, activityIndicator);
+//                        Emulator.getFrame().addIndicator(this, activityIndicator);
                         newValue = getInputByte();
                         if (RECV_IRQ_ENABLED) {
                             triggerIRQ();
@@ -256,7 +256,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
                     break;
                 case WRITE:
                     if (register == ACIA_Data) {
-                        Emulator.getFrame().addIndicator(this, activityIndicator);
+//                        Emulator.getFrame().addIndicator(this, activityIndicator);
                         sendOutputByte(value & 0x0FF);
                         if (TRANS_IRQ_ENABLED) {
                             triggerIRQ();

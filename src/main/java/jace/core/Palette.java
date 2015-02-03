@@ -18,7 +18,7 @@
  */
 package jace.core;
 
-import java.awt.Color;
+import javafx.scene.paint.Color;
 
 /**
  * Fixed color palette -- only used for the older DHGR renderer (the new NTSC renderer uses its own YUV conversion and builds its own palettes)
@@ -37,21 +37,21 @@ public class Palette {
     static public Color[] color;
     static {
         color = new Color[16];
-        color[ 0] = new Color(  0,  0,  0);
-        color[ 1] = new Color(208,  0, 48);
-        color[ 2] = new Color(  0,  0,128);
-        color[ 3] = new Color(255,  0,255);
-        color[ 4] = new Color(  0,128,  0);
-        color[ 5] = new Color(128,128,128);
-        color[ 6] = new Color(  0,  0,255);
-        color[ 7] = new Color( 96,160,255);
-        color[ 8] = new Color(128, 80,  0);
-        color[ 9] = new Color(255,128,  0);
-        color[10] = new Color(192,192,192);
-        color[11] = new Color(255,144,128);
-        color[12] = new Color(  0,255,  0);
-        color[13] = new Color(255,255,  0);
-        color[14] = new Color( 64,255,144);
-        color[15] = new Color(255,255,255);
+        color[ 0] = new Color(  0,  0,  0, 1);
+        color[ 1] = new Color(208,  0, 48, 1);
+        color[ 2] = new Color(  0,  0,128, 1);
+        color[ 3] = new Color(255,  0,255, 1);
+        color[ 4] = new Color(  0,128,  0, 1);
+        color[ 5] = new Color(128,128,128, 1);
+        color[ 6] = new Color(  0,  0,255, 1);
+        color[ 7] = new Color( 96,160,255, 1);
+        color[ 8] = new Color(128, 80,  0, 1);
+        color[ 9] = new Color(255,128,  0, 1);
+        color[10] = new Color(192,192,192, 1);
+        color[11] = new Color(255,144,128, 1);
+        color[12] = new Color(  0,255,  0, 1);
+        color[13] = new Color(255,255,  0, 1);
+        color[14] = new Color( 64,255,144, 1);
+        color[15] = new Color(255,255,255, 1);
     }
 }

@@ -220,7 +220,6 @@ jace/apple2e/softswitch/IntC8SoftSwitch$1.class
 jace/config/ConfigurableField.class
 jace/core/Video.class
 jace/hardware/mockingboard/NoiseGenerator.class
-jace/Emulator$1.class
 jace/applesoft/Command$TOKEN.class
 jace/core/RAMEvent$VALUE.class
 jace/apple2e/softswitch/Memory2SoftSwitch.class
@@ -243,7 +242,6 @@ jace/cheat/MemorySpy$3.class
 jace/library/MediaEditUI$2.class
 jace/hardware/mockingboard/R6522.class
 jace/library/MediaCache.class
-jace/Emulator$2.class
 jace/apple2e/VideoNTSC$rgbMode.class
 jace/ConvertDiskImage.class
 jace/config/ClassSelection.class

@@ -31,6 +31,7 @@ public class JaceApplication extends Application {
         try {
             AnchorPane node = (AnchorPane) fxmlLoader.load();
             controller = fxmlLoader.getController();
+            controller.initialize();
             Scene s = new Scene(node);
             primaryStage.setScene(s);
         } catch (IOException exception) {
@@ -38,6 +39,13 @@ public class JaceApplication extends Application {
         }
         
         primaryStage.show();
+        Emulator e = new Emulator();
+        javafx.application.Platform.runLater(() -> {
+            while (Emulator.computer.getVideo() == null || Emulator.computer.getVideo().getFrameBuffer() == null) {
+                Thread.yield();
+            }
+            controller.connectScreen(Emulator.computer.getVideo());
+        });
     }
 
     /**
