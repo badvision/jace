@@ -121,6 +121,36 @@ public class VideoNTSC extends VideoDHGR {
         scanline[pos++] = pat;
     }
 
+    @Override
+    protected void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
+        if (lastKnownY != y) {
+            lastKnownY = y;
+            pos = rowStart = divBy28[xOffset];
+            colorActive = true;
+        }
+        int c1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        if ((y & 7) < 4) {
+            c1 &= 15;
+        } else {
+            c1 >>= 4;
+        }
+        int c2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        if ((y & 7) < 4) {
+            c2 &= 15;
+        } else {
+            c2 >>= 4;
+        }
+        if ((xOffset & 0x01) == 0) {
+            int pat = c1 | c1 << 4 | c2 << 8 | (c2 & 3) << 12;
+            scanline[pos] = pat;
+        } else {
+            int pat = scanline[pos];
+            pat |= (c1 & 12) << 12 | c1 << 16 | c2 << 20 | c2 << 24;
+            scanline[pos] = pat;
+            pos++;
+        }
+    }
+    
     private void doDisplay(WritableImage screen, int xOffset, int y, int dhgrWord) {
         if (pos >= 20) {
             pos -= 20;

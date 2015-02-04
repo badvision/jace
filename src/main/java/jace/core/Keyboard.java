@@ -177,6 +177,9 @@ public class Keyboard implements Reconfigurable {
             case KP_DOWN:
                 c = 10;
                 break;
+            case ESCAPE:
+                c = 27;
+                break;
             case TAB:
                 c = 9;
                 break;
@@ -187,10 +190,6 @@ public class Keyboard implements Reconfigurable {
                 c = 127;
                 break;
             default:
-                
-//                if (e.isControlDown()) {
-//                    c = (char) (c - 'A' + 1);
-//                }
         }
 
         if (c < 128) {

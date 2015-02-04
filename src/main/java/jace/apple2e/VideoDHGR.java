@@ -402,7 +402,7 @@ public class VideoDHGR extends Video {
         writer.setColor(x++, y, color);
     }
 
-    private void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
+    protected void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
         int c1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
         int c2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
