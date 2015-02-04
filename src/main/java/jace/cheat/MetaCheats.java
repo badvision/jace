@@ -24,7 +24,6 @@ import jace.core.KeyHandler;
 import jace.core.Keyboard;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +32,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javax.swing.table.DefaultTableModel;
 
 /**
@@ -200,7 +201,7 @@ public class MetaCheats extends Cheats {
             }
         });
         
-        Keyboard.registerKeyHandler(new KeyHandler(KeyEvent.VK_END) {
+        Keyboard.registerKeyHandler(new KeyHandler(KeyCode.END) {
             @Override
             public boolean handleKeyUp(KeyEvent e) {
                 showCheatForm();
@@ -212,7 +213,7 @@ public class MetaCheats extends Cheats {
                 return false;
             }
         }, this);
-        Keyboard.registerKeyHandler(new KeyHandler(KeyEvent.VK_HOME) {
+        Keyboard.registerKeyHandler(new KeyHandler(KeyCode.HOME) {
             @Override
             public boolean handleKeyUp(KeyEvent e) {
                 showMemorySpy();

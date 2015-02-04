@@ -27,8 +27,6 @@ import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.UnsupportedFlavorException;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.HashMap;
@@ -37,6 +35,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.event.EventHandler;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 
 /**
  * Keyboard manages all keyboard-related activities. For now, all hotkeys are
@@ -47,10 +48,13 @@ import java.util.logging.Logger;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Keyboard implements Reconfigurable {
+
     private Computer computer;
+
     public Keyboard(Computer computer) {
         this.computer = computer;
     }
+
     @Override
     public String getShortName() {
         return "kbd";
@@ -82,7 +86,7 @@ public class Keyboard implements Reconfigurable {
      */
     public Keyboard() {
     }
-    private static Map<Integer, Set<KeyHandler>> keyHandlersByKey = new HashMap<>();
+    private static Map<KeyCode, Set<KeyHandler>> keyHandlersByKey = new HashMap<>();
     private static Map<Object, Set<KeyHandler>> keyHandlersByOwner = new HashMap<>();
 
     public static void registerKeyHandler(KeyHandler l, Object owner) {
@@ -106,9 +110,9 @@ public class Keyboard implements Reconfigurable {
     }
 
     public static void processKeyDownEvents(KeyEvent e) {
-        if (keyHandlersByKey.containsKey(e.getKeyCode())) {
-            for (KeyHandler h : keyHandlersByKey.get(e.getKeyCode())) {
-                if (h.modifiers != e.getModifiers() && h.modifiers != -1) {
+        if (keyHandlersByKey.containsKey(e.getCode())) {
+            for (KeyHandler h : keyHandlersByKey.get(e.getCode())) {
+                if (!h.matchesModifiers(e)) {
                     continue;
                 }
                 boolean isHandled = h.handleKeyDown(e);
@@ -121,9 +125,9 @@ public class Keyboard implements Reconfigurable {
     }
 
     public static void processKeyUpEvents(KeyEvent e) {
-        if (keyHandlersByKey.containsKey(e.getKeyCode())) {
-            for (KeyHandler h : keyHandlersByKey.get(e.getKeyCode())) {
-                if (h.modifiers != e.getModifiers() && h.modifiers != -1) {
+        if (keyHandlersByKey.containsKey(e.getCode())) {
+            for (KeyHandler h : keyHandlersByKey.get(e.getCode())) {
+                if (!h.matchesModifiers(e)) {
                     continue;
                 }
                 boolean isHandled = h.handleKeyUp(e);
@@ -135,155 +139,157 @@ public class Keyboard implements Reconfigurable {
         }
     }
 
-    public KeyListener getListener() {
-        return new KeyListener() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-            }
-
-            @Override
-            public void keyPressed(KeyEvent e) {
-                processKeyDownEvents(e);
-                if (e.getKeyCode() == 0 || e.isConsumed()) {
-                    return;
-                }
-
-                KeyboardSoftSwitch key =
-                        (KeyboardSoftSwitch) SoftSwitches.KEYBOARD.getSwitch();
-                char c = e.getKeyChar();
-                if ((e.getModifiers() & (KeyEvent.ALT_MASK|KeyEvent.META_MASK|KeyEvent.META_DOWN_MASK)) > 0) {
-                    // explicit left and right here because other locations
-                    // can be sent as well, e.g. KEY_LOCATION_STANDARD
-                    if (e.getKeyLocation() == KeyEvent.KEY_LOCATION_LEFT) {
-                        pressOpenApple();
-                    } else if (e.getKeyLocation() == KeyEvent.KEY_LOCATION_RIGHT) {
-                        pressSolidApple();
-                    }
-                }
-
-                int code = e.getKeyCode();
-
-                switch (code) {
-                    case KeyEvent.VK_LEFT:
-                    case KeyEvent.VK_KP_LEFT:
-                        c = 8;
-                        break;
-                    case KeyEvent.VK_RIGHT:
-                    case KeyEvent.VK_KP_RIGHT:
-                        c = 21;
-                        break;
-                    case KeyEvent.VK_UP:
-                    case KeyEvent.VK_KP_UP:
-                        c = 11;
-                        break;
-                    case KeyEvent.VK_DOWN:
-                    case KeyEvent.VK_KP_DOWN:
-                        c = 10;
-                        break;
-                    case KeyEvent.VK_TAB:
-                        c = 9;
-                        break;
-                    case KeyEvent.VK_ENTER:
-                        c = 13;
-                        break;
-                    case KeyEvent.VK_BACK_SPACE:
-                        c = 127;
-                        break;
-                    default:
-                        if ((e.getModifiers() & KeyEvent.CTRL_DOWN_MASK) > 0) {
-                            c = (char) (code - 'A' + 1);
-                        }
-                }
-
-                if (c < 128) {
-                    pressKey((byte) c);
-                }
-
-//                e.consume();
-            }
-
-            @Override
-            public void keyReleased(KeyEvent e) {
-                int code = e.getKeyCode();
-                processKeyUpEvents(e);
-                if (code == 0 || e.isConsumed()) {
-                    return;
-                }
-                if (code == KeyEvent.VK_INSERT && e.isShiftDown()) {
-                    doPaste();
-                }
-                if (code == KeyEvent.VK_F10) {
-                    EmulatorUILogic.toggleDebugPanel();
-                }
-                if ((code == KeyEvent.VK_F12 || code == KeyEvent.VK_PAGE_UP || code == KeyEvent.VK_BACK_SPACE || code == KeyEvent.VK_PAUSE) && ((e.getModifiers() & KeyEvent.CTRL_MASK) > 0)) {
-                    computer.warmStart();
-                }
-                if (code == KeyEvent.VK_F1) {
-                    EmulatorUILogic.showMediaManager();
-                }
-                if (code == KeyEvent.VK_F4) {
-                    EmulatorUILogic.showConfig();
-                }
-                if (code == KeyEvent.VK_F7) {
-                    Speaker.toggleFileOutput();
-                }
-                if (code == KeyEvent.VK_F8) {
-                    EmulatorUILogic.scaleIntegerRatio();
-                }
-                if (code == KeyEvent.VK_F9) {
-                    EmulatorUILogic.toggleFullscreen();
-                }
-                if (code == KeyEvent.VK_PRINTSCREEN || code == KeyEvent.VK_SCROLL_LOCK) {
-                    try {
-                        if (e.isShiftDown()) {
-                            EmulatorUILogic.saveScreenshotRaw();
-                        } else {
-                            EmulatorUILogic.saveScreenshot();
-                        }
-                    } catch (IOException ex) {
-                        Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                    computer.resume();
-                }
-                if ((e.getModifiers() & (KeyEvent.ALT_MASK|KeyEvent.META_MASK|KeyEvent.META_DOWN_MASK)) > 0) {
-                    // explicit left and right here because other locations
-                    // can be sent as well, e.g. KEY_LOCATION_STANDARD
-                    if (e.getKeyLocation() == KeyEvent.KEY_LOCATION_LEFT) {
-                        releaseOpenApple();
-                    } else if (e.getKeyLocation() == KeyEvent.KEY_LOCATION_RIGHT) {
-                        releaseSolidApple();
-                    }
-                }
-
-                e.consume();
-//                e.setKeyChar((char) 0);
-//                e.setKeyCode(0);
-            }
-
-            private void pressOpenApple() {
-                computer.pause();
-                SoftSwitches.PB0.getSwitch().setState(true);
-                computer.resume();
-            }
-
-            private void pressSolidApple() {
-                computer.pause();
-                SoftSwitches.PB1.getSwitch().setState(true);
-                computer.resume();
-            }
-
-            private void releaseOpenApple() {
-                computer.pause();
-                SoftSwitches.PB0.getSwitch().setState(false);
-                computer.resume();
-            }
-
-            private void releaseSolidApple() {
-                computer.pause();
-                SoftSwitches.PB1.getSwitch().setState(false);
-                computer.resume();
+    public EventHandler<KeyEvent> getListener() {
+        return (KeyEvent event) -> {
+            if (event.getEventType() == KeyEvent.KEY_PRESSED) {
+                keyPressed(event);
+            } else if (event.getEventType() == KeyEvent.KEY_RELEASED) {
+                keyReleased(event);
             }
         };
+    }
+
+    public void keyPressed(KeyEvent e) {
+        processKeyDownEvents(e);
+        if (e.isConsumed()) {
+            return;
+        }
+
+        char c=255;
+        if (e.getText().length() > 0) {
+            c = e.getText().charAt(0);
+        }
+        
+        switch (e.getCode()) {
+            case LEFT:
+            case KP_LEFT:
+                c = 8;
+                break;
+            case RIGHT:
+            case KP_RIGHT:
+                c = 21;
+                break;
+            case UP:
+            case KP_UP:
+                c = 11;
+                break;
+            case DOWN:
+            case KP_DOWN:
+                c = 10;
+                break;
+            case TAB:
+                c = 9;
+                break;
+            case ENTER:
+                c = 13;
+                break;
+            case BACK_SPACE:
+                c = 127;
+                break;
+            default:
+                
+//                if (e.isControlDown()) {
+//                    c = (char) (c - 'A' + 1);
+//                }
+        }
+
+        if (c < 128) {
+            pressKey((byte) c);
+        }
+
+//                e.consume();
+    }
+
+    public void keyReleased(KeyEvent e) {
+        KeyCode code = e.getCode();
+        processKeyUpEvents(e);
+        if (code == null || e.isConsumed()) {
+            return;
+        }
+        switch (code) {
+            case INSERT:
+                if (e.isShiftDown()) {
+                    doPaste();
+
+                }
+                break;
+            case F10:
+                EmulatorUILogic.toggleDebugPanel();
+                break;
+            case F12:
+            case PAGE_UP:
+            case BACK_SPACE:
+            case PAUSE:
+                if (e.isControlDown()) {
+                    computer.warmStart();
+                }
+                break;
+            case F1:
+                EmulatorUILogic.showMediaManager();
+                break;
+            case F4:
+                EmulatorUILogic.showConfig();
+                break;
+            case F7:
+                Speaker.toggleFileOutput();
+                break;
+            case F8:
+                EmulatorUILogic.scaleIntegerRatio();
+                break;
+            case F9:
+                EmulatorUILogic.toggleFullscreen();
+                break;
+            case PRINTSCREEN:
+            case SCROLL_LOCK:
+                try {
+                    if (e.isShiftDown()) {
+                        EmulatorUILogic.saveScreenshotRaw();
+                    } else {
+                        EmulatorUILogic.saveScreenshot();
+                    }
+                } catch (IOException ex) {
+                    Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                computer.resume();
+                break;
+        }
+//        if ((e.getModifiers() & (KeyEvent.ALT_MASK | KeyEvent.META_MASK | KeyEvent.META_DOWN_MASK)) > 0) {
+//            // explicit left and right here because other locations
+//            // can be sent as well, e.g. KEY_LOCATION_STANDARD
+//            if (e.getKeyLocation() == KeyEvent.KEY_LOCATION_LEFT) {
+//                releaseOpenApple();
+//            } else if (e.getKeyLocation() == KeyEvent.KEY_LOCATION_RIGHT) {
+//                releaseSolidApple();
+//            }
+//        }
+
+        e.consume();
+//                e.setKeyChar((char) 0);
+//                e.setKeyCode(0);
+    }
+
+    private void pressOpenApple() {
+        computer.pause();
+        SoftSwitches.PB0.getSwitch().setState(true);
+        computer.resume();
+    }
+
+    private void pressSolidApple() {
+        computer.pause();
+        SoftSwitches.PB1.getSwitch().setState(true);
+        computer.resume();
+    }
+
+    private void releaseOpenApple() {
+        computer.pause();
+        SoftSwitches.PB0.getSwitch().setState(false);
+        computer.resume();
+    }
+
+    private void releaseSolidApple() {
+        computer.pause();
+        SoftSwitches.PB1.getSwitch().setState(false);
+        computer.resume();
     }
 
     public static void doPaste(String text) {
@@ -320,10 +326,9 @@ public class Keyboard implements Reconfigurable {
                 return -1;
             }
 
-            KeyboardSoftSwitch key =
-                    (KeyboardSoftSwitch) SoftSwitches.KEYBOARD.getSwitch();
+            KeyboardSoftSwitch key
+                    = (KeyboardSoftSwitch) SoftSwitches.KEYBOARD.getSwitch();
             return (keypress & 0x0ff);
-
 
         } catch (IOException ex) {
             Logger.getLogger(Keyboard.class

@@ -34,9 +34,10 @@ import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.Robot;
 import java.awt.Toolkit;
-import java.awt.event.KeyEvent;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 
 /**
  * Simple implementation of joystick support that supports mouse or keyboard.
@@ -183,6 +184,7 @@ public class Joystick extends Device {
         removeListeners();
     }
 
+    @Override
     public void reconfigure() {
         x = 0;
         y = 0;
@@ -218,7 +220,7 @@ public class Joystick extends Device {
         computer.getMemory().addListener(listener);
         if (useKeyboard) {
             System.out.println("Registering key handlers");
-            Keyboard.registerKeyHandler(new KeyHandler(KeyEvent.VK_LEFT, -1) {
+            Keyboard.registerKeyHandler(new KeyHandler(KeyCode.LEFT, KeyHandler.Modifiers.ignore) {
                 @Override
                 public boolean handleKeyUp(KeyEvent e) {
                     leftPressed = false;
@@ -231,7 +233,7 @@ public class Joystick extends Device {
                     return hogKeyboard;
                 }
             }, this);
-            Keyboard.registerKeyHandler(new KeyHandler(KeyEvent.VK_RIGHT, -1) {
+            Keyboard.registerKeyHandler(new KeyHandler(KeyCode.RIGHT, KeyHandler.Modifiers.ignore) {
                 @Override
                 public boolean handleKeyUp(KeyEvent e) {
                     rightPressed = false;
@@ -244,7 +246,7 @@ public class Joystick extends Device {
                     return hogKeyboard;
                 }
             }, this);
-            Keyboard.registerKeyHandler(new KeyHandler(KeyEvent.VK_UP, -1) {
+            Keyboard.registerKeyHandler(new KeyHandler(KeyCode.UP, KeyHandler.Modifiers.ignore) {
                 @Override
                 public boolean handleKeyUp(KeyEvent e) {
                     upPressed = false;
@@ -257,7 +259,7 @@ public class Joystick extends Device {
                     return hogKeyboard;
                 }
             }, this);
-            Keyboard.registerKeyHandler(new KeyHandler(KeyEvent.VK_DOWN, -1) {
+            Keyboard.registerKeyHandler(new KeyHandler(KeyCode.DOWN, KeyHandler.Modifiers.ignore) {
                 @Override
                 public boolean handleKeyUp(KeyEvent e) {
                     downPressed = false;

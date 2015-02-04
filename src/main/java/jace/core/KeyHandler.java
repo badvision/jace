@@ -18,28 +18,60 @@
  */
 package jace.core;
 
-import java.awt.event.KeyEvent;
+import java.util.EnumMap;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 
 /**
- * Listen for a specific key or set of keys
- * If there is a match, the handleKeyUp or handleKeyDown methods will be called.
- * This is meant to save a lot of extra conditional logic elsewhere.
- * 
- * The handler methods should return true if they have consumed the key event and do
- * not want any other processing to continue for that keypress.
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * Listen for a specific key or set of keys If there is a match, the handleKeyUp
+ * or handleKeyDown methods will be called. This is meant to save a lot of extra
+ * conditional logic elsewhere.
+ *
+ * The handler methods should return true if they have consumed the key event
+ * and do not want any other processing to continue for that keypress.
+ *
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public abstract class KeyHandler {
-    public int key = 0;
-    public int modifiers = 0;
-    public KeyHandler(int key, int... modifiers) {
+
+    public static enum Modifiers {
+
+        alt, control, shift, meta, shortcut,ignore
+    };
+    public KeyCode key;
+    public EnumMap<Modifiers, Boolean> modifiers;
+
+    public KeyHandler(KeyCode key, Modifiers... flags) {
         this.key = key;
-        this.modifiers = 0;
-        for (int m : modifiers) {
-            this.modifiers |= m;
+        this.modifiers = new EnumMap<>(Modifiers.class);
+        for (Modifiers flag : flags) {
+            modifiers.put(flag, true);
         }
     }
-    
+
+    public boolean matchesModifiers(KeyEvent e) {
+        if (modifiers.get(Modifiers.ignore)) {
+            return true;
+        }
+        if (e.isAltDown() != modifiers.get(Modifiers.alt)) {
+            return false;
+        }
+        if (e.isControlDown() != modifiers.get(Modifiers.control)) {
+            return false;
+        }
+        if (e.isMetaDown() != modifiers.get(Modifiers.meta)) {
+            return false;
+        }
+        if (e.isShiftDown() != modifiers.get(Modifiers.shift)) {
+            return false;
+        }
+        if (e.isShortcutDown() != modifiers.get(Modifiers.shortcut)) {
+            return false;
+        }
+        return true;
+    }
+
     public abstract boolean handleKeyUp(KeyEvent e);
+
     public abstract boolean handleKeyDown(KeyEvent e);
 }
