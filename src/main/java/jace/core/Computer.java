@@ -104,6 +104,12 @@ public abstract class Computer implements Reconfigurable {
         memory.loadRom(path);
     }
 
+    public void deactivate() {
+        cpu.suspend();
+        motherboard.suspend();
+        video.suspend();
+    }
+    
     @InvokableAction(
             name = "Cold boot",
             description = "Process startup sequence from power-up",

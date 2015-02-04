@@ -8,8 +8,8 @@ package jace;
 
 import java.io.IOException;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
@@ -46,8 +46,13 @@ public class JaceApplication extends Application {
             }
             controller.connectComputer(Emulator.computer);
         });
+        primaryStage.setOnCloseRequest(value -> {
+            Emulator.computer.deactivate();
+            Platform.exit();
+            System.exit(0);
+        });
     }
-
+    
     /**
      * @param args the command line arguments
      */
