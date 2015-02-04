@@ -18,7 +18,6 @@
  */
 package jace.core;
 
-import jace.Emulator;
 import java.awt.BorderLayout;
 import java.awt.EventQueue;
 import java.io.File;
@@ -46,9 +45,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
-import javax.swing.JDialog;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 
@@ -96,7 +93,7 @@ public class Utility {
                     try {
                         // Try to create an instance of the object
                         String className = pckgname + "." + classname;
-                        System.out.println("Class: " + className);
+//                        System.out.println("Class: " + className);
                         Class c = Class.forName(className);
                         if (clazz.isAssignableFrom(c)) {
                             output.add(c);

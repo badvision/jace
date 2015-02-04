@@ -39,15 +39,15 @@ public class JaceApplication extends Application {
         }
         
         primaryStage.show();
-        Emulator e = new Emulator();
+        Emulator emulator = new Emulator(getParameters().getRaw());
         javafx.application.Platform.runLater(() -> {
             while (Emulator.computer.getVideo() == null || Emulator.computer.getVideo().getFrameBuffer() == null) {
                 Thread.yield();
             }
             controller.connectComputer(Emulator.computer);
         });
-        primaryStage.setOnCloseRequest(value -> {
-            Emulator.computer.deactivate();
+        primaryStage.setOnCloseRequest(event->{
+            emulator.computer.deactivate();
             Platform.exit();
             System.exit(0);
         });

@@ -21,19 +21,10 @@ package jace;
 import jace.apple2e.Apple2e;
 import jace.config.Configuration;
 import jace.ui.AbstractEmulatorFrame;
-import jace.ui.EmulatorFrame;
 import java.awt.Component;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
-import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.imageio.ImageIO;
-import javax.swing.JFrame;
 
 /**
  * Created on January 15, 2007, 10:10 PM
@@ -44,10 +35,10 @@ public class Emulator {
     public static Emulator instance;
     public static Thread mainThread;
 
-    public static void main(String... args) {
-        mainThread = Thread.currentThread();
-        instance = new Emulator(args);
-    }
+//    public static void main(String... args) {
+//        mainThread = Thread.currentThread();
+//        instance = new Emulator(args);
+//    }
 
     public static Apple2e computer;
     public AbstractEmulatorFrame theApp;
@@ -56,16 +47,17 @@ public class Emulator {
      * Creates a new instance of Emulator
      * @param args
      */
-    public Emulator(String... args) {
+    public Emulator(List<String> args) {
         computer = new Apple2e();
         Configuration.loadSettings();
+        mainThread = Thread.currentThread();
         Map<String, String> settings = new HashMap<>();
         if (args != null) {
-            for (int i = 0; i < args.length; i++) {
-                if (args[i].startsWith("-")) {
-                    String key = args[i].substring(1);
-                    if ((i + 1) < args.length) {
-                        String val = args[i + 1];
+            for (int i = 0; i < args.size(); i++) {
+                if (args.get(i).startsWith("-")) {
+                    String key = args.get(i).substring(1);
+                    if ((i + 1) < args.size()) {
+                        String val = args.get(i + 1);
                         if (!val.startsWith("-")) {
                             settings.put(key, val);
                             i++;
@@ -76,7 +68,7 @@ public class Emulator {
                         settings.put(key, "true");
                     }
                 } else {
-                    System.err.println("Did not understand parameter " + args[i] + ", skipping.");
+                    System.err.println("Did not understand parameter " + args.get(i) + ", skipping.");
                 }
             }
         }
