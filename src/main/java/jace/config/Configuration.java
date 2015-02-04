@@ -30,11 +30,17 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Level;
@@ -45,7 +51,8 @@ import javax.swing.tree.TreePath;
 
 /**
  * Manages the configuration state of the emulator components.
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ *
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Configuration implements Reconfigurable {
 
@@ -57,7 +64,7 @@ public class Configuration implements Reconfigurable {
     public String getShortName() {
         return "cfg";
     }
-    
+
     public void reconfigure() {
     }
 
@@ -116,12 +123,12 @@ public class Configuration implements Reconfigurable {
     }
 
     /**
-     * Represents a serializable configuration node as part of a tree.
-     * The root node should be a single instance (e.g. Computer)
-     * The child nodes should be all object instances that stem from each object
-     * The overall goal of this class is two-fold:
-     * 1) Provide a navigable manner to inspect configuration
-     * 2) Provide a simple persistence mechanism to load/store configuration
+     * Represents a serializable configuration node as part of a tree. The root
+     * node should be a single instance (e.g. Computer) The child nodes should
+     * be all object instances that stem from each object The overall goal of
+     * this class is two-fold: 1) Provide a navigable manner to inspect
+     * configuration 2) Provide a simple persistence mechanism to load/store
+     * configuration
      */
     public static class ConfigNode implements Serializable {
 
@@ -147,8 +154,8 @@ public class Configuration implements Reconfigurable {
 
         public ConfigNode(ConfigNode parent, Reconfigurable subject) {
             this.subject = subject;
-            this.settings = new TreeMap<String, Serializable>();
-            this.children = new TreeMap<String, ConfigNode>();
+            this.settings = new TreeMap<>();
+            this.children = new TreeMap<>();
             this.parent = parent;
             if (this.parent != null) {
                 this.root = this.parent.root != null ? this.parent.root : this.parent;
@@ -156,6 +163,7 @@ public class Configuration implements Reconfigurable {
         }
 
         public void setFieldValue(String field, Serializable value) {
+            changed = true;
             if (value != null) {
                 if (value.equals(getFieldValue(field))) {
                     return;
@@ -165,7 +173,6 @@ public class Configuration implements Reconfigurable {
                     return;
                 }
             }
-            changed = true;
             setRawFieldValue(field, value);
         }
 
@@ -235,38 +242,66 @@ public class Configuration implements Reconfigurable {
                 } else if (o.getClass().isArray()) {
                     String fieldName = f.getName();
                     Class type = o.getClass().getComponentType();
+//                    System.out.println("Evaluating " + node.subject.getShortName() + "." + fieldName + "; type is " + type.toGenericString());
+                    List<Reconfigurable> children = new ArrayList<>();
                     if (!Reconfigurable.class.isAssignableFrom(type)) {
-                        continue;
+//                        System.out.println("Looking at type " + type.getName() + " to see if optional");
+                        if (Optional.class.isAssignableFrom(type)) {
+                            Type genericTypes = f.getGenericType();
+//                            System.out.println("Looking at generic parmeters " + genericTypes.getTypeName() + " for reconfigurable class, type "+genericTypes.getClass().getName());
+                            if (genericTypes instanceof GenericArrayType) {
+                                GenericArrayType aType = (GenericArrayType) genericTypes;
+                                ParameterizedType pType = (ParameterizedType) aType.getGenericComponentType();
+                                if (pType.getActualTypeArguments().length != 1) {
+                                    continue;
+                                }
+                                Type genericType = pType.getActualTypeArguments()[0];
+//                                System.out.println("Looking at type " + genericType.getTypeName() + " to see if reconfigurable");
+                                if (!Reconfigurable.class.isAssignableFrom((Class) genericType)) {
+                                    continue;
+                                }
+                            } else {
+                                continue;
+                            }
+
+                            for (Optional<Reconfigurable> child : (Optional<Reconfigurable>[]) o) {
+                                if (child.isPresent()) {
+                                    children.add(child.get());
+                                } else {
+                                    children.add(null);
+                                }
+                            }
+                        }
+                    } else {
+                        children = Arrays.asList((Reconfigurable[]) o);
                     }
-                    Reconfigurable[] r = (Reconfigurable[]) o;
-                    visited.add(r);
-                    for (int i = 0; i < r.length; i++) {
+                    visited.add(o);
+                    for (int i = 0; i < children.size(); i++) {
+                        Reconfigurable child = children.get(i);
                         String childName = fieldName + i;
-                        if (r[i] == null) {
+                        if (child == null) {
                             node.children.remove(childName);
                             continue;
                         }
                         ConfigNode grandchild = node.children.get(childName);
-                        if (grandchild == null || !grandchild.subject.equals(r[i])) {
-                            grandchild = new ConfigNode(node, r[i]);
+                        if (grandchild == null || !grandchild.subject.equals(child)) {
+                            grandchild = new ConfigNode(node, child);
                             node.children.put(childName, grandchild);
                         }
                         buildTree(grandchild, visited);
                     }
                 }
-            } catch (IllegalArgumentException ex) {
-                Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IllegalAccessException ex) {
+            } catch (IllegalArgumentException | IllegalAccessException ex) {
                 Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
 
     @InvokableAction(
-            name="Save settings",
-            description="Save all configuration settings as defaults",
-            category="general",
-            alternatives="save preferences;save defaults"
+            name = "Save settings",
+            description = "Save all configuration settings as defaults",
+            category = "general",
+            alternatives = "save preferences;save defaults"
     )
     public static void saveSettings() {
         FileOutputStream fos = null;
@@ -293,10 +328,10 @@ public class Configuration implements Reconfigurable {
     }
 
     @InvokableAction(
-            name="Load settings",
-            description="Load all configuration settings previously saved",
-            category="general",
-            alternatives="load preferences;revert settings;revert preferences"
+            name = "Load settings",
+            description = "Load all configuration settings previously saved",
+            category = "general",
+            alternatives = "load preferences;revert settings;revert preferences"
     )
     public static void loadSettings() {
         {
@@ -334,10 +369,12 @@ public class Configuration implements Reconfigurable {
     }
 
     /**
-     * Apply settings from node tree to the object model
-     * This also calls "reconfigure" on objects in sequence
+     * Apply settings from node tree to the object model This also calls
+     * "reconfigure" on objects in sequence
+     *
      * @param node
-     * @return True if any settings have changed in the node or any of its descendants
+     * @return True if any settings have changed in the node or any of its
+     * descendants
      */
     public static boolean applySettings(ConfigNode node) {
         boolean resume = false;
@@ -363,7 +400,7 @@ public class Configuration implements Reconfigurable {
         if (resume) {
             Emulator.computer.resume();
         }
-        
+
         return hasChanged;
     }
 
@@ -376,14 +413,14 @@ public class Configuration implements Reconfigurable {
             doApply(oldRoot);
             buildTree(oldRoot, new HashSet());
         }
-        for (String childName : newRoot.children.keySet()) {
-//            System.out.println("Applying settings for " + childName);
+        newRoot.children.keySet().stream().forEach((childName) -> {
+            //            System.out.println("Applying settings for " + childName);
             applyConfigTree(newRoot.children.get(childName), oldRoot.children.get(childName));
-        }
+        });
     }
 
     private static void doApply(ConfigNode node) {
-        List<String> removeList = new ArrayList<String>();
+        List<String> removeList = new ArrayList<>();
         for (String f : node.settings.keySet()) {
             try {
                 Field ff = node.subject.getClass().getField(f);
@@ -409,19 +446,15 @@ public class Configuration implements Reconfigurable {
 //                System.out.println("Setting "+node.subject.getName()+" property "+ff.getName()+" with value "+String.valueOf(val));
                 ff.set(node.subject, val);
             } catch (NoSuchFieldException ex) {
-                System.out.println("Setting "+f+" no longer exists, skipping.");
+                System.out.println("Setting " + f + " no longer exists, skipping.");
                 removeList.add(f);
-            } catch (SecurityException ex) {
-                Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IllegalArgumentException ex) {
-                Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IllegalAccessException ex) {
+            } catch (SecurityException | IllegalArgumentException | IllegalAccessException ex) {
                 Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        for (String f : removeList) {
+        removeList.stream().forEach((f) -> {
             node.settings.remove(f);
-        }
+        });
 
         try {
             // When settings are applied, this could very well change the object structure
@@ -431,39 +464,37 @@ public class Configuration implements Reconfigurable {
         } catch (Exception ex) {
             Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
         node.changed = false;
     }
-    
+
     public static void applySettings(Map<String, String> settings) {
         for (Map.Entry<String, String> setting : settings.entrySet()) {
-            Map<String, ConfigNode> shortNames = new HashMap<String, ConfigNode>();
+            Map<String, ConfigNode> shortNames = new HashMap<>();
             buildNodeMap(BASE, shortNames);
-            
+
             String settingName = setting.getKey();
             String value = setting.getValue();
-            String[] parts = settingName.split("\\.");            
+            String[] parts = settingName.split("\\.");
             if (parts.length != 2) {
-                System.err.println("Unable to parse settting, should be in the form of DEVICE.PROPERTYNAME "+settingName);
+                System.err.println("Unable to parse settting, should be in the form of DEVICE.PROPERTYNAME " + settingName);
                 continue;
             }
             String deviceName = parts[0];
             String fieldName = parts[1];
             ConfigNode n = shortNames.get(deviceName.toLowerCase());
             if (n == null) {
-                System.err.println("Unable to find device named "+deviceName+", try one of these: "+Utility.join(shortNames.keySet(), ", "));
+                System.err.println("Unable to find device named " + deviceName + ", try one of these: " + Utility.join(shortNames.keySet(), ", "));
                 continue;
             }
-            
+
             boolean found = false;
-            List<String> shortFieldNames = new ArrayList<String>();
+            List<String> shortFieldNames = new ArrayList<>();
             for (String longName : n.getAllSettingNames()) {
                 ConfigurableField f = null;
                 try {
                     f = n.subject.getClass().getField(longName).getAnnotation(ConfigurableField.class);
-                } catch (NoSuchFieldException ex) {
-                    Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (SecurityException ex) {
+                } catch (NoSuchFieldException | SecurityException ex) {
                     Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
                 }
                 String shortName = (f != null && !f.shortName().equals("")) ? f.shortName() : longName;
@@ -473,41 +504,42 @@ public class Configuration implements Reconfigurable {
                     found = true;
                     n.setFieldValue(longName, value);
                     applySettings(n);
-                    n.subject.reconfigure();
+//                    n.subject.reconfigure();
                     buildTree();
-                    System.out.println("Set property "+n.subject.getName()+"."+longName+" to "+value);
+                    System.out.println("Set property " + n.subject.getName() + "." + longName + " to " + value);
                     break;
                 }
             }
             if (!found) {
-                System.err.println("Unable to find property "+fieldName+" for device "+deviceName+".  Try one of these :"+Utility.join(shortFieldNames, ", "));
+                System.err.println("Unable to find property " + fieldName + " for device " + deviceName + ".  Try one of these :" + Utility.join(shortFieldNames, ", "));
             }
         }
     }
 
     private static void buildNodeMap(ConfigNode n, Map<String, ConfigNode> shortNames) {
+//        System.out.println("Encountered " + n.subject.getShortName().toLowerCase());
         shortNames.put(n.subject.getShortName().toLowerCase(), n);
-        for (Map.Entry<String, ConfigNode> c : n.children.entrySet()) {
+        n.children.entrySet().stream().forEach((c) -> {
             buildNodeMap(c.getValue(), shortNames);
-        }
+        });
     }
-    
+
     private static void printTree(ConfigNode n, String prefix, int i) {
-        for (String setting : n.getAllSettingNames()) {
-            for (int j=0; j < i; j++) System.out.print(" ");
+        n.getAllSettingNames().stream().forEach((setting) -> {
+            for (int j = 0; j < i; j++) {
+                System.out.print(" ");
+            }
             ConfigurableField f = null;
             try {
                 f = n.subject.getClass().getField(setting).getAnnotation(ConfigurableField.class);
-            } catch (NoSuchFieldException ex) {
-                Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (SecurityException ex) {
+            } catch (NoSuchFieldException | SecurityException ex) {
                 Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
             }
             String sn = (f != null && !f.shortName().equals("")) ? f.shortName() : setting;
-            System.out.println(prefix+">>"+setting+" ("+n.subject.getShortName()+"."+sn+")");
-        }
-        for (Map.Entry<String, ConfigNode> c : n.children.entrySet()) {
-            printTree(c.getValue(), prefix+"."+c.getKey(), i+1);
-        }
+            System.out.println(prefix + ">>" + setting + " (" + n.subject.getShortName() + "." + sn + ")");
+        });
+        n.children.entrySet().stream().forEach((c) -> {
+            printTree(c.getValue(), prefix + "." + c.getKey(), i + 1);
+        });
     }
 }

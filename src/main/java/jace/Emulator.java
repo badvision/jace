@@ -23,6 +23,7 @@ import jace.config.Configuration;
 import jace.ui.AbstractEmulatorFrame;
 import java.awt.Component;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -51,7 +52,7 @@ public class Emulator {
         computer = new Apple2e();
         Configuration.loadSettings();
         mainThread = Thread.currentThread();
-        Map<String, String> settings = new HashMap<>();
+        Map<String, String> settings = new LinkedHashMap<>();
         if (args != null) {
             for (int i = 0; i < args.size(); i++) {
                 if (args.get(i).startsWith("-")) {

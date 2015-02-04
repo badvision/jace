@@ -37,7 +37,7 @@ import javax.swing.JPanel;
  */
 public class MediaLibrary implements Reconfigurable {
 
-    public static MediaLibrary instance;
+    private static MediaLibrary instance;
 
     public static MediaLibrary getInstance() {
         if (instance == null) {

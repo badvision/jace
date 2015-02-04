@@ -29,6 +29,7 @@ import jace.core.RAMEvent.TYPE;
 import jace.core.Utility;
 import jace.library.MediaConsumer;
 import jace.library.MediaConsumerParent;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Level;
@@ -39,10 +40,9 @@ import java.util.logging.Logger;
  * side of the Disk ][ controller interface as well as the on-board "boot0" ROM.
  * The behavior of the actual drive stepping, reading disk images, and so on is
  * performed by DiskIIDrive and FloppyDisk, respectively. This class only serves
- * as the I/O interface portion.
- * Created on April 21, 2007
+ * as the I/O interface portion. Created on April 21, 2007
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Name("Disk ][ Controller")
 public class CardDiskII extends Card implements Reconfigurable, MediaConsumerParent {
@@ -54,6 +54,10 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     static public int DEFAULT_VOLUME_NUMBER = 0x0FE;
     @ConfigurableField(category = "Disk", defaultValue = "true", name = "Speed boost", description = "If enabled, emulator will run at max speed during disk access")
     static public boolean USE_MAX_SPEED = true;
+    @ConfigurableField(category = "Disk", defaultValue = "", shortName = "d1", name = "Drive 1 disk image", description = "Path of disk 1")
+    public String disk1;
+    @ConfigurableField(category = "Disk", defaultValue = "", shortName = "d2", name = "Drive 2 disk image", description = "Path of disk 1")
+    public String disk2;
 
     public CardDiskII(Computer computer) {
         super(computer);
@@ -143,8 +147,7 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
                 currentDrive.setReadMode();
                 if (currentDrive.disk != null && currentDrive.disk.writeProtected) {
                     e.setNewValue(0x080);
-                } else
-                {
+                } else {
 //                    e.setNewValue((byte) (Math.random() * 256.0));
                     e.setNewValue(0);
                 }
@@ -191,6 +194,19 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     @Override
     public void reconfigure() {
         super.reconfigure();
+        try {
+            if (disk1 != null && !disk1.isEmpty()) {
+                drive1.insertDisk(new File(disk1));
+                disk1 = null;
+            }
+            if (disk2 != null && !disk2.isEmpty()) {
+                drive2.insertDisk(new File(disk2));
+                disk2 = null;
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(CardDiskII.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
     }
 
     private void tweakTiming() {
@@ -212,10 +228,10 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     public void setSlot(int slot) {
         super.setSlot(slot);
         drive1.getIcon().setDescription("S" + slot + "D1");
-        drive2.getIcon().setDescription("S" + slot + "D2");        
+        drive2.getIcon().setDescription("S" + slot + "D2");
     }
-    
+
     public MediaConsumer[] getConsumers() {
-        return new MediaConsumer[] {drive1, drive2};
+        return new MediaConsumer[]{drive1, drive2};
     }
 }

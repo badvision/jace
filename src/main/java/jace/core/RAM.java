@@ -39,7 +39,7 @@ public abstract class RAM implements Reconfigurable {
     public List<RAMListener> listeners;
     public List<RAMListener>[] listenerMap;
     public List<RAMListener>[] ioListenerMap;
-    protected Optional<Card>[] cards;
+    public Optional<Card>[] cards;
     // card 0 = 80 column card firmware / system rom
     public int activeSlot = 0;
     protected final Computer computer;
