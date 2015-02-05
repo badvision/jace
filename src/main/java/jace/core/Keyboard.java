@@ -189,6 +189,13 @@ public class Keyboard implements Reconfigurable {
             case BACK_SPACE:
                 c = 127;
                 break;
+            case ALT:
+                pressOpenApple();
+                break;
+            case META:
+            case COMMAND:
+                pressSolidApple();
+                break;
             default:
         }
 
@@ -251,6 +258,14 @@ public class Keyboard implements Reconfigurable {
                 }
                 computer.resume();
                 break;
+            case ALT:
+                releaseOpenApple();
+                break;
+            case META:
+            case COMMAND:
+                releaseSolidApple();
+                break;
+                
         }
 //        if ((e.getModifiers() & (KeyEvent.ALT_MASK | KeyEvent.META_MASK | KeyEvent.META_DOWN_MASK)) > 0) {
 //            // explicit left and right here because other locations
