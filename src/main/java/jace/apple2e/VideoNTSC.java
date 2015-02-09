@@ -141,16 +141,18 @@ public class VideoNTSC extends VideoDHGR {
             c2 >>= 4;
         }
         if ((xOffset & 0x01) == 0) {
-            int pat = c1 | c1 << 4 | c2 << 8 | (c2 & 3) << 12;
+            int pat = c1 | (c1 & 7) << 4;
+            pat |= c2 << 7 | (c2 & 7) << 11;
             scanline[pos] = pat;
         } else {
             int pat = scanline[pos];
-            pat |= (c1 & 12) << 12 | c1 << 16 | c2 << 20 | c2 << 24;
+            pat |= (c1 & 12) << 12 | c1 << 16 | (c1 & 1) << 20;
+            pat |= (c2 & 12) << 19 | c2 << 23 | (c2 & 1) << 27;
             scanline[pos] = pat;
             pos++;
         }
     }
-    
+
     private void doDisplay(WritableImage screen, int xOffset, int y, int dhgrWord) {
         if (pos >= 20) {
             pos -= 20;
