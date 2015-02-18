@@ -34,6 +34,7 @@ import java.util.Map;
 public class Emulator {
 
     public static Emulator instance;
+    public static EmulatorUILogic logic = new EmulatorUILogic();
     public static Thread mainThread;
 
 //    public static void main(String... args) {

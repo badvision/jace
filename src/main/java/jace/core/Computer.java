@@ -114,14 +114,23 @@ public abstract class Computer implements Reconfigurable {
             name = "Cold boot",
             description = "Process startup sequence from power-up",
             category = "general",
-            alternatives = "Full reset;reset emulator")
+            alternatives = "Full reset;reset emulator",
+            consumeKeyEvent = true,
+            defaultKeyMapping = {"Ctrl+Shift+Backspace","Ctrl+Shift+Delete"})
+    public void invokeColdStart() {
+        coldStart();
+    }
     public abstract void coldStart();
 
     @InvokableAction(
             name = "Warm boot",
             description = "Process user-initatiated reboot (ctrl+apple+reset)",
             category = "general",
-            alternatives = "reboot;reset;three-finger-salute")
+            alternatives = "reboot;reset;three-finger-salute",
+            defaultKeyMapping = {"Ctrl+Ignore Alt+Ignore Meta+Backspace","Ctrl+Ignore Alt+Ignore Meta+Delete"})
+    public void invokeWarmStart() {
+        warmStart();
+    }
     public abstract void warmStart();
 
     public Keyboard getKeyboard() {
@@ -134,14 +143,14 @@ public abstract class Computer implements Reconfigurable {
 
     protected abstract void doResume();
 
-    @InvokableAction(name = "Pause", description = "Stops the computer, allowing reconfiguration of core elements", alternatives = "freeze;halt")
+    @InvokableAction(name = "Pause", description = "Stops the computer, allowing reconfiguration of core elements", alternatives = "freeze;halt", defaultKeyMapping = {"meta+pause","alt+pause"})
     public boolean pause() {
         boolean result = isRunning();
         doPause();
         return result;
     }
 
-    @InvokableAction(name = "Resume", description = "Resumes the computer if it was previously paused", alternatives = "unpause;unfreeze;resume")
+    @InvokableAction(name = "Resume", description = "Resumes the computer if it was previously paused", alternatives = "unpause;unfreeze;resume", defaultKeyMapping = {"meta+shift+pause","alt+shift+pause"})
     public void resume() {
         doResume();
     }

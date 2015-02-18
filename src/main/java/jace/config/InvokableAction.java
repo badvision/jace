@@ -69,4 +69,19 @@ public @interface InvokableAction {
      * reboot might have alternatives as "warm start;cold start;boot;restart".
      */
     public String alternatives() default "";
+    /*
+     * If true, the key event will be consumed and not processed by any other event handlers
+     * If the corresponding method returns a boolean, that value will be used instead.
+     * True = consume (stop processing keystroke), false = pass-through to other handlers
+     */
+    public boolean consumeKeyEvent() default true;
+    /*
+     * If false (default) event is only triggered on press, not release.  If true,
+     * method is notified on press and on release
+     */
+    public boolean notifyOnRelease() default false;
+    /*
+     * Standard keyboard mapping
+     */
+    public String[] defaultKeyMapping();
 }

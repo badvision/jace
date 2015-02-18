@@ -18,8 +18,9 @@
  */
 package jace.core;
 
-import java.util.EnumMap;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 
 /**
@@ -33,45 +34,54 @@ import javafx.scene.input.KeyEvent;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public abstract class KeyHandler {
+    public KeyCombination keyCodeCombination;
 
-    public static enum Modifiers {
-
-        alt, control, shift, meta, shortcut,ignore
-    };
     public KeyCode key;
-    public EnumMap<Modifiers, Boolean> modifiers;
-
-    public KeyHandler(KeyCode key, Modifiers... flags) {
-        this.key = key;
-        this.modifiers = new EnumMap<>(Modifiers.class);
-        for (Modifiers flag : flags) {
-            modifiers.put(flag, true);
+    public KeyHandler(String comboText) {
+        KeyCode testCode = KeyCode.getKeyCode(comboText);
+        if (testCode != null) {
+            key = testCode;
+        } else {
+            init((KeyCodeCombination) KeyCodeCombination.valueOf(comboText));
         }
     }
-
-    public boolean matchesModifiers(KeyEvent e) {
-        if (modifiers.get(Modifiers.ignore)) {
-            return true;
+    
+    public KeyHandler(KeyCodeCombination keyCodeCombo) {
+        init(keyCodeCombo);
+    }
+    
+    private void init(KeyCombination keyCodeCombo) {
+        keyCodeCombination = keyCodeCombo;
+        if (keyCodeCombo instanceof KeyCodeCombination) {
+            key = ((KeyCodeCombination) keyCodeCombo).getCode();
         }
-        if (e.isAltDown() != modifiers.get(Modifiers.alt)) {
-            return false;
+    }
+    
+    public boolean match(KeyEvent e) {
+        if (keyCodeCombination != null) {
+            return keyCodeCombination.match(e);
+        } else {
+            return e.getCode().equals(key);
         }
-        if (e.isControlDown() != modifiers.get(Modifiers.control)) {
-            return false;
-        }
-        if (e.isMetaDown() != modifiers.get(Modifiers.meta)) {
-            return false;
-        }
-        if (e.isShiftDown() != modifiers.get(Modifiers.shift)) {
-            return false;
-        }
-        if (e.isShortcutDown() != modifiers.get(Modifiers.shortcut)) {
-            return false;
-        }
-        return true;
     }
 
     public abstract boolean handleKeyUp(KeyEvent e);
 
     public abstract boolean handleKeyDown(KeyEvent e);
+
+    public String getComboName() {
+        if (keyCodeCombination != null) {
+            return keyCodeCombination.getName();
+        } else {
+            return key.getName();
+        }
+    }
+
+    public String getKeyName() {
+        if (key != null) {
+            return key.getName();
+        } else {
+            return null;
+        }
+    }
 }

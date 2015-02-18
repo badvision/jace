@@ -19,6 +19,7 @@
 package jace.cheat;
 
 import jace.apple2e.RAM128k;
+import jace.config.InvokableAction;
 import jace.core.Computer;
 import jace.core.KeyHandler;
 import jace.core.Keyboard;
@@ -145,6 +146,7 @@ public class MetaCheats extends Cheats {
             model.addRow(new Object[]{loc, val + " ("+hex(val,4)+")"});
         });
     }
+    @InvokableAction(name="Show Cheats", category = "cheats", defaultKeyMapping = "home")
     public void showCheatForm() {
         if (form == null) {
             form = new MetaCheatForm();
@@ -153,6 +155,7 @@ public class MetaCheats extends Cheats {
     }
 
     MemorySpy spy = null;
+    @InvokableAction(name="Show Memory Spy", category = "cheats", defaultKeyMapping = "end")
     public void showMemorySpy() {
         if (spy == null) {
             spy = new MemorySpy();
@@ -199,32 +202,7 @@ public class MetaCheats extends Cheats {
                     t.start();
                 }
             }
-        });
-        
-        Keyboard.registerKeyHandler(new KeyHandler(KeyCode.END) {
-            @Override
-            public boolean handleKeyUp(KeyEvent e) {
-                showCheatForm();
-                return false;
-            }
-
-            @Override
-            public boolean handleKeyDown(KeyEvent e) {
-                return false;
-            }
-        }, this);
-        Keyboard.registerKeyHandler(new KeyHandler(KeyCode.HOME) {
-            @Override
-            public boolean handleKeyUp(KeyEvent e) {
-                showMemorySpy();
-                return false;
-            }
-
-            @Override
-            public boolean handleKeyDown(KeyEvent e) {
-                return false;
-            }
-        }, this);
+        });        
     }
 
     @Override

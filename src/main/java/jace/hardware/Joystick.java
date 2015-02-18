@@ -21,9 +21,9 @@ package jace.hardware;
 import jace.apple2e.SoftSwitches;
 import jace.apple2e.softswitch.MemorySoftSwitch;
 import jace.config.ConfigurableField;
+import jace.config.InvokableAction;
 import jace.core.Computer;
 import jace.core.Device;
-import jace.core.KeyHandler;
 import jace.core.Keyboard;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
@@ -36,8 +36,6 @@ import java.awt.Robot;
 import java.awt.Toolkit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
 
 /**
  * Simple implementation of joystick support that supports mouse or keyboard.
@@ -216,65 +214,31 @@ public class Joystick extends Device {
         }
     };
 
+    @InvokableAction(name="Left", category = "joystick", defaultKeyMapping = "left", notifyOnRelease = true)
+    public boolean joystickLeft(boolean pressed) {
+        leftPressed = pressed;
+        return hogKeyboard;
+    };
+    @InvokableAction(name="Right", category = "joystick", defaultKeyMapping = "right", notifyOnRelease = true)
+    public boolean joystickRight(boolean pressed) {
+        rightPressed = pressed;
+        return hogKeyboard;
+    };
+    @InvokableAction(name="Up", category = "joystick", defaultKeyMapping = "up", notifyOnRelease = true)
+    public boolean joystickUp(boolean pressed) {
+        upPressed = pressed;
+        return hogKeyboard;
+    };
+    @InvokableAction(name="Down", category = "joystick", defaultKeyMapping = "down", notifyOnRelease = true)
+    public boolean joystickDown(boolean pressed) {
+        leftPressed = pressed;
+        return hogKeyboard;
+    };
+    
     private void registerListeners() {
         computer.getMemory().addListener(listener);
-        if (useKeyboard) {
-            System.out.println("Registering key handlers");
-            Keyboard.registerKeyHandler(new KeyHandler(KeyCode.LEFT, KeyHandler.Modifiers.ignore) {
-                @Override
-                public boolean handleKeyUp(KeyEvent e) {
-                    leftPressed = false;
-                    return hogKeyboard;
-                }
-
-                @Override
-                public boolean handleKeyDown(KeyEvent e) {
-                    leftPressed = true;
-                    return hogKeyboard;
-                }
-            }, this);
-            Keyboard.registerKeyHandler(new KeyHandler(KeyCode.RIGHT, KeyHandler.Modifiers.ignore) {
-                @Override
-                public boolean handleKeyUp(KeyEvent e) {
-                    rightPressed = false;
-                    return hogKeyboard;
-                }
-
-                @Override
-                public boolean handleKeyDown(KeyEvent e) {
-                    rightPressed = true;
-                    return hogKeyboard;
-                }
-            }, this);
-            Keyboard.registerKeyHandler(new KeyHandler(KeyCode.UP, KeyHandler.Modifiers.ignore) {
-                @Override
-                public boolean handleKeyUp(KeyEvent e) {
-                    upPressed = false;
-                    return hogKeyboard;
-                }
-
-                @Override
-                public boolean handleKeyDown(KeyEvent e) {
-                    upPressed = true;
-                    return hogKeyboard;
-                }
-            }, this);
-            Keyboard.registerKeyHandler(new KeyHandler(KeyCode.DOWN, KeyHandler.Modifiers.ignore) {
-                @Override
-                public boolean handleKeyUp(KeyEvent e) {
-                    downPressed = false;
-                    return hogKeyboard;
-                }
-
-                @Override
-                public boolean handleKeyDown(KeyEvent e) {
-                    downPressed = true;
-                    return hogKeyboard;
-                }
-            }, this);
-        }
     }
-
+    
     private void removeListeners() {
         computer.getMemory().removeListener(listener);
         Keyboard.unregisterAllHandlers(this);

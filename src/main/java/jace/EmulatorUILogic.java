@@ -23,6 +23,7 @@ import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
 import jace.config.ConfigurationPanel;
 import jace.config.InvokableAction;
+import jace.config.Reconfigurable;
 import jace.core.CPU;
 import jace.core.Debugger;
 import jace.core.RAM;
@@ -63,7 +64,7 @@ import javax.swing.JTextField;
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
-public class EmulatorUILogic {
+public class EmulatorUILogic implements Reconfigurable {
 
     static Debugger debugger;
 
@@ -193,7 +194,8 @@ public class EmulatorUILogic {
             name = "BRUN file",
             category = "file",
             description = "Loads a binary file in memory and executes it. File should end with #06xxxx, where xxxx is the start address in hex",
-            alternatives = "Execute program;Load binary;Load program;Load rom;Play single-load game")
+            alternatives = "Execute program;Load binary;Load program;Load rom;Play single-load game",
+            defaultKeyMapping = "ctrl+shift+b")
     public static void runFile() {
         Emulator.computer.pause();
         JFileChooser select = new JFileChooser();
@@ -243,7 +245,9 @@ public class EmulatorUILogic {
             name = "Adjust display",
             category = "display",
             description = "Adjusts window size to 1:1 aspect ratio for optimal viewing.",
-            alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;")
+            alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;",
+            defaultKeyMapping = "ctrl+shift+a")
+    
     static public void scaleIntegerRatio() {
 //        AbstractEmulatorFrame frame = Emulator.getFrame();
 //        if (frame == null) {
@@ -258,7 +262,8 @@ public class EmulatorUILogic {
             name = "Toggle Debug",
             category = "debug",
             description = "Show/hide the debug panel",
-            alternatives = "Show Debug;Hide Debug")
+            alternatives = "Show Debug;Hide Debug",
+            defaultKeyMapping = "ctrl+shift+d")
     public static void toggleDebugPanel() {
 //        AbstractEmulatorFrame frame = Emulator.getFrame();
 //        if (frame == null) {
@@ -283,7 +288,8 @@ public class EmulatorUILogic {
             name = "Save Raw Screenshot",
             category = "general",
             description = "Save raw (RAM) format of visible screen",
-            alternatives = "screendump, raw screenshot")
+            alternatives = "screendump, raw screenshot",
+            defaultKeyMapping = "ctrl+shift+z")
     public static void saveScreenshotRaw() throws FileNotFoundException, IOException {
         SimpleDateFormat df = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
         String timestamp = df.format(new Date());
@@ -323,7 +329,8 @@ public class EmulatorUILogic {
             name = "Save Screenshot",
             category = "general",
             description = "Save image of visible screen",
-            alternatives = "Save image,save framebuffer,screenshot")
+            alternatives = "Save image,save framebuffer,screenshot",
+            defaultKeyMapping = "ctrl+shift+s")
     public static void saveScreenshot() throws HeadlessException, IOException {
         JFileChooser select = new JFileChooser();
         Emulator.computer.pause();
@@ -352,7 +359,8 @@ public class EmulatorUILogic {
             name = "Configuration",
             category = "general",
             description = "Edit emulator configuraion",
-            alternatives = "Reconfigure,Preferences,Settings")
+            alternatives = "Reconfigure,Preferences,Settings",
+            defaultKeyMapping = {"f4","ctrl+shift+c"})
     public static void showConfig() {
 //        if (Emulator.getFrame().getModalDialogUI(CONFIGURATION_DIALOG_NAME) == null) {
 //            JPanel ui = new ConfigurationPanel();
@@ -368,7 +376,8 @@ public class EmulatorUILogic {
             name = "Media Manager",
             category = "general",
             description = "Show the media manager",
-            alternatives = "Insert disk;Eject disk;Browse;Download;Select")
+            alternatives = "Insert disk;Eject disk;Browse;Download;Select",
+            defaultKeyMapping = {"f1","ctrl+shift+o"})
     public static void showMediaManager() {
 //        if (Emulator.getFrame().getModalDialogUI(MEDIA_MANAGER_DIALOG_NAME) == null) {
 //            Emulator.getFrame().registerModalDialog(MediaLibrary.getInstance().buildUserInterface(), MEDIA_MANAGER_DIALOG_NAME, null, false);
@@ -379,5 +388,19 @@ public class EmulatorUILogic {
     public static boolean confirm(String message) {
 //        return JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(Emulator.getFrame(), message);
         return false;
+    }
+
+    @Override
+    public String getName() {
+        return "Jace User Interface";
+    }
+
+    @Override
+    public String getShortName() {
+        return "UI";
+    }
+
+    @Override
+    public void reconfigure() {
     }
 }

@@ -19,7 +19,6 @@
 package jace.core;
 
 import jace.state.Stateful;
-import jace.Emulator;
 import jace.config.ConfigurableField;
 import jace.config.InvokableAction;
 import javafx.scene.image.Image;
@@ -274,7 +273,8 @@ public abstract class Video extends Device {
     @InvokableAction(name = "Refresh screen",
     category = "display",
     description = "Marks screen contents as changed, forcing full screen redraw",
-    alternatives = "redraw")
+    alternatives = "redraw",
+    defaultKeyMapping = "ctrl+shift+r")
     public final void forceRefresh() {
         lineDirty = true;
         screenDirty = true;

@@ -19,7 +19,9 @@
 package jace.config;
 
 import jace.Emulator;
+import jace.EmulatorUILogic;
 import jace.core.Computer;
+import jace.core.Keyboard;
 import jace.core.Utility;
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,13 +33,14 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +58,15 @@ import javax.swing.tree.TreePath;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Configuration implements Reconfigurable {
+
+    private static Method findAnyMethodByName(Class<? extends Reconfigurable> aClass, String m) {
+        for (Method method : aClass.getMethods()) {
+            if (method.getName().equals(m)) {
+                return method;
+            }
+        }
+        return null;
+    }
 
     public String getName() {
         return "Configuration";
@@ -136,8 +148,9 @@ public class Configuration implements Reconfigurable {
         public transient ConfigNode parent;
         public transient Reconfigurable subject;
         private Map<String, Serializable> settings;
+        private Map<String, String[]> hotkeys;
         protected Map<String, ConfigNode> children;
-        private boolean changed = false;
+        private boolean changed = true;
 
         @Override
         public String toString() {
@@ -155,6 +168,7 @@ public class Configuration implements Reconfigurable {
         public ConfigNode(ConfigNode parent, Reconfigurable subject) {
             this.subject = subject;
             this.settings = new TreeMap<>();
+            this.hotkeys = new TreeMap<>();
             this.children = new TreeMap<>();
             this.parent = parent;
             if (this.parent != null) {
@@ -189,6 +203,7 @@ public class Configuration implements Reconfigurable {
         }
     }
     public final static ConfigNode BASE;
+    public static EmulatorUILogic ui = Emulator.logic;
     public static Computer emulator = Emulator.computer;
     @ConfigurableField(name = "Autosave Changes", description = "If unchecked, changes are only saved when the Save button is pressed.")
     public static boolean saveAutomatically = false;
@@ -199,13 +214,20 @@ public class Configuration implements Reconfigurable {
     }
 
     public static void buildTree() {
-        buildTree(BASE, new HashSet());
+        buildTree(BASE, new LinkedHashSet());
     }
 
     private static void buildTree(ConfigNode node, Set visited) {
         if (node.subject == null) {
             return;
         }
+        
+        for (Method m : node.subject.getClass().getMethods()) {
+            InvokableAction action = m.getDeclaredAnnotation(InvokableAction.class);
+            if (action == null) continue;
+            node.hotkeys.put(m.getName(), action.defaultKeyMapping());
+        }
+        
         for (Field f : node.subject.getClass().getFields()) {
 //            System.out.println("Evaluating field " + f.getName());
             try {
@@ -213,6 +235,7 @@ public class Configuration implements Reconfigurable {
                 if (/*o == null ||*/visited.contains(o)) {
                     continue;
                 }
+                visited.add(o);
 //                System.out.println(o.getClass().getName());
                 // If the object in question is not reconfigurable,
                 // skip over it and investigate its fields instead
@@ -232,7 +255,6 @@ public class Configuration implements Reconfigurable {
 
                 if (o instanceof Reconfigurable) {
                     Reconfigurable r = (Reconfigurable) o;
-                    visited.add(r);
                     ConfigNode child = node.children.get(f.getName());
                     if (child == null || !child.subject.equals(o)) {
                         child = new ConfigNode(node, r);
@@ -275,7 +297,6 @@ public class Configuration implements Reconfigurable {
                     } else {
                         children = Arrays.asList((Reconfigurable[]) o);
                     }
-                    visited.add(o);
                     for (int i = 0; i < children.size(); i++) {
                         Reconfigurable child = children.get(i);
                         String childName = fieldName + i;
@@ -301,7 +322,8 @@ public class Configuration implements Reconfigurable {
             name = "Save settings",
             description = "Save all configuration settings as defaults",
             category = "general",
-            alternatives = "save preferences;save defaults"
+            alternatives = "save preferences;save defaults",
+            defaultKeyMapping = "meta+ctrl+s"
     )
     public static void saveSettings() {
         FileOutputStream fos = null;
@@ -331,16 +353,19 @@ public class Configuration implements Reconfigurable {
             name = "Load settings",
             description = "Load all configuration settings previously saved",
             category = "general",
-            alternatives = "load preferences;revert settings;revert preferences"
+            alternatives = "load preferences;revert settings;revert preferences",
+            defaultKeyMapping = "meta+ctrl+r"
     )
     public static void loadSettings() {
         {
+            boolean successful = false;
             ObjectInputStream ois = null;
             FileInputStream fis = null;
             try {
                 ois = new ObjectInputStream(new FileInputStream(getSettingsFile()));
                 ConfigNode newRoot = (ConfigNode) ois.readObject();
                 applyConfigTree(newRoot, BASE);
+                successful = true;
             } catch (ClassNotFoundException ex) {
                 Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
             } catch (FileNotFoundException ex) {
@@ -352,6 +377,9 @@ public class Configuration implements Reconfigurable {
                 try {
                     if (ois != null) {
                         ois.close();
+                    }
+                    if (!successful) {
+                        applySettings(BASE);
                     }
                 } catch (IOException ex) {
                     Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
@@ -409,6 +437,7 @@ public class Configuration implements Reconfigurable {
             return;
         }
         oldRoot.settings = newRoot.settings;
+        oldRoot.hotkeys = newRoot.hotkeys;
         if (oldRoot.subject != null) {
             doApply(oldRoot);
             buildTree(oldRoot, new HashSet());
@@ -421,6 +450,17 @@ public class Configuration implements Reconfigurable {
 
     private static void doApply(ConfigNode node) {
         List<String> removeList = new ArrayList<>();
+        Keyboard.unregisterAllHandlers(node.subject);
+        for (String m : node.hotkeys.keySet()) {
+            Method method = findAnyMethodByName(node.subject.getClass(), m);
+            if (method == null) continue;
+            InvokableAction action = method.getAnnotation(InvokableAction.class);
+            if (action == null) continue;
+            for (String code : node.hotkeys.get(m)) {
+                Keyboard.registerInvokableAction(action, node.subject, method, code);
+            }
+        }
+        
         for (String f : node.settings.keySet()) {
             try {
                 Field ff = node.subject.getClass().getField(f);

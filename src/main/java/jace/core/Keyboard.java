@@ -22,6 +22,7 @@ import jace.EmulatorUILogic;
 import jace.apple2e.SoftSwitches;
 import jace.apple2e.Speaker;
 import jace.apple2e.softswitch.KeyboardSoftSwitch;
+import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
@@ -29,6 +30,8 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.IOException;
 import java.io.StringReader;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -38,6 +41,7 @@ import java.util.logging.Logger;
 import javafx.event.EventHandler;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import jdk.nashorn.internal.codegen.types.Type;
 
 /**
  * Keyboard manages all keyboard-related activities. For now, all hotkeys are
@@ -89,6 +93,51 @@ public class Keyboard implements Reconfigurable {
     private static Map<KeyCode, Set<KeyHandler>> keyHandlersByKey = new HashMap<>();
     private static Map<Object, Set<KeyHandler>> keyHandlersByOwner = new HashMap<>();
 
+    public static void registerInvokableAction(InvokableAction action, Object owner, Method method, String code) {
+        registerKeyHandler(new KeyHandler(code) {
+            @Override
+            public boolean handleKeyUp(KeyEvent e) {
+                if (!action.notifyOnRelease()) {
+                    return false;
+                }
+                System.out.println("Key up: "+method.toString());
+                Object returnValue = null;
+                try {
+                    if (method.getParameterCount() > 0) {
+                        returnValue = method.invoke(owner, false);
+                    } else {
+                        returnValue = method.invoke(owner);
+                    }
+                } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+                    Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                if (returnValue != null) {
+                    return (Boolean) returnValue;
+                }
+                return action.consumeKeyEvent();
+            }
+
+            @Override
+            public boolean handleKeyDown(KeyEvent e) {
+                System.out.println("Key down: "+method.toString());
+                Object returnValue = null;
+                try {
+                    if (method.getParameterCount() > 0) {
+                        returnValue = method.invoke(owner, true);
+                    } else {
+                        returnValue = method.invoke(owner);
+                    }
+                } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+                    Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                if (returnValue != null) {
+                    return (Boolean) returnValue;
+                }
+                return action.consumeKeyEvent();
+            }
+        }, owner);
+    }
+
     public static void registerKeyHandler(KeyHandler l, Object owner) {
         if (!keyHandlersByKey.containsKey(l.key)) {
             keyHandlersByKey.put(l.key, new HashSet<>());
@@ -98,6 +147,7 @@ public class Keyboard implements Reconfigurable {
             keyHandlersByOwner.put(owner, new HashSet<>());
         }
         keyHandlersByOwner.get(owner).add(l);
+        System.out.println("Registered handler for "+l.getComboName()+"; code is "+l.getKeyName());
     }
 
     public static void unregisterAllHandlers(Object owner) {
@@ -107,12 +157,13 @@ public class Keyboard implements Reconfigurable {
         keyHandlersByOwner.get(owner).stream().filter((handler) -> !(!keyHandlersByKey.containsKey(handler.key))).forEach((handler) -> {
             keyHandlersByKey.get(handler.key).remove(handler);
         });
+        keyHandlersByOwner.remove(owner);
     }
 
     public static void processKeyDownEvents(KeyEvent e) {
         if (keyHandlersByKey.containsKey(e.getCode())) {
             for (KeyHandler h : keyHandlersByKey.get(e.getCode())) {
-                if (!h.matchesModifiers(e)) {
+                if (!h.match(e)) {
                     continue;
                 }
                 boolean isHandled = h.handleKeyDown(e);
@@ -127,7 +178,7 @@ public class Keyboard implements Reconfigurable {
     public static void processKeyUpEvents(KeyEvent e) {
         if (keyHandlersByKey.containsKey(e.getCode())) {
             for (KeyHandler h : keyHandlersByKey.get(e.getCode())) {
-                if (!h.matchesModifiers(e)) {
+                if (!h.match(e)) {
                     continue;
                 }
                 boolean isHandled = h.handleKeyUp(e);
@@ -155,11 +206,11 @@ public class Keyboard implements Reconfigurable {
             return;
         }
 
-        char c=255;
+        char c = 255;
         if (e.getText().length() > 0) {
             c = e.getText().charAt(0);
         }
-        
+
         switch (e.getCode()) {
             case LEFT:
             case KP_LEFT:
@@ -189,21 +240,12 @@ public class Keyboard implements Reconfigurable {
             case BACK_SPACE:
                 c = 127;
                 break;
-            case ALT:
-                pressOpenApple();
-                break;
-            case META:
-            case COMMAND:
-                pressSolidApple();
-                break;
             default:
         }
 
         if (c < 128) {
             pressKey((byte) c);
         }
-
-//                e.consume();
     }
 
     public void keyReleased(KeyEvent e) {
@@ -212,97 +254,21 @@ public class Keyboard implements Reconfigurable {
         if (code == null || e.isConsumed()) {
             return;
         }
-        switch (code) {
-            case INSERT:
-                if (e.isShiftDown()) {
-                    doPaste();
-
-                }
-                break;
-            case F10:
-                EmulatorUILogic.toggleDebugPanel();
-                break;
-            case F12:
-            case PAGE_UP:
-            case BACK_SPACE:
-            case PAUSE:
-                if (e.isControlDown()) {
-                    computer.warmStart();
-                }
-                break;
-            case F1:
-                EmulatorUILogic.showMediaManager();
-                break;
-            case F4:
-                EmulatorUILogic.showConfig();
-                break;
-            case F7:
-                Speaker.toggleFileOutput();
-                break;
-            case F8:
-                EmulatorUILogic.scaleIntegerRatio();
-                break;
-            case F9:
-                EmulatorUILogic.toggleFullscreen();
-                break;
-            case PRINTSCREEN:
-            case SCROLL_LOCK:
-                try {
-                    if (e.isShiftDown()) {
-                        EmulatorUILogic.saveScreenshotRaw();
-                    } else {
-                        EmulatorUILogic.saveScreenshot();
-                    }
-                } catch (IOException ex) {
-                    Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                computer.resume();
-                break;
-            case ALT:
-                releaseOpenApple();
-                break;
-            case META:
-            case COMMAND:
-                releaseSolidApple();
-                break;
-                
-        }
-//        if ((e.getModifiers() & (KeyEvent.ALT_MASK | KeyEvent.META_MASK | KeyEvent.META_DOWN_MASK)) > 0) {
-//            // explicit left and right here because other locations
-//            // can be sent as well, e.g. KEY_LOCATION_STANDARD
-//            if (e.getKeyLocation() == KeyEvent.KEY_LOCATION_LEFT) {
-//                releaseOpenApple();
-//            } else if (e.getKeyLocation() == KeyEvent.KEY_LOCATION_RIGHT) {
-//                releaseSolidApple();
-//            }
-//        }
-
+        
         e.consume();
-//                e.setKeyChar((char) 0);
-//                e.setKeyCode(0);
     }
 
-    private void pressOpenApple() {
+    @InvokableAction(name = "Open Apple Key", alternatives = "OA", category = "Keyboard", notifyOnRelease = true, defaultKeyMapping = "Alt", consumeKeyEvent = false)
+    public void openApple(boolean pressed) {
         computer.pause();
-        SoftSwitches.PB0.getSwitch().setState(true);
+        SoftSwitches.PB0.getSwitch().setState(pressed);
         computer.resume();
     }
 
-    private void pressSolidApple() {
+    @InvokableAction(name = "Closed Apple Key", alternatives = "CA", category = "Keyboard", notifyOnRelease = true, defaultKeyMapping = "Meta", consumeKeyEvent = false)
+    public void solidApple(boolean pressed) {
         computer.pause();
-        SoftSwitches.PB1.getSwitch().setState(true);
-        computer.resume();
-    }
-
-    private void releaseOpenApple() {
-        computer.pause();
-        SoftSwitches.PB0.getSwitch().setState(false);
-        computer.resume();
-    }
-
-    private void releaseSolidApple() {
-        computer.pause();
-        SoftSwitches.PB1.getSwitch().setState(false);
+        SoftSwitches.PB1.getSwitch().setState(pressed);
         computer.resume();
     }
 
@@ -310,7 +276,8 @@ public class Keyboard implements Reconfigurable {
         pasteBuffer = new StringReader(text);
     }
 
-    private static void doPaste() {
+    @InvokableAction(name = "Paste clipboard", alternatives = "paste", category = "Keyboard", notifyOnRelease = false, defaultKeyMapping = {"Ctrl+Shift+V","Shift+Insert"}, consumeKeyEvent = false)
+    public static void doPaste() {
         try {
             Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
             String contents = (String) clip.getData(DataFlavor.stringFlavor);
@@ -340,8 +307,6 @@ public class Keyboard implements Reconfigurable {
                 return -1;
             }
 
-            KeyboardSoftSwitch key
-                    = (KeyboardSoftSwitch) SoftSwitches.KEYBOARD.getSwitch();
             return (keypress & 0x0ff);
 
         } catch (IOException ex) {
