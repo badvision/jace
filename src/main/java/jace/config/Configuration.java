@@ -82,10 +82,12 @@ public class Configuration implements Reconfigurable {
 
     public static class ConfigTreeModel implements TreeModel {
 
+        @Override
         public Object getRoot() {
             return BASE;
         }
 
+        @Override
         public Object getChild(Object parent, int index) {
             if (parent instanceof ConfigNode) {
                 ConfigNode n = (ConfigNode) parent;
@@ -95,6 +97,7 @@ public class Configuration implements Reconfigurable {
             }
         }
 
+        @Override
         public int getChildCount(Object parent) {
             if (parent instanceof ConfigNode) {
                 ConfigNode n = (ConfigNode) parent;
@@ -104,14 +107,17 @@ public class Configuration implements Reconfigurable {
             }
         }
 
+        @Override
         public boolean isLeaf(Object node) {
             return getChildCount(node) == 0;
         }
 
+        @Override
         public void valueForPathChanged(TreePath path, Object newValue) {
             // Do nothing...
         }
 
+        @Override
         public int getIndexOfChild(Object parent, Object child) {
             if (parent instanceof ConfigNode) {
                 ConfigNode n = (ConfigNode) parent;
@@ -125,10 +131,12 @@ public class Configuration implements Reconfigurable {
             return -1;
         }
 
+        @Override
         public void addTreeModelListener(TreeModelListener l) {
             // Do nothing...
         }
 
+        @Override
         public void removeTreeModelListener(TreeModelListener l) {
             // Do nothing...
         }
@@ -221,13 +229,15 @@ public class Configuration implements Reconfigurable {
         if (node.subject == null) {
             return;
         }
-        
+
         for (Method m : node.subject.getClass().getMethods()) {
+            if (!m.isAnnotationPresent(InvokableAction.class)) {
+                continue;
+            }
             InvokableAction action = m.getDeclaredAnnotation(InvokableAction.class);
-            if (action == null) continue;
             node.hotkeys.put(m.getName(), action.defaultKeyMapping());
         }
-        
+
         for (Field f : node.subject.getClass().getFields()) {
 //            System.out.println("Evaluating field " + f.getName());
             try {
@@ -366,12 +376,9 @@ public class Configuration implements Reconfigurable {
                 ConfigNode newRoot = (ConfigNode) ois.readObject();
                 applyConfigTree(newRoot, BASE);
                 successful = true;
-            } catch (ClassNotFoundException ex) {
-                Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
             } catch (FileNotFoundException ex) {
-//                Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
                 // This just means there are no settings to be saved -- just ignore it.
-            } catch (IOException ex) {
+            } catch (ClassNotFoundException | IOException ex) {
                 Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
             } finally {
                 try {
@@ -451,16 +458,16 @@ public class Configuration implements Reconfigurable {
     private static void doApply(ConfigNode node) {
         List<String> removeList = new ArrayList<>();
         Keyboard.unregisterAllHandlers(node.subject);
-        for (String m : node.hotkeys.keySet()) {
+        node.hotkeys.keySet().stream().forEach((m) -> {
             Method method = findAnyMethodByName(node.subject.getClass(), m);
-            if (method == null) continue;
-            InvokableAction action = method.getAnnotation(InvokableAction.class);
-            if (action == null) continue;
-            for (String code : node.hotkeys.get(m)) {
-                Keyboard.registerInvokableAction(action, node.subject, method, code);
+            if (method != null) {
+                InvokableAction action = method.getAnnotation(InvokableAction.class);
+                for (String code : node.hotkeys.get(m)) {
+                    Keyboard.registerInvokableAction(action, node.subject, method, code);
+                }
             }
-        }
-        
+        });
+
         for (String f : node.settings.keySet()) {
             try {
                 Field ff = node.subject.getClass().getField(f);

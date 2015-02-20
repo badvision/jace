@@ -18,10 +18,7 @@
  */
 package jace.core;
 
-import jace.EmulatorUILogic;
 import jace.apple2e.SoftSwitches;
-import jace.apple2e.Speaker;
-import jace.apple2e.softswitch.KeyboardSoftSwitch;
 import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
 import java.awt.Toolkit;
@@ -32,6 +29,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -41,7 +39,6 @@ import java.util.logging.Logger;
 import javafx.event.EventHandler;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-import jdk.nashorn.internal.codegen.types.Type;
 
 /**
  * Keyboard manages all keyboard-related activities. For now, all hotkeys are
@@ -94,6 +91,7 @@ public class Keyboard implements Reconfigurable {
     private static Map<Object, Set<KeyHandler>> keyHandlersByOwner = new HashMap<>();
 
     public static void registerInvokableAction(InvokableAction action, Object owner, Method method, String code) {
+        boolean isStatic = Modifier.isStatic(method.getModifiers());
         registerKeyHandler(new KeyHandler(code) {
             @Override
             public boolean handleKeyUp(KeyEvent e) {
@@ -104,9 +102,9 @@ public class Keyboard implements Reconfigurable {
                 Object returnValue = null;
                 try {
                     if (method.getParameterCount() > 0) {
-                        returnValue = method.invoke(owner, false);
+                        returnValue = method.invoke(isStatic ? null : owner, true);
                     } else {
-                        returnValue = method.invoke(owner);
+                        returnValue = method.invoke(isStatic ? null : owner);
                     }
                 } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
                     Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
@@ -123,9 +121,9 @@ public class Keyboard implements Reconfigurable {
                 Object returnValue = null;
                 try {
                     if (method.getParameterCount() > 0) {
-                        returnValue = method.invoke(owner, true);
+                        returnValue = method.invoke(isStatic ? null : owner, true);
                     } else {
-                        returnValue = method.invoke(owner);
+                        returnValue = method.invoke(isStatic ? null : owner);
                     }
                 } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
                     Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
@@ -272,12 +270,12 @@ public class Keyboard implements Reconfigurable {
         computer.resume();
     }
 
-    public static void doPaste(String text) {
+    public static void pasteFromString(String text) {
         pasteBuffer = new StringReader(text);
     }
 
-    @InvokableAction(name = "Paste clipboard", alternatives = "paste", category = "Keyboard", notifyOnRelease = false, defaultKeyMapping = {"Ctrl+Shift+V","Shift+Insert"}, consumeKeyEvent = false)
-    public static void doPaste() {
+    @InvokableAction(name = "Paste clipboard", alternatives = "paste", category = "Keyboard", notifyOnRelease = false, defaultKeyMapping = {"Ctrl+Shift+V","Shift+Insert"}, consumeKeyEvent = true)
+    public static void pasteFromClipboard() {
         try {
             Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
             String contents = (String) clip.getData(DataFlavor.stringFlavor);
