@@ -218,6 +218,7 @@ public class SoundMixer extends Device {
         }
         availableLines.clear();
         activeLines.clear();
+        super.detach();
     }
 
     private void initMixer() {

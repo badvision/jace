@@ -165,7 +165,7 @@ public class MetaCheats extends Cheats {
     
     
     @Override
-    public void attach() {
+    public void registerListeners() {
         this.addCheat(new RAMListener(RAMEvent.TYPE.READ, RAMEvent.SCOPE.ANY, RAMEvent.VALUE.ANY) {
             @Override
             protected void doConfig() {
@@ -203,12 +203,6 @@ public class MetaCheats extends Cheats {
                 }
             }
         });        
-    }
-
-    @Override
-    public void detach() {
-        super.detach();
-        Keyboard.unregisterAllHandlers(this);
     }
 
     public void addByteCheat(int addr, int val) {

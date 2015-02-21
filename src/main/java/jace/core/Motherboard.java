@@ -198,5 +198,6 @@ public class Motherboard extends TimedDevice {
         });
         miscDevices.clear();
 //        halt();
+        super.detach();
     }
 }

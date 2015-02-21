@@ -98,11 +98,11 @@ public class Keyboard implements Reconfigurable {
                 if (!action.notifyOnRelease()) {
                     return false;
                 }
-                System.out.println("Key up: "+method.toString());
+//                System.out.println("Key up: "+method.toString());
                 Object returnValue = null;
                 try {
                     if (method.getParameterCount() > 0) {
-                        returnValue = method.invoke(isStatic ? null : owner, true);
+                        returnValue = method.invoke(isStatic ? null : owner, false);
                     } else {
                         returnValue = method.invoke(isStatic ? null : owner);
                     }
@@ -117,7 +117,7 @@ public class Keyboard implements Reconfigurable {
 
             @Override
             public boolean handleKeyDown(KeyEvent e) {
-                System.out.println("Key down: "+method.toString());
+//                System.out.println("Key down: "+method.toString());
                 Object returnValue = null;
                 try {
                     if (method.getParameterCount() > 0) {
@@ -263,7 +263,7 @@ public class Keyboard implements Reconfigurable {
         computer.resume();
     }
 
-    @InvokableAction(name = "Closed Apple Key", alternatives = "CA", category = "Keyboard", notifyOnRelease = true, defaultKeyMapping = "Meta", consumeKeyEvent = false)
+    @InvokableAction(name = "Closed Apple Key", alternatives = "CA", category = "Keyboard", notifyOnRelease = true, defaultKeyMapping = {"Shortcut","Meta","Command"}, consumeKeyEvent = false)
     public void solidApple(boolean pressed) {
         computer.pause();
         SoftSwitches.PB1.getSwitch().setState(pressed);

@@ -65,6 +65,57 @@ public abstract class Card extends Device {
 
     @Override
     public void attach() {
+        registerListeners();
+    }
+
+    @Override
+    public void detach() {
+        suspend();
+        unregisterListeners();
+        super.detach();
+    }
+
+    abstract protected void handleIOAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e);
+
+    abstract protected void handleFirmwareAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e);
+
+    abstract protected void handleC8FirmwareAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e);
+
+    public int getSlot() {
+        return slot;
+    }
+
+    public void setSlot(int slot) {
+        this.slot = slot;
+    }
+
+    public PagedMemory getCxRom() {
+        return cxRom;
+    }
+
+    public PagedMemory getC8Rom() {
+        return c8Rom;
+    }
+
+    @Override
+    public void reconfigure() {
+        boolean restart = suspend();
+        unregisterListeners();
+        if (restart) {
+            resume();
+        }
+        registerListeners();
+    }
+
+    public void notifyVBLStateChanged(boolean state) {
+        // Do nothing unless overridden
+    }
+
+    public boolean suspendWithCPU() {
+        return false;
+    }
+
+    protected void registerListeners() {
         ioListener = new RAMListener(
                 RAMEvent.TYPE.ANY,
                 RAMEvent.SCOPE.RANGE,
@@ -106,11 +157,13 @@ public abstract class Card extends Device {
                 RAMEvent.TYPE.ANY,
                 RAMEvent.SCOPE.RANGE,
                 RAMEvent.VALUE.ANY) {
+            @Override
             protected void doConfig() {
                 setScopeStart(slot * 256 + 0x00c800);
                 setScopeEnd(slot * 256 + 0x00cfff);
             }
 
+            @Override
             protected void doEvent(RAMEvent e) {
                 if (SoftSwitches.CXROM.getState()
                         || computer.getMemory().getActiveSlot() != getSlot()
@@ -126,51 +179,9 @@ public abstract class Card extends Device {
         computer.getMemory().addListener(c8firmwareListener);
     }
 
-    @Override
-    public void detach() {
-        suspend();
+    protected void unregisterListeners() {
         computer.getMemory().removeListener(ioListener);
         computer.getMemory().removeListener(firmwareListener);
         computer.getMemory().removeListener(c8firmwareListener);
-    }
-
-    abstract protected void handleIOAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e);
-
-    abstract protected void handleFirmwareAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e);
-
-    abstract protected void handleC8FirmwareAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e);
-
-    public int getSlot() {
-        return slot;
-    }
-
-    public void setSlot(int slot) {
-        this.slot = slot;
-    }
-
-    public PagedMemory getCxRom() {
-        return cxRom;
-    }
-
-    public PagedMemory getC8Rom() {
-        return c8Rom;
-    }
-
-    @Override
-    public void reconfigure() {
-        boolean restart = suspend();
-        detach();
-        if (restart) {
-            resume();
-        }
-        attach();
-    }
-
-    public void notifyVBLStateChanged(boolean state) {
-        // Do nothing unless overridden
-    }
-
-    public boolean suspendWithCPU() {
-        return false;
-    }
+   }    
 }

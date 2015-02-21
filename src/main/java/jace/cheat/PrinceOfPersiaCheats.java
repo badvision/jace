@@ -99,9 +99,9 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
     public static int InEditor = 0x0202;
     public static int MinLeft = 0x0300;
     public static int hasSword = 0x030a;
-    public static int mobtables = 0x0b600;
-    public static int trloc = mobtables;
-    public static int trscrn = trloc + 0x020;
+    public static final int mobtables = 0x0b600;
+    public static final int trloc = mobtables;
+    public static final int trscrn = trloc + 0x020;
     public static int trdirec = trscrn + 0x020;
     // Blueprint (map level data)0
     public static int BlueSpec = 0x0b9d0;
@@ -164,7 +164,7 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
     }
 
     @Override
-    public void attach() {
+    public void registerListeners() {
         if (velocityHack) {
             addCheat(new RAMListener(RAMEvent.TYPE.READ_DATA, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
                 @Override
@@ -269,8 +269,8 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
     }
 
     @Override
-    public void detach() {
-        super.detach();
+    public void unregisterListeners() {
+        super.unregisterListeners();
         if (Emulator.getScreen() != null) {
             Emulator.getScreen().removeMouseListener(this);
         }
@@ -411,11 +411,8 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
         if (blockType == gate || blockType == exit2 || blockType == exit) {
             // If the object in question can be opened (exit or gate) add it to the transitional animation buffer
             //System.out.print("Triggering screen " + currentScrn + " at pos " + clickedLoc);
-            boolean addTransition = false;
-            if (numTransition == 0) {
-                addTransition = true;
-            } else {
-                addTransition = true;
+            boolean addTransition = true;
+            if (numTransition > 0) {
                 for (int i = 1; i <= numTransition; i++) {
                     byte scrn = auxMem.readByte(trscrn + i);
                     byte loc = auxMem.readByte(trloc + i);

@@ -166,11 +166,6 @@ public abstract class R6522 extends Device {
     }
 
     @Override
-    public void detach() {
-        // Reset
-    }
-
-    @Override
     public void reconfigure() {
         // Reset
     }

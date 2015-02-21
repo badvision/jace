@@ -180,6 +180,7 @@ public class Joystick extends Device {
     @Override
     public void detach() {
         removeListeners();
+        super.detach();
     }
 
     @Override

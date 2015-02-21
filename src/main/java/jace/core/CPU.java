@@ -158,8 +158,4 @@ public abstract class CPU extends Device {
     @Override
     public void attach() {
     }
-
-    @Override
-    public void detach() {
-    }
 }

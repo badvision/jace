@@ -18,7 +18,6 @@
  */
 package jace.hardware;
 
-import jace.Emulator;
 import jace.config.ConfigurableField;
 import jace.config.Name;
 import jace.config.Reconfigurable;
@@ -415,6 +414,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
     /**
      * Detach from server socket port and ensure that the card's resources are
      * no longer in use
+     * @return 
      */
     @Override
     public boolean suspend() {
@@ -458,7 +458,6 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
             } catch (IOException ex) {
                 suspend();
                 Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
-                ex.printStackTrace();
             }
         }
     }
@@ -484,7 +483,6 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
     @Override
     protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
         // Do nothing -- the card rom does everything
-        return;
     }
 
     @Override

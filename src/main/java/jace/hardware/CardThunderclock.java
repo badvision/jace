@@ -18,7 +18,6 @@
  */
 package jace.hardware;
 
-import jace.Emulator;
 import jace.apple2e.MOS65C02;
 import jace.config.ConfigurableField;
 import jace.config.Name;

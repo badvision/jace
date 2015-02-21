@@ -328,10 +328,8 @@ public class VideoNTSC extends VideoDHGR {
 
     @Override
     public void reconfigure() {
-        detach();
         activePalette = useTextPalette ? textPalette : solidPalette;
         super.reconfigure();
-        attach();
     }
     // The following section captures changes to the RGB mode
     // The details of this are in Brodener's patent application #4631692
@@ -456,10 +454,10 @@ public class VideoNTSC extends VideoDHGR {
 
     @Override
     public void detach() {
-        super.detach();
         rgbStateListeners.stream().forEach((l) -> {
             computer.getMemory().removeListener(l);
         });
+        super.detach();
     }
 
     @Override

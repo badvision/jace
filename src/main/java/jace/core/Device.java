@@ -114,5 +114,7 @@ public abstract class Device implements Reconfigurable {
 
     public abstract void attach();
 
-    public abstract void detach();
+    public void detach() {
+        Keyboard.unregisterAllHandlers(this);
+    }
 }

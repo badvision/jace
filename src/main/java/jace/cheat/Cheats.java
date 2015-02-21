@@ -42,17 +42,29 @@ public abstract class Cheats extends Device {
     }
 
     @Override
+    public void attach() {
+        registerListeners();
+    }
+    
+    @Override
     public void detach() {
+        unregisterListeners();
+        super.detach();        
+    }
+    
+    abstract void registerListeners();
+    
+    protected void unregisterListeners() {
         listeners.stream().forEach((l) -> {
             computer.getMemory().removeListener(l);
         });
-        listeners.clear();
+        listeners.clear();        
     }
     
     @Override
     public void reconfigure() {
-        detach();
-        attach();
+        unregisterListeners();
+        registerListeners();
     }
     
     @Override

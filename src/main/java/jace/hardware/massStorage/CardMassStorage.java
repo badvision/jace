@@ -128,8 +128,7 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
     @Override
     public void reconfigure() {
         try {
-            detach();
-
+            unregisterListeners();
             int pc = computer.getCpu().getProgramCounter();
             if (drive1.getCurrentDisk() != null && getSlot() == 7 && (pc == 0x0c65e || pc == 0x0c661)) {
                 // If the computer is in a loop trying to boot from cards 6, fast-boot from here instead
@@ -139,7 +138,7 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
                 Optional<Card>[] cards = computer.getMemory().getAllCards();
                 cards[6].ifPresent(card->computer.getMotherboard().cancelSpeedRequest(card));
             }
-            attach();
+            registerListeners();
         } catch (IOException ex) {
             Logger.getLogger(CardMassStorage.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -255,6 +254,7 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
         }
     };
 
+    @Override
     public MediaConsumer[] getConsumers() {
         return new MediaConsumer[]{drive1, drive2};
     }

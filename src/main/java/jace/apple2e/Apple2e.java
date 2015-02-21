@@ -327,6 +327,8 @@ public class Apple2e extends Computer {
     }
     private List<RAMListener> hints = new ArrayList<>();
 
+    Thread twinkleEffect;
+
     private void enableHints() {
         if (hints.isEmpty()) {
             hints.add(new RAMListener(RAMEvent.TYPE.EXECUTE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
@@ -340,64 +342,66 @@ public class Apple2e extends Computer {
                     if (getCpu().getProgramCounter() != getScopeStart()) {
                         return;
                     }
-                    Thread t = new Thread(() -> {
-                        try {
-                            // Give the floppy drive time to start
-                            Thread.sleep(1000);
-                            if (getCpu().getProgramCounter() >> 8 != 0x0c6) {
-                                return;
-                            }
+                    if (twinkleEffect == null || !twinkleEffect.isAlive()) {
+                        twinkleEffect = new Thread(() -> {
+                            try {
+                                // Give the floppy drive time to start
+                                Thread.sleep(1000);
+                                if (getCpu().getProgramCounter() >> 8 != 0x0c6) {
+                                    return;
+                                }
 
-                            int row = 2;
-                            for (String s : new String[]{
-                                "              Welcome to",
-                                "         _    __    ___   ____ ",
-                                "        | |  / /\\  / / ` | |_  ",
-                                "      \\_|_| /_/--\\ \\_\\_, |_|__ ",
-                                "",
-                                "    Java Apple Computer Emulator",
-                                "",
-                                "        Presented by BLuRry",
-                                "        http://goo.gl/SnzqG",
-                                "",
-                                "Press F1 to insert disk in Slot 6, D1",
-                                "Press F2 to insert disk in Slot 6, D2",
-                                "Press F3 to insert HDV or 2MG in slot 7",
-                                "Press F4 to open configuration",
-                                "Press F5 to run raw binary program",
-                                "Press F8 to correct the aspect ratio",
-                                "Press F9 to toggle fullscreen",
-                                "Press F10 to open/close the debugger",
-                                "",
-                                "      If metacheat is enabled:",
-                                "Press HOME to activate memory heatmap",
-                                "Press END to activate metacheat search"
-                            }) {
-                                int addr = 0x0401 + VideoDHGR.calculateTextOffset(row++);
-                                for (char c : s.toCharArray()) {
-                                    getMemory().write(addr++, (byte) (c | 0x080), false, true);
-                                }
-                            }
-                            while (getCpu().getProgramCounter() >> 8 == 0x0c6) {
-                                int x = (int) (Math.random() * 26.0) + 7;
-                                int y = (int) (Math.random() * 4.0) + 3;
-                                int addr = 0x0400 + VideoDHGR.calculateTextOffset(y) + x;
-                                byte old = getMemory().readRaw(addr);
-                                for (char c : "+xX*+".toCharArray()) {
-                                    if (getCpu().getProgramCounter() >> 8 != 0x0c6) {
-                                        break;
+                                int row = 2;
+                                for (String s : new String[]{
+                                    "              Welcome to",
+                                    "         _    __    ___   ____ ",
+                                    "        | |  / /\\  / / ` | |_  ",
+                                    "      \\_|_| /_/--\\ \\_\\_, |_|__ ",
+                                    "",
+                                    "    Java Apple Computer Emulator",
+                                    "",
+                                    "        Presented by BLuRry",
+                                    "        http://goo.gl/SnzqG",
+                                    "",
+                                    "Press F1 to insert disk in Slot 6, D1",
+                                    "Press F2 to insert disk in Slot 6, D2",
+                                    "Press F3 to insert HDV or 2MG in slot 7",
+                                    "Press F4 to open configuration",
+                                    "Press F5 to run raw binary program",
+                                    "Press F8 to correct the aspect ratio",
+                                    "Press F9 to toggle fullscreen",
+                                    "Press F10 to open/close the debugger",
+                                    "",
+                                    "      If metacheat is enabled:",
+                                    "Press HOME to activate memory heatmap",
+                                    "Press END to activate metacheat search"
+                                }) {
+                                    int addr = 0x0401 + VideoDHGR.calculateTextOffset(row++);
+                                    for (char c : s.toCharArray()) {
+                                        getMemory().write(addr++, (byte) (c | 0x080), false, true);
                                     }
-                                    getMemory().write(addr, (byte) (c | 0x080), true, true);
-                                    Thread.sleep(100);
                                 }
-                                getMemory().write(addr, old, true, true);
+                                while (getCpu().getProgramCounter() >> 8 == 0x0c6) {
+                                    int x = (int) (Math.random() * 26.0) + 7;
+                                    int y = (int) (Math.random() * 4.0) + 3;
+                                    int addr = 0x0400 + VideoDHGR.calculateTextOffset(y) + x;
+                                    byte old = getMemory().readRaw(addr);
+                                    for (char c : "+xX*+".toCharArray()) {
+                                        if (getCpu().getProgramCounter() >> 8 != 0x0c6) {
+                                            break;
+                                        }
+                                        getMemory().write(addr, (byte) (c | 0x080), true, true);
+                                        Thread.sleep(100);
+                                    }
+                                    getMemory().write(addr, old, true, true);
+                                }
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
                             }
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    });
-                    t.setName("Startup Animation");
-                    t.start();
+                        });
+                        twinkleEffect.setName("Startup Animation");
+                        twinkleEffect.start();
+                    }
                 }
             });
             // Latch to the PRODOS SYNTAX CHECK parser

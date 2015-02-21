@@ -735,11 +735,6 @@ public class VideoDHGR extends Video {
     }
 
     @Override
-    public void detach() {
-        // Do nothing
-    }
-
-    @Override
     public void hblankStart(WritableImage screen, int y, boolean isDirty) {
         // Do nothing
     }

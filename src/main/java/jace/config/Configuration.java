@@ -68,6 +68,7 @@ public class Configuration implements Reconfigurable {
         return null;
     }
 
+    @Override
     public String getName() {
         return "Configuration";
     }
@@ -77,6 +78,7 @@ public class Configuration implements Reconfigurable {
         return "cfg";
     }
 
+    @Override
     public void reconfigure() {
     }
 

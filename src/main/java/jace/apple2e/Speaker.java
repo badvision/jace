@@ -321,5 +321,6 @@ public class Speaker extends Device {
     public void detach() {
         removeListener();
         suspend();
+        super.detach();
     }
 }
