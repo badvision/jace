@@ -21,6 +21,7 @@ package jace;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
+import jace.config.ConfigurationUIController;
 import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
 import jace.core.CPU;
@@ -43,7 +44,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
 import javafx.scene.image.Image;
+import javafx.scene.layout.AnchorPane;
+import javafx.stage.Stage;
 import javax.imageio.ImageIO;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -355,11 +360,19 @@ public class EmulatorUILogic implements Reconfigurable {
             alternatives = "Reconfigure,Preferences,Settings",
             defaultKeyMapping = {"f4","ctrl+shift+c"})
     public static void showConfig() {
-//        if (Emulator.getFrame().getModalDialogUI(CONFIGURATION_DIALOG_NAME) == null) {
-//            JPanel ui = new ConfigurationPanel();
-//            Emulator.getFrame().registerModalDialog(ui, CONFIGURATION_DIALOG_NAME, null, false);
-//        }
-//        Emulator.getFrame().showDialog(CONFIGURATION_DIALOG_NAME);
+        FXMLLoader fxmlLoader = new FXMLLoader(EmulatorUILogic.class.getResource("/fxml/Configuration.fxml"));
+        fxmlLoader.setResources(null);
+        try {
+            Stage configWindow = new Stage();
+            AnchorPane node = (AnchorPane) fxmlLoader.load();
+            ConfigurationUIController controller = fxmlLoader.getController();
+            controller.initialize();
+            Scene s = new Scene(node);
+            configWindow.setScene(s);
+            configWindow.show();
+        } catch (IOException exception) {
+            throw new RuntimeException(exception);
+        }        
     }
 
     public static final String MEDIA_MANAGER_DIALOG_NAME = "Media Manager";

@@ -62,12 +62,15 @@
         <Component class="javax.swing.JTree" name="configTree">
           <Properties>
             <Property name="model" type="javax.swing.tree.TreeModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-              <Connection code="new Configuration.ConfigTreeModel()" type="code"/>
+              <Connection code="null); //new Configuration.ConfigTreeModel()" type="code"/>
             </Property>
           </Properties>
           <Events>
             <EventHandler event="valueChanged" listener="javax.swing.event.TreeSelectionListener" parameters="javax.swing.event.TreeSelectionEvent" handler="configTreeValueChanged"/>
           </Events>
+          <AuxValues>
+            <AuxValue name="JavaCodeGenerator_SerializeTo" type="java.lang.String" value="ConfigurationPanel_configTree"/>
+          </AuxValues>
         </Component>
       </SubComponents>
     </Container>

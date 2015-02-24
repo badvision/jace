@@ -48,9 +48,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.event.TreeModelListener;
-import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreePath;
+import javafx.collections.ObservableList;
+import javafx.scene.control.TreeItem;
 
 /**
  * Manages the configuration state of the emulator components.
@@ -82,68 +81,6 @@ public class Configuration implements Reconfigurable {
     public void reconfigure() {
     }
 
-    public static class ConfigTreeModel implements TreeModel {
-
-        @Override
-        public Object getRoot() {
-            return BASE;
-        }
-
-        @Override
-        public Object getChild(Object parent, int index) {
-            if (parent instanceof ConfigNode) {
-                ConfigNode n = (ConfigNode) parent;
-                return n.children.values().toArray()[index];
-            } else {
-                return null;
-            }
-        }
-
-        @Override
-        public int getChildCount(Object parent) {
-            if (parent instanceof ConfigNode) {
-                ConfigNode n = (ConfigNode) parent;
-                return n.children.size();
-            } else {
-                return 0;
-            }
-        }
-
-        @Override
-        public boolean isLeaf(Object node) {
-            return getChildCount(node) == 0;
-        }
-
-        @Override
-        public void valueForPathChanged(TreePath path, Object newValue) {
-            // Do nothing...
-        }
-
-        @Override
-        public int getIndexOfChild(Object parent, Object child) {
-            if (parent instanceof ConfigNode) {
-                ConfigNode n = (ConfigNode) parent;
-                ConfigNode[] c = (ConfigNode[]) n.children.values().toArray(new ConfigNode[0]);
-                for (int i = 0; i < c.length; i++) {
-                    if (c[i].equals(child)) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        @Override
-        public void addTreeModelListener(TreeModelListener l) {
-            // Do nothing...
-        }
-
-        @Override
-        public void removeTreeModelListener(TreeModelListener l) {
-            // Do nothing...
-        }
-    }
-
     /**
      * Represents a serializable configuration node as part of a tree. The root
      * node should be a single instance (e.g. Computer) The child nodes should
@@ -152,14 +89,14 @@ public class Configuration implements Reconfigurable {
      * configuration 2) Provide a simple persistence mechanism to load/store
      * configuration
      */
-    public static class ConfigNode implements Serializable {
+    public static class ConfigNode extends TreeItem implements Serializable {
 
         public transient ConfigNode root;
         public transient ConfigNode parent;
+        private ObservableList<ConfigNode> children;
         public transient Reconfigurable subject;
         private Map<String, Serializable> settings;
         private Map<String, String[]> hotkeys;
-        protected Map<String, ConfigNode> children;
         private boolean changed = true;
 
         @Override
@@ -167,23 +104,26 @@ public class Configuration implements Reconfigurable {
             if (subject == null) {
                 return "???";
             }
-            return (changed ? "<html><i>" : "") + subject.getName();
+            return subject.getName();
         }
 
         public ConfigNode(Reconfigurable subject) {
             this(null, subject);
             this.root = null;
+            this.setExpanded(true);
         }
 
         public ConfigNode(ConfigNode parent, Reconfigurable subject) {
+            super();
             this.subject = subject;
             this.settings = new TreeMap<>();
             this.hotkeys = new TreeMap<>();
-            this.children = new TreeMap<>();
+            this.children = getChildren();
             this.parent = parent;
             if (this.parent != null) {
                 this.root = this.parent.root != null ? this.parent.root : this.parent;
             }
+            setValue(toString());
         }
 
         public void setFieldValue(String field, Serializable value) {
@@ -210,6 +150,38 @@ public class Configuration implements Reconfigurable {
 
         public Set<String> getAllSettingNames() {
             return settings.keySet();
+        }
+
+        @Override
+        public ObservableList<ConfigNode> getChildren() {
+            return super.getChildren();
+        }
+
+        private boolean removeChild(String childName) {
+            ConfigNode child = findChild(childName);
+            return children.remove(child);
+        }
+
+        private ConfigNode findChild(String childName) {
+            for (ConfigNode node : children) {
+                if (childName.equalsIgnoreCase(String.valueOf(node.getValue()))) {
+                    return node;
+                }
+            }
+            return null;
+        }
+
+        private void putChild(String childName, ConfigNode newChild) {
+            removeChild(childName);
+            int index = 0;
+            for (ConfigNode node : children) {
+                if (String.valueOf(node.getValue()).compareToIgnoreCase(childName) > 0) {
+                    break;
+                } else {
+                    index++;
+                }
+            }
+            children.add(index, newChild);
         }
     }
     public final static ConfigNode BASE;
@@ -241,7 +213,7 @@ public class Configuration implements Reconfigurable {
         }
 
         for (Field f : node.subject.getClass().getFields()) {
-//            System.out.println("Evaluating field " + f.getName());
+            System.out.println("Evaluating field " + f.getName());
             try {
                 Object o = f.get(node.subject);
                 if (/*o == null ||*/visited.contains(o)) {
@@ -267,22 +239,22 @@ public class Configuration implements Reconfigurable {
 
                 if (o instanceof Reconfigurable) {
                     Reconfigurable r = (Reconfigurable) o;
-                    ConfigNode child = node.children.get(f.getName());
+                    ConfigNode child = node.findChild(f.getName());
                     if (child == null || !child.subject.equals(o)) {
                         child = new ConfigNode(node, r);
-                        node.children.put(f.getName(), child);
+                        node.putChild(f.getName(), child);
                     }
                     buildTree(child, visited);
                 } else if (o.getClass().isArray()) {
                     String fieldName = f.getName();
                     Class type = o.getClass().getComponentType();
-//                    System.out.println("Evaluating " + node.subject.getShortName() + "." + fieldName + "; type is " + type.toGenericString());
+                    System.out.println("Evaluating " + node.subject.getShortName() + "." + fieldName + "; type is " + type.toGenericString());
                     List<Reconfigurable> children = new ArrayList<>();
                     if (!Reconfigurable.class.isAssignableFrom(type)) {
-//                        System.out.println("Looking at type " + type.getName() + " to see if optional");
+                        System.out.println("Looking at type " + type.getName() + " to see if optional");
                         if (Optional.class.isAssignableFrom(type)) {
                             Type genericTypes = f.getGenericType();
-//                            System.out.println("Looking at generic parmeters " + genericTypes.getTypeName() + " for reconfigurable class, type "+genericTypes.getClass().getName());
+                            System.out.println("Looking at generic parmeters " + genericTypes.getTypeName() + " for reconfigurable class, type "+genericTypes.getClass().getName());
                             if (genericTypes instanceof GenericArrayType) {
                                 GenericArrayType aType = (GenericArrayType) genericTypes;
                                 ParameterizedType pType = (ParameterizedType) aType.getGenericComponentType();
@@ -313,13 +285,13 @@ public class Configuration implements Reconfigurable {
                         Reconfigurable child = children.get(i);
                         String childName = fieldName + i;
                         if (child == null) {
-                            node.children.remove(childName);
+                            node.removeChild(childName);
                             continue;
                         }
-                        ConfigNode grandchild = node.children.get(childName);
+                        ConfigNode grandchild = node.findChild(childName);
                         if (grandchild == null || !grandchild.subject.equals(child)) {
                             grandchild = new ConfigNode(node, child);
-                            node.children.put(childName, grandchild);
+                            node.putChild(childName, grandchild);
                         }
                         buildTree(grandchild, visited);
                     }
@@ -426,7 +398,7 @@ public class Configuration implements Reconfigurable {
 
         // Now that the object structure reflects the current configuration,
         // process reconfiguration from the children, etc.
-        for (ConfigNode child : node.children.values()) {
+        for (ConfigNode child : node.getChildren()) {
             hasChanged |= applySettings(child);
         }
 
@@ -451,9 +423,10 @@ public class Configuration implements Reconfigurable {
             doApply(oldRoot);
             buildTree(oldRoot, new HashSet());
         }
-        newRoot.children.keySet().stream().forEach((childName) -> {
+        newRoot.getChildren().stream().forEach((child) -> {
+            String childName = child.getValue().toString();
             //            System.out.println("Applying settings for " + childName);
-            applyConfigTree(newRoot.children.get(childName), oldRoot.children.get(childName));
+            applyConfigTree(newRoot.findChild(childName), oldRoot.findChild(childName));
         });
     }
 
@@ -568,8 +541,8 @@ public class Configuration implements Reconfigurable {
     private static void buildNodeMap(ConfigNode n, Map<String, ConfigNode> shortNames) {
 //        System.out.println("Encountered " + n.subject.getShortName().toLowerCase());
         shortNames.put(n.subject.getShortName().toLowerCase(), n);
-        n.children.entrySet().stream().forEach((c) -> {
-            buildNodeMap(c.getValue(), shortNames);
+        n.getChildren().stream().forEach((c) -> {
+            buildNodeMap(c, shortNames);
         });
     }
 
@@ -587,8 +560,8 @@ public class Configuration implements Reconfigurable {
             String sn = (f != null && !f.shortName().equals("")) ? f.shortName() : setting;
             System.out.println(prefix + ">>" + setting + " (" + n.subject.getShortName() + "." + sn + ")");
         });
-        n.children.entrySet().stream().forEach((c) -> {
-            printTree(c.getValue(), prefix + "." + c.getKey(), i + 1);
+        n.getChildren().stream().forEach((c) -> {
+            printTree(c, prefix + "." + c.toString(), i + 1);
         });
     }
 }

@@ -77,72 +77,72 @@ public class ConfigurationPanel extends javax.swing.JPanel {
 
         setPreferredSize(new java.awt.Dimension(650, 480));
 
-        configTree.setModel(new Configuration.ConfigTreeModel());
-        configTree.addTreeSelectionListener(new javax.swing.event.TreeSelectionListener() {
-            public void valueChanged(javax.swing.event.TreeSelectionEvent evt) {
-                configTreeValueChanged(evt);
-            }
-        });
-        configTreeScrollPane.setViewportView(configTree);
+        configTree.setModel(null); //new Configuration.ConfigTreeModel());
+    configTree.addTreeSelectionListener(new javax.swing.event.TreeSelectionListener() {
+        public void valueChanged(javax.swing.event.TreeSelectionEvent evt) {
+            configTreeValueChanged(evt);
+        }
+    });
+    configTreeScrollPane.setViewportView(configTree);
 
-        settingsPanel.setAlignmentX(0.0F);
-        settingsPanel.setAlignmentY(0.0F);
-        settingsPanel.setPreferredSize(new java.awt.Dimension(375, 480));
-        settingsPanel.setLayout(new java.awt.GridBagLayout());
+    settingsPanel.setAlignmentX(0.0F);
+    settingsPanel.setAlignmentY(0.0F);
+    settingsPanel.setPreferredSize(new java.awt.Dimension(375, 480));
+    settingsPanel.setLayout(new java.awt.GridBagLayout());
 
-        applyButton.setText("Apply");
-        applyButton.setToolTipText("Apply current changes without saving");
-        applyButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                applyButtonActionPerformed(evt);
-            }
-        });
+    applyButton.setText("Apply");
+    applyButton.setToolTipText("Apply current changes without saving");
+    applyButton.addActionListener(new java.awt.event.ActionListener() {
+        public void actionPerformed(java.awt.event.ActionEvent evt) {
+            applyButtonActionPerformed(evt);
+        }
+    });
 
-        saveButton.setText("Save");
-        saveButton.setToolTipText("Apply settings and save");
-        saveButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                saveButtonActionPerformed(evt);
-            }
-        });
+    saveButton.setText("Save");
+    saveButton.setToolTipText("Apply settings and save");
+    saveButton.addActionListener(new java.awt.event.ActionListener() {
+        public void actionPerformed(java.awt.event.ActionEvent evt) {
+            saveButtonActionPerformed(evt);
+        }
+    });
 
-        revertButton.setText("Revert");
-        revertButton.setToolTipText("Revert all settings to last saved values (hold SHIFT while clicking to revert to defaults)");
-        revertButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                revertButtonActionPerformed(evt);
-            }
-        });
+    revertButton.setText("Revert");
+    revertButton.setToolTipText("Revert all settings to last saved values (hold SHIFT while clicking to revert to defaults)");
+    revertButton.addActionListener(new java.awt.event.ActionListener() {
+        public void actionPerformed(java.awt.event.ActionEvent evt) {
+            revertButtonActionPerformed(evt);
+        }
+    });
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
-        this.setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(applyButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(saveButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(revertButton))
-                    .addComponent(configTreeScrollPane, javax.swing.GroupLayout.PREFERRED_SIZE, 271, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(settingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, 438, Short.MAX_VALUE))
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addComponent(configTreeScrollPane)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+    javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
+    this.setLayout(layout);
+    layout.setHorizontalGroup(
+        layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        .addGroup(layout.createSequentialGroup()
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(layout.createSequentialGroup()
+                    .addContainerGap()
                     .addComponent(applyButton)
+                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                     .addComponent(saveButton)
+                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                     .addComponent(revertButton))
-                .addContainerGap())
-            .addComponent(settingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, 0, Short.MAX_VALUE)
-        );
+                .addComponent(configTreeScrollPane, javax.swing.GroupLayout.PREFERRED_SIZE, 271, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(settingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, 438, Short.MAX_VALUE))
+    );
+    layout.setVerticalGroup(
+        layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        .addGroup(layout.createSequentialGroup()
+            .addComponent(configTreeScrollPane)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(applyButton)
+                .addComponent(saveButton)
+                .addComponent(revertButton))
+            .addContainerGap())
+        .addComponent(settingsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, 0, Short.MAX_VALUE)
+    );
     }// </editor-fold>//GEN-END:initComponents
 
     ConfigNode currentNode = null;

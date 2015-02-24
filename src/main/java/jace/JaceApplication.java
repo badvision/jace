@@ -19,12 +19,13 @@ import javafx.stage.Stage;
  * @author blurry
  */
 public class JaceApplication extends Application {
-
+    static JaceApplication singleton;
     Stage primaryStage;
     JaceUIController controller;
     
     @Override
     public void start(Stage stage) throws Exception {
+        singleton = this;
         primaryStage = stage;
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/JaceUI.fxml"));
         fxmlLoader.setResources(null);
@@ -51,6 +52,10 @@ public class JaceApplication extends Application {
             Platform.exit();
             System.exit(0);
         });
+    }
+    
+    public static JaceApplication getApplication() {
+        return singleton;
     }
     
     /**

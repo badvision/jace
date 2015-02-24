@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.net.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane id="AnchorPane" prefHeight="400.0" prefWidth="600.0" styleClass="mainFxmlClass" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/8" fx:controller="jace.config.ConfigurationUIController">
+    <stylesheets>
+        <URL value="@/styles/configuration.css" />
+    </stylesheets>
+   <children>
+      <ToolBar prefHeight="40.0" prefWidth="600.0">
+        <items>
+            <Button mnemonicParsing="false" onMouseClicked="#reloadConfig" text="Reload" />
+          <Button mnemonicParsing="false" onMouseClicked="#saveConfig" text="Save" />
+            <Button mnemonicParsing="false" onMouseClicked="#applyConfig" text="Apply" />
+            <Button mnemonicParsing="false" onMouseClicked="#cancelConfig" text="Cancel" />
+        </items>
+      </ToolBar>
+      <SplitPane fx:id="splitPane" dividerPositions="0.3979933110367893" layoutY="40.0" prefHeight="363.0" prefWidth="600.0">
+        <items>
+            <ScrollPane fx:id="treeScroll" prefHeight="361.0" prefWidth="174.0">
+               <content>
+                  <TreeView fx:id="deviceTree" prefHeight="359.0" prefWidth="233.0" />
+               </content>
+            </ScrollPane>
+            <ScrollPane fx:id="settingsScroll" prefHeight="361.0" prefWidth="416.0">
+               <content>
+                  <VBox fx:id="settingsVbox" prefHeight="360.0" prefWidth="354.0" />
+               </content>
+            </ScrollPane>
+        </items>
+      </SplitPane>
+   </children>
+</AnchorPane>

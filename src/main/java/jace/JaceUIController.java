@@ -7,9 +7,7 @@
 package jace;
 
 import jace.core.Computer;
-import jace.core.Video;
 import java.net.URL;
-import java.util.ResourceBundle;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.image.ImageView;
@@ -49,7 +47,6 @@ public class JaceUIController {
         rootPane.setFocusTraversable(true);
         rootPane.setOnKeyPressed(keyboardHandler);
         rootPane.setOnKeyReleased(keyboardHandler);
-//        rootPane.onKeyTypedProperty().setValue(keyboardHandler);
         rootPane.requestFocus();
     }
 }
