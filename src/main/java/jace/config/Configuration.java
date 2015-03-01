@@ -106,7 +106,7 @@ public class Configuration implements Reconfigurable {
             }
             return subject.getName();
         }
-
+        
         public ConfigNode(Reconfigurable subject) {
             this(null, subject);
             this.root = null;
@@ -164,7 +164,7 @@ public class Configuration implements Reconfigurable {
 
         private ConfigNode findChild(String childName) {
             for (ConfigNode node : children) {
-                if (childName.equalsIgnoreCase(String.valueOf(node.getValue()))) {
+                if (childName.equalsIgnoreCase(node.toString())) {
                     return node;
                 }
             }
@@ -175,27 +175,28 @@ public class Configuration implements Reconfigurable {
             removeChild(childName);
             int index = 0;
             for (ConfigNode node : children) {
-                if (String.valueOf(node.getValue()).compareToIgnoreCase(childName) > 0) {
+                int compare = node.toString().compareToIgnoreCase(childName);
+                if (compare >= 0) {
                     break;
                 } else {
                     index++;
                 }
-            }
+            }            
             children.add(index, newChild);
         }
     }
-    public final static ConfigNode BASE;
+    public static ConfigNode BASE;
     public static EmulatorUILogic ui = Emulator.logic;
     public static Computer emulator = Emulator.computer;
     @ConfigurableField(name = "Autosave Changes", description = "If unchecked, changes are only saved when the Save button is pressed.")
     public static boolean saveAutomatically = false;
 
     static {
-        BASE = new ConfigNode(new Configuration());
         buildTree();
     }
 
     public static void buildTree() {
+        BASE = new ConfigNode(new Configuration());
         buildTree(BASE, new LinkedHashSet());
     }
 
@@ -424,9 +425,9 @@ public class Configuration implements Reconfigurable {
             buildTree(oldRoot, new HashSet());
         }
         newRoot.getChildren().stream().forEach((child) -> {
-            String childName = child.getValue().toString();
+            String childName = child.toString();
             //            System.out.println("Applying settings for " + childName);
-            applyConfigTree(newRoot.findChild(childName), oldRoot.findChild(childName));
+            applyConfigTree(child, oldRoot.findChild(childName));
         });
     }
 
