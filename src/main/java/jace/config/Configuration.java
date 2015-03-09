@@ -67,6 +67,30 @@ public class Configuration implements Reconfigurable {
         return null;
     }
 
+    static ConfigurableField getConfigurableFieldInfo(Reconfigurable subject, String settingName) {
+        Field f;
+        try {
+            f = subject.getClass().getField(settingName);
+        } catch (NoSuchFieldException | SecurityException ex) {
+            return null;
+        }
+        ConfigurableField annotation = f.getAnnotation(ConfigurableField.class);
+        return annotation;
+    }
+
+    public static String getShortName(ConfigurableField f, String longName) {
+        return (f != null && !f.shortName().equals("")) ? f.shortName() : longName;
+    }
+
+    public static InvokableAction getInvokableActionInfo(Reconfigurable subject, String actionName) {
+        for (Method m : subject.getClass().getMethods()) {
+            if (m.getName().equals(actionName) && m.isAnnotationPresent(InvokableAction.class)) {
+                return m.getAnnotation(InvokableAction.class);
+            }
+        }
+        return null;
+    }
+    
     @Override
     public String getName() {
         return "Configuration";
@@ -95,8 +119,8 @@ public class Configuration implements Reconfigurable {
         public transient ConfigNode parent;
         private ObservableList<ConfigNode> children;
         public transient Reconfigurable subject;
-        private Map<String, Serializable> settings;
-        private Map<String, String[]> hotkeys;
+        public Map<String, Serializable> settings;
+        public Map<String, String[]> hotkeys;
         private boolean changed = true;
 
         @Override
@@ -514,13 +538,8 @@ public class Configuration implements Reconfigurable {
             boolean found = false;
             List<String> shortFieldNames = new ArrayList<>();
             for (String longName : n.getAllSettingNames()) {
-                ConfigurableField f = null;
-                try {
-                    f = n.subject.getClass().getField(longName).getAnnotation(ConfigurableField.class);
-                } catch (NoSuchFieldException | SecurityException ex) {
-                    Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                String shortName = (f != null && !f.shortName().equals("")) ? f.shortName() : longName;
+                ConfigurableField f = getConfigurableFieldInfo(n.subject, longName);
+                String shortName = getShortName(f, longName);
                 shortFieldNames.add(shortName);
 
                 if (fieldName.equalsIgnoreCase(longName) || fieldName.equalsIgnoreCase(shortName)) {

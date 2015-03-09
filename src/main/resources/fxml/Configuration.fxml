@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.*?>
 <?import java.lang.*?>
 <?import java.net.*?>
 <?import java.util.*?>
@@ -7,12 +8,12 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<AnchorPane id="AnchorPane" prefHeight="400.0" prefWidth="600.0" styleClass="mainFxmlClass" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/8" fx:controller="jace.config.ConfigurationUIController">
+<AnchorPane id="AnchorPane" prefHeight="426.0" prefWidth="600.0" styleClass="mainFxmlClass" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.config.ConfigurationUIController">
     <stylesheets>
-        <URL value="@/styles/configuration.css" />
+        <URL value="@/styles/style.css" />
     </stylesheets>
    <children>
-      <ToolBar prefHeight="40.0" prefWidth="600.0">
+      <ToolBar prefHeight="40.0" prefWidth="600.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
         <items>
             <Button mnemonicParsing="false" onMouseClicked="#reloadConfig" text="Reload" />
           <Button mnemonicParsing="false" onMouseClicked="#saveConfig" text="Save" />
@@ -20,17 +21,20 @@
             <Button mnemonicParsing="false" onMouseClicked="#cancelConfig" text="Cancel" />
         </items>
       </ToolBar>
-      <SplitPane fx:id="splitPane" dividerPositions="0.3979933110367893" layoutY="40.0" prefHeight="363.0" prefWidth="600.0">
+      <SplitPane fx:id="splitPane" dividerPositions="0.3979933110367893" layoutY="40.0" prefHeight="363.0" prefWidth="600.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="40.0">
         <items>
-            <ScrollPane fx:id="treeScroll" prefHeight="361.0" prefWidth="174.0">
+            <ScrollPane fx:id="treeScroll" fitToHeight="true" fitToWidth="true" prefHeight="361.0" prefWidth="174.0">
                <content>
                   <TreeView fx:id="deviceTree" prefHeight="359.0" prefWidth="233.0" />
                </content>
             </ScrollPane>
-            <ScrollPane fx:id="settingsScroll" prefHeight="361.0" prefWidth="416.0">
+            <ScrollPane fx:id="settingsScroll" fitToHeight="true" fitToWidth="true" prefHeight="361.0" prefWidth="416.0">
                <content>
                   <VBox fx:id="settingsVbox" prefHeight="360.0" prefWidth="354.0" />
                </content>
+               <padding>
+                  <Insets right="3.0" />
+               </padding>
             </ScrollPane>
         </items>
       </SplitPane>

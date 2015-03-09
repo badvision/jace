@@ -1,0 +1,13 @@
+.button {
+    -fx-font-weight: bold;
+}
+
+.setting-label, .setting-keyboard-shortcut {
+    -fx-padding: 5 0 0 4;    
+    -fx-allignment: center-left;
+}
+
+.setting-keyboard-shortcut {
+    -fx-graphic: "/jace/data/icon_keyboard.gif";
+    -fx-graphic-text-gap: 2;
+}
