@@ -1,13 +1,24 @@
 package jace.config;
 
 import jace.config.Configuration.ConfigNode;
+import java.io.File;
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.ResourceBundle;
+import java.util.function.BiConsumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
@@ -16,8 +27,10 @@ import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.util.StringConverter;
 
 public class ConfigurationUIController {
+
     @FXML
     private ResourceBundle resources;
 
@@ -72,8 +85,8 @@ public class ConfigurationUIController {
     }
 
     private void selectionChanged(
-            ObservableValue<? extends TreeItem<ConfigNode>> observable, 
-            TreeItem<ConfigNode> oldValue, 
+            ObservableValue<? extends TreeItem<ConfigNode>> observable,
+            TreeItem<ConfigNode> oldValue,
             TreeItem<ConfigNode> newValue) {
         clearForm();
         buildForm((ConfigNode) newValue);
@@ -91,24 +104,28 @@ public class ConfigurationUIController {
             settingsVbox.getChildren().add(buildSettingRow(node, name, value));
         });
     }
-    
+
     private Node buildSettingRow(ConfigNode node, String settingName, Serializable value) {
         ConfigurableField fieldInfo = Configuration.getConfigurableFieldInfo(node.subject, settingName);
-        if (fieldInfo == null) return null;
+        if (fieldInfo == null) {
+            return null;
+        }
         HBox row = new HBox();
         Label label = new Label(fieldInfo.name());
-        label.getStyleClass().add("setting-label");        
+        label.getStyleClass().add("setting-label");
         label.setMinWidth(150.0);
-        TextField widget = new TextField(String.valueOf(value));
+        Node widget = buildEditField(node, settingName, value);
         label.setLabelFor(widget);
         row.getChildren().add(label);
         row.getChildren().add(widget);
         return row;
     }
-    
+
     private Node buildKeyShortcutRow(ConfigNode node, String actionName, String[] values) {
         InvokableAction actionInfo = Configuration.getInvokableActionInfo(node.subject, actionName);
-        if (actionInfo == null) return null;
+        if (actionInfo == null) {
+            return null;
+        }
         HBox row = new HBox();
         Label label = new Label(actionInfo.name());
         label.getStyleClass().add("setting-keyboard-shortcut");
@@ -118,5 +135,69 @@ public class ConfigurationUIController {
         row.getChildren().add(label);
         row.getChildren().add(widget);
         return row;
+    }
+
+    private Node buildEditField(ConfigNode node, String settingName, Serializable value) {
+        Field field;
+        try {
+            field = node.subject.getClass().getField(settingName);
+        } catch (NoSuchFieldException | SecurityException ex) {
+            return null;
+        }
+        Class type = field.getType();
+        if (type == java.lang.String.class) {
+            return buildTextField(node, settingName, value, null);
+        } else if (type.isPrimitive()) {
+            if (type == Integer.TYPE || type == Short.TYPE || type == Byte.TYPE) {
+                return buildTextField(node, settingName, value, "-?[0-9]+");
+            } else if (type == Float.TYPE || type == Double.TYPE) {
+                return buildTextField(node, settingName, value, "-?[0-9]*(\\.[0-9]+)?");
+            } else if (type == Boolean.TYPE) {
+                return buildBooleanField(node, settingName, value);
+            } else {
+                return buildTextField(node, settingName, value, null);
+            }
+        } else if (type.equals(File.class)) {
+            return buildFileSelectionField(node, settingName, value);
+        } else if (Class.class.isEnum()) {
+            // TODO: Add enumeration support!
+        } else if (ISelection.class.isAssignableFrom(type)) {
+            return buildDynamicSelectComponent(node, settingName, value);
+        }
+        return null;
+    }
+
+    private Node buildTextField(ConfigNode node, String settingName, Serializable value, String validationPattern) {
+        return new TextField(String.valueOf(value));
+    }
+
+    private Node buildBooleanField(ConfigNode node, String settingName, Serializable value) {
+        return new CheckBox();
+    }
+
+    private Node buildFileSelectionField(ConfigNode node, String settingName, Serializable value) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    private Node buildDynamicSelectComponent(ConfigNode node, String settingName, Serializable value) {
+        try {
+            DynamicSelection sel = (DynamicSelection) node.subject.getClass().getField(settingName).get(node.subject);
+            ComboBox widget = new ComboBox(FXCollections.observableList(new ArrayList(sel.getSelections().keySet())));
+            widget.setConverter(new StringConverter() {
+                @Override
+                public String toString(Object object) {
+                    return (String) sel.getSelections().get(object);
+                }
+                
+                @Override
+                public Object fromString(String string) {
+                    return null;
+                }
+            });
+            return widget;
+        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException ex) {
+            Logger.getLogger(ConfigurationUIController.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
     }
 }
