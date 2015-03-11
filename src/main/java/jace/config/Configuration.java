@@ -28,6 +28,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
@@ -50,6 +51,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.collections.ObservableList;
 import javafx.scene.control.TreeItem;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 
 /**
  * Manages the configuration state of the emulator components.
@@ -91,6 +94,11 @@ public class Configuration implements Reconfigurable {
         return null;
     }
     
+    public static ImageView getChangedIcon() {
+        InputStream imgStream = Configuration.class.getResourceAsStream("/jace/data/icon_exclaim.gif");
+        return new ImageView(new Image(imgStream));
+    }
+    
     @Override
     public String getName() {
         return "Configuration";
@@ -119,8 +127,8 @@ public class Configuration implements Reconfigurable {
         public transient ConfigNode parent;
         private ObservableList<ConfigNode> children;
         public transient Reconfigurable subject;
-        public Map<String, Serializable> settings;
-        public Map<String, String[]> hotkeys;
+        public Map<String, Serializable> settings = new TreeMap<>();
+        public Map<String, String[]> hotkeys = new TreeMap<>();;
         private boolean changed = true;
 
         @Override
@@ -140,8 +148,6 @@ public class Configuration implements Reconfigurable {
         public ConfigNode(ConfigNode parent, Reconfigurable subject) {
             super();
             this.subject = subject;
-            this.settings = new TreeMap<>();
-            this.hotkeys = new TreeMap<>();
             this.children = getChildren();
             this.parent = parent;
             if (this.parent != null) {
@@ -151,7 +157,7 @@ public class Configuration implements Reconfigurable {
         }
 
         public void setFieldValue(String field, Serializable value) {
-            changed = true;
+            setChanged(true);
             if (value != null) {
                 if (value.equals(getFieldValue(field))) {
                     return;
@@ -207,6 +213,15 @@ public class Configuration implements Reconfigurable {
                 }
             }            
             children.add(index, newChild);
+        }
+
+        private void setChanged(boolean b) {
+           changed = b;
+           if (!changed) {
+               setGraphic(null);
+           } else {
+               setGraphic(getChangedIcon());
+           }
         }
     }
     public static ConfigNode BASE;
@@ -512,7 +527,7 @@ public class Configuration implements Reconfigurable {
             Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        node.changed = false;
+        node.setChanged(false);
     }
 
     public static void applySettings(Map<String, String> settings) {

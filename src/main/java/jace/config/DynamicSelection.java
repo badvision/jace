@@ -45,18 +45,21 @@ public abstract class DynamicSelection<T> implements ISelection<T> {
     @Override
     public void setValue(T value) {currentValue = value;}
     
+    @Override
     public void setValueByMatch(String search) {
+        setValue(findValueByMatch(search));
+    }
+
+    public T findValueByMatch(String search) {
         Map<? extends T, String> selections = getSelections();
         String match = Utility.findBestMatch(search, selections.values());
         if (match != null) {
             for (T key : selections.keySet()) {
                 if (selections.get(key).equals(match)) {
-                    setValue(key);
-                    return;
+                    return key;
                 }
             }
-        } else {
-            setValue(null);
         }
+        return null;
     }
 }

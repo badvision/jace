@@ -6,30 +6,33 @@ import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.HashSet;
 import java.util.ResourceBundle;
-import java.util.function.BiConsumer;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
+import javafx.beans.Observable;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.StringConverter;
 
 public class ConfigurationUIController {
+    public static final String DELIMITER = "~!~";
 
     @FXML
     private ResourceBundle resources;
@@ -53,23 +56,25 @@ public class ConfigurationUIController {
     private ScrollPane treeScroll;
 
     @FXML
-    void reloadConfig(ActionEvent event) {
-
+    void reloadConfig(MouseEvent event) {
+        Configuration.loadSettings();
+        resetDeviceTree();
     }
 
     @FXML
-    void saveConfig(ActionEvent event) {
-
+    void saveConfig(MouseEvent event) {
+        Configuration.saveSettings();
     }
 
     @FXML
-    void applyConfig(ActionEvent event) {
-
+    void applyConfig(MouseEvent event) {
+        Configuration.applySettings(Configuration.BASE);
+        resetDeviceTree();
     }
 
     @FXML
-    void cancelConfig(ActionEvent event) {
-
+    void cancelConfig(MouseEvent event) {
+        throw new RuntimeException("Not implemented yet");
     }
 
     @FXML
@@ -79,11 +84,67 @@ public class ConfigurationUIController {
         assert settingsScroll != null : "fx:id=\"settingsScroll\" was not injected: check your FXML file 'Configuration.fxml'.";
         assert deviceTree != null : "fx:id=\"deviceTree\" was not injected: check your FXML file 'Configuration.fxml'.";
         assert treeScroll != null : "fx:id=\"treeScroll\" was not injected: check your FXML file 'Configuration.fxml'.";
-        deviceTree.setRoot(Configuration.BASE);
+        resetDeviceTree();
         deviceTree.getSelectionModel().selectedItemProperty().addListener(this::selectionChanged);
         deviceTree.maxWidthProperty().bind(treeScroll.widthProperty());
     }
+    
+    private void resetDeviceTree() {
+        Set<String> expanded = new HashSet<>();
+        String current = getCurrentNodePath();
+        getExpandedNodes("", deviceTree.getRoot(), expanded);
+        deviceTree.setRoot(Configuration.BASE);
+        setExpandedNodes("", deviceTree.getRoot(), expanded);
+        setCurrentNodePath(current);
+    }
 
+    private void getExpandedNodes(String prefix, TreeItem<ConfigNode> root, Set<String> expanded) {
+        if (root == null) return;
+        for (TreeItem item : root.getChildren()) {
+            if (item.isExpanded()) {
+                String name = prefix+item.toString();
+                expanded.add(name);
+                getExpandedNodes(name+DELIMITER, item, expanded);
+            }
+        }
+    }
+
+    private void setExpandedNodes(String prefix, TreeItem<ConfigNode> root, Set<String> expanded) {
+        if (root == null) return;
+        root.getChildren().stream().forEach((item) -> {
+            String name = prefix+item.toString();
+            if (expanded.contains(name)) {
+                item.setExpanded(true);
+            }
+            setExpandedNodes(name+DELIMITER, item, expanded);
+        });
+    }
+
+    private String getCurrentNodePath() {
+        TreeItem<ConfigNode> current = deviceTree.getSelectionModel().getSelectedItem();
+        if (current == null) return null;
+        String out = current.toString();
+        while (current.getParent() != null) {
+            out = current.getParent().toString()+DELIMITER+current;
+            current = current.getParent();
+        }
+        return out;
+    }
+    
+    private void setCurrentNodePath(String value) {
+        if (value == null) return;
+        String[] parts = value.split(Pattern.quote(DELIMITER));
+        TreeItem<ConfigNode> current = deviceTree.getRoot();
+        for (String part : parts) {
+            for (TreeItem child : current.getChildren()) {
+                if (child.toString().equals(part)) {
+                    current = child;
+                }
+            }
+        }
+        deviceTree.getSelectionModel().select(current);
+    }
+    
     private void selectionChanged(
             ObservableValue<? extends TreeItem<ConfigNode>> observable,
             TreeItem<ConfigNode> oldValue,
@@ -97,6 +158,9 @@ public class ConfigurationUIController {
     }
 
     private void buildForm(ConfigNode node) {
+        if (node == null) {
+            return;
+        }
         node.hotkeys.forEach((name, values) -> {
             settingsVbox.getChildren().add(buildKeyShortcutRow(node, name, values));
         });
@@ -168,11 +232,20 @@ public class ConfigurationUIController {
     }
 
     private Node buildTextField(ConfigNode node, String settingName, Serializable value, String validationPattern) {
-        return new TextField(String.valueOf(value));
+        TextField widget = new TextField(String.valueOf(value));
+        widget.textProperty().addListener((e) -> {
+            node.setFieldValue(settingName, widget.getText());
+        });
+        return widget;
     }
 
     private Node buildBooleanField(ConfigNode node, String settingName, Serializable value) {
-        return new CheckBox();
+        CheckBox widget = new CheckBox();
+        widget.setSelected(value.equals(Boolean.TRUE));
+        widget.selectedProperty().addListener((e) -> {
+            node.setFieldValue(settingName, widget.isSelected());
+        });
+        return widget;
     }
 
     private Node buildFileSelectionField(ConfigNode node, String settingName, Serializable value) {
@@ -182,7 +255,8 @@ public class ConfigurationUIController {
     private Node buildDynamicSelectComponent(ConfigNode node, String settingName, Serializable value) {
         try {
             DynamicSelection sel = (DynamicSelection) node.subject.getClass().getField(settingName).get(node.subject);
-            ComboBox widget = new ComboBox(FXCollections.observableList(new ArrayList(sel.getSelections().keySet())));
+            ChoiceBox widget = new ChoiceBox(FXCollections.observableList(new ArrayList(sel.getSelections().keySet())));
+            widget.setMinWidth(175.0);
             widget.setConverter(new StringConverter() {
                 @Override
                 public String toString(Object object) {
@@ -191,8 +265,17 @@ public class ConfigurationUIController {
                 
                 @Override
                 public Object fromString(String string) {
-                    return null;
+                    return sel.findValueByMatch(string);
                 }
+            });
+            Object selected = value == null ? null : widget.getConverter().fromString(String.valueOf(value));
+            if (selected == null) {
+                widget.getSelectionModel().selectFirst();
+            } else {
+                widget.setValue(selected);
+            }
+            widget.valueProperty().addListener((Observable e) -> {
+                node.setFieldValue(settingName, widget.getConverter().toString(widget.getValue()));
             });
             return widget;
         } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException ex) {
