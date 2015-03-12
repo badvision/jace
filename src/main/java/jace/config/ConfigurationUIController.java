@@ -15,7 +15,6 @@ import java.util.regex.Pattern;
 import javafx.beans.Observable;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
@@ -74,7 +73,8 @@ public class ConfigurationUIController {
 
     @FXML
     void cancelConfig(MouseEvent event) {
-        throw new RuntimeException("Not implemented yet");
+        Configuration.buildTree();
+        resetDeviceTree();
     }
 
     @FXML
@@ -100,13 +100,11 @@ public class ConfigurationUIController {
 
     private void getExpandedNodes(String prefix, TreeItem<ConfigNode> root, Set<String> expanded) {
         if (root == null) return;
-        for (TreeItem item : root.getChildren()) {
-            if (item.isExpanded()) {
-                String name = prefix+item.toString();
-                expanded.add(name);
-                getExpandedNodes(name+DELIMITER, item, expanded);
-            }
-        }
+        root.getChildren().stream().filter((item) -> (item.isExpanded())).forEach((item) -> {
+            String name = prefix+item.toString();
+            expanded.add(name);
+            getExpandedNodes(name+DELIMITER, item, expanded);
+        });
     }
 
     private void setExpandedNodes(String prefix, TreeItem<ConfigNode> root, Set<String> expanded) {
