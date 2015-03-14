@@ -37,7 +37,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -54,6 +53,23 @@ public class MediaCache implements Serializable {
     public static int DELAY_BEFORE_PERSISTING_LIBRARY = 2000;
     public static MediaCache LOCAL_LIBRARY;
 
+    public static MediaEntry getMediaFromFile(File draggedFile) {
+        MediaEntry entry = new MediaEntry();
+        MediaFile file = new MediaFile();
+        file.path = draggedFile;
+        file.temporary = false;
+        file.activeVersion = true;
+        entry.files = new ArrayList<>();
+        entry.files.add(file);
+        entry.isLocal = true;
+        entry.type = DiskType.determineType(draggedFile);
+        return entry;
+    }
+
+    public static MediaEntry getMediaFromUrl(String url) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
     public Set<Long> favorites;
     public Map<String, Set<Long>> nameLookup;
     public Map<String, Set<Long>> categoryLookup;
@@ -62,11 +78,11 @@ public class MediaCache implements Serializable {
     public long lastDirtyMarker;
 
     public MediaCache() {
-        favorites = new HashSet<Long>();
-        nameLookup = new HashMap<String, Set<Long>>();
-        categoryLookup = new HashMap<String, Set<Long>>();
-        keywordLookup = new HashMap<String, Set<Long>>();
-        mediaLookup = new HashMap<Long, MediaEntry>();
+        favorites = new HashSet<>();
+        nameLookup = new HashMap<>();
+        categoryLookup = new HashMap<>();
+        keywordLookup = new HashMap<>();
+        mediaLookup = new HashMap<>();
     }
 
     public static MediaCache getLocalLibrary() {
@@ -85,8 +101,8 @@ public class MediaCache implements Serializable {
     }
 
     private void cleanup(Map<String, Set<Long>> lookup) {
-        Set<String> remove = new HashSet<String>();
-        for (Entry<String, Set<Long>> entry : lookup.entrySet()) {
+        Set<String> remove = new HashSet<>();
+        lookup.entrySet().stream().forEach((entry) -> {
             if (entry.getValue() == null || entry.getValue().isEmpty()) {
                 remove.add(entry.getKey());
             } else {
@@ -102,7 +118,7 @@ public class MediaCache implements Serializable {
                     remove.add(entry.getKey());
                 }
             }
-        }
+        });
         lookup.keySet().removeAll(remove);
     }
 
@@ -144,7 +160,7 @@ public class MediaCache implements Serializable {
     private void cacheEntry(Map<String, Set<Long>> cache, String key, long id) {
         Set<Long> ids = cache.get(key);
         if (ids == null) {
-            ids = new HashSet<Long>();
+            ids = new HashSet<>();
             cache.put(key, ids);
         }
         ids.add(id);
@@ -167,9 +183,9 @@ public class MediaCache implements Serializable {
         if (e.files == null) {
             return;
         }
-        for (MediaEntry.MediaFile f : e.files) {
+        e.files.stream().forEach((f) -> {
             f.path.delete();
-        }
+        });
         Utility.gripe("All disk images for " + e.name + " have been deleted.");
     }
 
@@ -178,7 +194,7 @@ public class MediaCache implements Serializable {
             return null;
         }
         if (e.files == null || e.files.isEmpty()) {
-            e.files = new ArrayList<MediaFile>();
+            e.files = new ArrayList<>();
             getLocalLibrary().add(e);
             getLocalLibrary().createBlankFile(e, "Initial", !isPermanent);
             getLocalLibrary().downloadImage(e, e.files.get(0), true);
@@ -193,14 +209,14 @@ public class MediaCache implements Serializable {
     }
 
     public void saveFile(MediaEntry e, InputStream data) {
-        saveFile(getCurrentFile(e, MediaLibrary.CREATE_LOCAL_ON_SAVE), data);
+//        saveFile(getCurrentFile(e, MediaLibrary.CREATE_LOCAL_ON_SAVE), data);
     }
 
     public void saveFile(MediaFile f, InputStream data) {
         // TODO: If file is temporary but is supposed to be created local when saved, then move the save to a permanent file!!
-        if (f.temporary && MediaLibrary.CREATE_LOCAL_ON_SAVE) {
-            f = convertTemporaryFileToLocal(f);
-        }
+//        if (f.temporary && MediaLibrary.CREATE_LOCAL_ON_SAVE) {
+//            f = convertTemporaryFileToLocal(f);
+//        }
         FileOutputStream fos = null;
         f.lastWritten = System.currentTimeMillis();
         try {
@@ -219,7 +235,9 @@ public class MediaCache implements Serializable {
             Utility.gripe("Could not write disk for " + f.path + " -- I/O Exception: " + ex.getMessage());
         } finally {
             try {
-                fos.close();
+                if (fos != null) {
+                    fos.close();
+                }
             } catch (IOException ex) {
                 Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -241,13 +259,7 @@ public class MediaCache implements Serializable {
                 MediaEntry e = (MediaEntry) in.readObject();
                 add(e);
             }
-        } catch (FileNotFoundException ex) {
-            Utility.gripe(ex.getMessage());
-            Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
-            Utility.gripe(ex.getMessage());
-            Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (ClassNotFoundException ex) {
+        } catch (IOException | ClassNotFoundException ex) {
             Utility.gripe(ex.getMessage());
             Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -297,6 +309,7 @@ public class MediaCache implements Serializable {
             writerWorker = new Thread(new Runnable() {
                 long timeCheck = 0;
 
+                @Override
                 public void run() {
                     while (true) {
                         try {
@@ -334,38 +347,38 @@ public class MediaCache implements Serializable {
 
     public void downloadImage(final MediaEntry e, final MediaFile target, boolean wait) {
         isDownloading = true;
-        Utility.runModalProcess("Loading disk image...", new Runnable() {
-            public void run() {
-                InputStream in = null;
+        Utility.runModalProcess("Loading disk image...", () -> {
+            InputStream in = null;
+            try {
+                URI uri = null;
                 try {
-                    URI uri = null;
-                    try {
-                        uri = new URI(e.source);
-                    } catch (URISyntaxException ex) {
-                        File f = new File(e.source);
-                        if (f.exists()) {
-                            uri = f.toURI();
-                        }
+                    uri = new URI(e.source);
+                } catch (URISyntaxException ex) {
+                    File f = new File(e.source);
+                    if (f.exists()) {
+                        uri = f.toURI();
                     }
-                    if (uri == null) {
-                        Utility.gripe("Unable to resolve path: " + e.source);
-                        return;
-                    }
-                    in = uri.toURL().openStream();
-                    saveFile(target, in);
-                } catch (MalformedURLException ex) {
+                }
+                if (uri == null) {
                     Utility.gripe("Unable to resolve path: " + e.source);
-                    Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (IOException ex) {
-                    Utility.gripe("Unable to download file: " + ex.getMessage());
-                    Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
-                } finally {
-                    isDownloading = false;
-                    try {
+                    return;
+                }
+                in = uri.toURL().openStream();
+                saveFile(target, in);
+            } catch (MalformedURLException ex) {
+                Utility.gripe("Unable to resolve path: " + e.source);
+                Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (IOException ex) {
+                Utility.gripe("Unable to download file: " + ex.getMessage());
+                Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                isDownloading = false;
+                try {
+                    if (in != null) {
                         in.close();
-                    } catch (IOException ex) {
-                        Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
                     }
+                } catch (IOException ex) {
+                    Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });
@@ -418,14 +431,15 @@ public class MediaCache implements Serializable {
             }
         }
         // If there is no current file, download it
-        if (MediaLibrary.CREATE_LOCAL_ON_LOAD) {
-            getLocalLibrary().add(e);
-            MediaFile f = getCurrentFile(e, true);
-            downloadImage(e, f, true);
-            return f;
-        } else {
+//        if (MediaLibrary.CREATE_LOCAL_ON_LOAD) {
+//            getLocalLibrary().add(e);
+//            MediaFile f = getCurrentFile(e, true);
+//            downloadImage(e, f, true);
+//            return f;
+//        } else {
             return downloadTempCopy(e);
-        }
+//        }
+        
     }
 
     public MediaEntry findLocalEntry(MediaEntry e) {

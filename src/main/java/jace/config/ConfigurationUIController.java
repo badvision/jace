@@ -6,12 +6,14 @@ import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javafx.beans.Observable;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -28,6 +30,7 @@ import javafx.scene.control.TreeView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
 import javafx.util.StringConverter;
 
 public class ConfigurationUIController {
@@ -173,6 +176,7 @@ public class ConfigurationUIController {
             return null;
         }
         HBox row = new HBox();
+        row.getStyleClass().add("setting-row");
         Label label = new Label(fieldInfo.name());
         label.getStyleClass().add("setting-label");
         label.setMinWidth(150.0);
@@ -189,16 +193,27 @@ public class ConfigurationUIController {
             return null;
         }
         HBox row = new HBox();
+        row.getStyleClass().add("setting-row");
         Label label = new Label(actionInfo.name());
         label.getStyleClass().add("setting-keyboard-shortcut");
         label.setMinWidth(150.0);
-        TextField widget = new TextField(String.valueOf(values));
+        String value = Arrays.stream(values).collect(Collectors.joining(" or "));
+        Text widget = new Text(value);
+        widget.setWrappingWidth(180.0);
+        widget.getStyleClass().add("setting-keyboard-value");
+        widget.setOnMouseClicked((event) -> {
+            editKeyboardShortcut(node, actionName, widget);
+        });
         label.setLabelFor(widget);
         row.getChildren().add(label);
         row.getChildren().add(widget);
         return row;
     }
 
+    private void editKeyboardShortcut(ConfigNode node, String actionName, Text widget) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }    
+    
     private Node buildEditField(ConfigNode node, String settingName, Serializable value) {
         Field field;
         try {
@@ -220,7 +235,7 @@ public class ConfigurationUIController {
                 return buildTextField(node, settingName, value, null);
             }
         } else if (type.equals(File.class)) {
-            return buildFileSelectionField(node, settingName, value);
+            // TODO: Add file support!
         } else if (Class.class.isEnum()) {
             // TODO: Add enumeration support!
         } else if (ISelection.class.isAssignableFrom(type)) {
@@ -244,10 +259,6 @@ public class ConfigurationUIController {
             node.setFieldValue(settingName, widget.isSelected());
         });
         return widget;
-    }
-
-    private Node buildFileSelectionField(ConfigNode node, String settingName, Serializable value) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     private Node buildDynamicSelectComponent(ConfigNode node, String settingName, Serializable value) {

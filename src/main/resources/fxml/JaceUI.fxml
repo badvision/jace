@@ -10,7 +10,11 @@
 
 <AnchorPane id="AnchorPane" fx:id="rootPane" prefHeight="384.0" prefWidth="560.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.JaceUIController">
     <children>
-      <Region fx:id="notificationRegion" prefHeight="50.0" prefWidth="510.0" AnchorPane.bottomAnchor="5.0" AnchorPane.rightAnchor="5.0" />
-      <ImageView fx:id="appleScreen" fitHeight="384.0" fitWidth="560.0" pickOnBounds="true" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+      <StackPane fx:id="stackPane" prefHeight="384.0" prefWidth="560.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+         <children>
+            <ImageView fx:id="appleScreen" fitHeight="384.0" fitWidth="560.0" pickOnBounds="true" />
+            <HBox fx:id="notificationBox" alignment="BOTTOM_RIGHT" blendMode="SCREEN" fillHeight="false" maxHeight="45.0" prefHeight="45.0" prefWidth="560.0" StackPane.alignment="BOTTOM_CENTER" />
+         </children>
+      </StackPane>
     </children>
 </AnchorPane>

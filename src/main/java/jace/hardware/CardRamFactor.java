@@ -18,12 +18,10 @@
  */
 package jace.hardware;
 
-import jace.Emulator;
 import jace.config.ConfigurableField;
 import jace.config.Name;
 import jace.core.Card;
 import jace.core.Computer;
-import jace.core.Motherboard;
 import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
 import jace.state.Stateful;
@@ -33,7 +31,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.ImageIcon;
+import javafx.scene.control.Label;
 
 /**
  * This card strives to be a clone of the Applied Engineering RamFactor card
@@ -64,10 +62,10 @@ public class CardRamFactor extends Card {
     public String getDeviceName() {
         return "RamFactor";
     }
-    ImageIcon indicator;
+    Label indicator;
     public CardRamFactor(Computer computer) {
         super(computer);
-        indicator=Utility.loadIcon("ram.png");
+        indicator=Utility.loadIconLabel("ram.png");
         try {
             loadRom("jace/data/RAMFactor14.rom");
         } catch (IOException ex) {
@@ -206,7 +204,7 @@ public class CardRamFactor extends Card {
     @Override
     public void setSlot(int slot) {
         super.setSlot(slot);
-        indicator.setDescription("Slot "+getSlot());
+        indicator.setText("Slot "+getSlot());
         // Rom has different images for each slot
         updateFirmwareMemory();
     }

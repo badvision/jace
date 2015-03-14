@@ -22,6 +22,7 @@ import java.awt.BorderLayout;
 import java.awt.EventQueue;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -43,8 +44,14 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.geometry.Pos;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Label;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.paint.Color;
 import javax.swing.BorderFactory;
-import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
@@ -274,11 +281,35 @@ public class Utility {
         return result;
     }
 
-    public static ImageIcon loadIcon(String filename) {
-        URL imageUrl = Utility.class.getClassLoader().getResource("jace/data/" + filename);
-        ImageIcon i = new ImageIcon(imageUrl);
-        return i;
+    public static Image loadIcon(String filename) {
+        InputStream stream = Utility.class.getClassLoader().getResourceAsStream("jace/data/" + filename);
+        return new Image(stream);
     }
+
+    public static Label loadIconLabel(String filename) {
+        Image img = loadIcon(filename);
+        Label label = new Label() {
+
+            @Override
+            public boolean equals(Object obj) {
+                if (obj instanceof Label) {
+                    Label l2 = (Label) obj;
+                    return super.equals(l2) || l2.getText().equals(getText());
+                } else {
+                    return super.equals(obj);
+                }
+            }
+            
+        };
+        label.setGraphic(new ImageView(img));
+        label.setAlignment(Pos.CENTER);
+        label.setContentDisplay(ContentDisplay.TOP);
+        label.setTextFill(Color.WHITE);
+        DropShadow shadow = new DropShadow(5.0, Color.BLACK);
+        label.setEffect(shadow);
+        return label;
+    }
+
 
     public static void runModalProcess(String title, final Runnable runnable) {
 //        final JDialog frame = new JDialog(Emulator.getFrame());

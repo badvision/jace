@@ -33,13 +33,14 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.scene.control.Label;
 import javax.swing.ImageIcon;
 
 /**
  * Super Serial Card with serial-over-tcp/ip support. This is fully compatible
  * with the SSC ROM and supported applications.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Name("Super Serial Card")
 public class CardSSC extends Card implements Reconfigurable, Runnable {
@@ -97,10 +98,12 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
         super(computer);
     }
 
+    @Override
     public String getDeviceName() {
         return "Super Serial Card";
     }
-    ImageIcon activityIndicator;
+    
+    Label activityIndicator;
 
     @Override
     public void setSlot(int slot) {
@@ -110,8 +113,8 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
             Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
         }
         super.setSlot(slot);
-        activityIndicator = Utility.loadIcon("network-wired.png");
-        activityIndicator.setDescription("Slot " + slot);
+        activityIndicator = Utility.loadIconLabel("network-wired.png");
+        activityIndicator.setText("Slot " + slot);
     }
 
     @Override
@@ -176,12 +179,9 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
 
     @Override
     public void reset() {
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                suspend();
-                resume();
-            }
+        java.awt.EventQueue.invokeLater(() -> {
+            suspend();
+            resume();
         });
     }
 
@@ -414,7 +414,8 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
     /**
      * Detach from server socket port and ensure that the card's resources are
      * no longer in use
-     * @return 
+     *
+     * @return
      */
     @Override
     public boolean suspend() {

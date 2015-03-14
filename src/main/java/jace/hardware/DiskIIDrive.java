@@ -29,7 +29,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.locks.LockSupport;
-import javax.swing.ImageIcon;
+import javafx.scene.control.Label;
 
 /**
  * This implements the mechanical part of the disk drive and tracks changes to
@@ -222,19 +222,20 @@ public class DiskIIDrive implements MediaConsumer {
 
     void insertDisk(File diskPath) throws IOException {
         disk = new FloppyDisk(diskPath, computer);
+        System.out.println("Inserting "+diskPath.getPath()+" into "+getIcon().getText());
         dirtyTracks = new HashSet<>();
         // Emulator state has changed significantly, reset state manager
         StateManager.getInstance(computer).invalidate();
     }
-    private ImageIcon icon;
+    private Label icon;
 
     @Override
-    public ImageIcon getIcon() {
+    public Label getIcon() {
         return icon;
     }
 
     @Override
-    public void setIcon(ImageIcon i) {
+    public void setIcon(Label i) {
         icon = i;
     }
     private MediaEntry currentMediaEntry;
@@ -276,7 +277,7 @@ public class DiskIIDrive implements MediaConsumer {
     @Override
     public boolean isAccepted(MediaEntry e, MediaFile f) {
         if (f == null) return false;
-        System.out.println("Type is accepted: "+f.path+"; "+e.type.toString()+": "+e.type.is140kb);
+//        System.out.println("Type is accepted: "+f.path+"; "+e.type.toString()+": "+e.type.is140kb);
         return e.type.is140kb;
     }
 

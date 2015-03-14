@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
  *
  * This library is free software; you can redistribute it and/or
@@ -42,10 +42,15 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
@@ -245,7 +250,7 @@ public class EmulatorUILogic implements Reconfigurable {
             description = "Adjusts window size to 1:1 aspect ratio for optimal viewing.",
             alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;",
             defaultKeyMapping = "ctrl+shift+a")
-    
+
     static public void scaleIntegerRatio() {
 //        AbstractEmulatorFrame frame = Emulator.getFrame();
 //        if (frame == null) {
@@ -358,7 +363,7 @@ public class EmulatorUILogic implements Reconfigurable {
             category = "general",
             description = "Edit emulator configuraion",
             alternatives = "Reconfigure,Preferences,Settings",
-            defaultKeyMapping = {"f4","ctrl+shift+c"})
+            defaultKeyMapping = {"f4", "ctrl+shift+c"})
     public static void showConfig() {
         FXMLLoader fxmlLoader = new FXMLLoader(EmulatorUILogic.class.getResource("/fxml/Configuration.fxml"));
         fxmlLoader.setResources(null);
@@ -372,28 +377,49 @@ public class EmulatorUILogic implements Reconfigurable {
             configWindow.show();
         } catch (IOException exception) {
             throw new RuntimeException(exception);
-        }        
-    }
-
-    public static final String MEDIA_MANAGER_DIALOG_NAME = "Media Manager";
-    public static final String MEDIA_MANAGER_EDIT_DIALOG_NAME = "Media Details";
-
-    @InvokableAction(
-            name = "Media Manager",
-            category = "general",
-            description = "Show the media manager",
-            alternatives = "Insert disk;Eject disk;Browse;Download;Select",
-            defaultKeyMapping = {"f1","ctrl+shift+o"})
-    public static void showMediaManager() {
-//        if (Emulator.getFrame().getModalDialogUI(MEDIA_MANAGER_DIALOG_NAME) == null) {
-//            Emulator.getFrame().registerModalDialog(MediaLibrary.getInstance().buildUserInterface(), MEDIA_MANAGER_DIALOG_NAME, null, false);
-//        }
-//        Emulator.getFrame().showDialog(MEDIA_MANAGER_DIALOG_NAME);
+        }
     }
 
     public static boolean confirm(String message) {
 //        return JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(Emulator.getFrame(), message);
         return false;
+    }
+
+    static final Map<Object, Set<Label>> indicators = new HashMap<>();
+
+    static public void addIndicator(Object owner, Label icon) {
+        synchronized (indicators) {
+            Set<Label> ind = indicators.get(owner);
+            if (ind == null) {
+                ind = new HashSet<>();
+                indicators.put(owner, ind);
+            }
+            ind.add(icon);
+            JaceApplication.singleton.controller.addIndicator(icon);
+        }
+    }
+
+    static public void removeIndicator(Object owner, Label icon) {
+        synchronized (indicators) {
+            Set<Label> ind = indicators.get(owner);
+            if (ind != null) {
+                ind.remove(icon);
+            }
+            JaceApplication.singleton.controller.removeIndicator(icon);
+        }
+    }
+
+    static public void removeIndicators(Object owner) {
+        synchronized (indicators) {
+            Set<Label> ind = indicators.get(owner);
+            if (ind == null) {
+                return;
+            }
+            ind.stream().forEach((icon) -> {
+                JaceApplication.singleton.controller.removeIndicator(icon);
+            });
+            indicators.remove(owner);
+        }
     }
 
     @Override

@@ -18,7 +18,7 @@
  */
 package jace.hardware;
 
-import jace.Emulator;
+import jace.EmulatorUILogic;
 import jace.config.ConfigurableField;
 import jace.config.Name;
 import jace.config.Reconfigurable;
@@ -66,8 +66,8 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
         } catch (IOException ex) {
             Logger.getLogger(CardDiskII.class.getName()).log(Level.SEVERE, null, ex);
         }
-        drive1.setIcon(Utility.loadIcon("disk_ii.png"));
-        drive2.setIcon(Utility.loadIcon("disk_ii.png"));
+        drive1.setIcon(Utility.loadIconLabel("disk_ii.png"));
+        drive2.setIcon(Utility.loadIconLabel("disk_ii.png"));
         reset();
     }
 
@@ -106,13 +106,13 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
             case 0x8:
                 // drive off
                 currentDrive.setOn(false);
-//                Emulator.getFrame().removeIndicator(this, currentDrive == drive1 ? diskDrive1Icon : diskDrive2Icon, false);
+                EmulatorUILogic.removeIndicator(this, currentDrive.getIcon());
                 break;
 
             case 0x9:
                 // drive on
                 currentDrive.setOn(true);
-//                Emulator.getFrame().addIndicator(this, currentDrive.getIcon());
+                EmulatorUILogic.addIndicator(this, currentDrive.getIcon());
                 break;
 
             case 0xA:
@@ -129,8 +129,8 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
                 // read/write latch
                 currentDrive.write();
                 e.setNewValue(currentDrive.readLatch());
+                EmulatorUILogic.addIndicator(this, currentDrive.getIcon());
                 break;
-
             case 0xF:
                 // write mode
                 currentDrive.setWriteMode();
@@ -167,7 +167,6 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     @Override
     protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
         // Do nothing: The ROM does everything
-        return;
     }
 
     public void loadRom(String path) throws IOException {
@@ -227,10 +226,11 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     @Override
     public void setSlot(int slot) {
         super.setSlot(slot);
-        drive1.getIcon().setDescription("S" + slot + "D1");
-        drive2.getIcon().setDescription("S" + slot + "D2");
+        drive1.getIcon().setText("S" + slot + "D1");
+        drive2.getIcon().setText("S" + slot + "D2");
     }
 
+    @Override
     public MediaConsumer[] getConsumers() {
         return new MediaConsumer[]{drive1, drive2};
     }

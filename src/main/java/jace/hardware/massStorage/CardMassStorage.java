@@ -18,7 +18,6 @@
  */
 package jace.hardware.massStorage;
 
-import jace.Emulator;
 import jace.apple2e.MOS65C02;
 import jace.config.Name;
 import jace.core.Card;
@@ -51,16 +50,17 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
         super(computer);
         drive1 = new MassStorageDrive();
         drive2 = new MassStorageDrive();
-        drive1.setIcon(Utility.loadIcon("drive-harddisk.png"));
-        drive2.setIcon(Utility.loadIcon("drive-harddisk.png"));
+        drive1.setIcon(Utility.loadIconLabel("drive-harddisk.png"));
+        drive2.setIcon(Utility.loadIconLabel("drive-harddisk.png"));
+        drive1.onInsert(this::reconfigure);
         currentDrive = drive1;
     }
 
     @Override
     public void setSlot(int slot) {
         super.setSlot(slot);
-        drive1.getIcon().setDescription("S" + getSlot() + "D1");
-        drive2.getIcon().setDescription("S" + getSlot() + "D2");
+        drive1.getIcon().setText("S" + getSlot() + "D1");
+        drive2.getIcon().setText("S" + getSlot() + "D2");
     }
 
     @Override

@@ -25,7 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.ImageIcon;
+import javafx.scene.control.Label;
 
 /**
  *
@@ -33,13 +33,13 @@ import javax.swing.ImageIcon;
  */
 public class MassStorageDrive implements MediaConsumer {
     IDisk disk = null;
-    ImageIcon icon = null;
+    Label icon = null;
     
-    public ImageIcon getIcon() {
+    public Label getIcon() {
         return icon;
     }
 
-    public void setIcon(ImageIcon i) {
+    public void setIcon(Label i) {
         icon = i;
     }
 
@@ -51,8 +51,16 @@ public class MassStorageDrive implements MediaConsumer {
         currentEntry = e;
         currentFile = f;
         disk= readDisk(currentFile.path);
+        if (postInsertAction != null) {
+            postInsertAction.run();
+        }
     }
 
+    Runnable postInsertAction = null;
+    public void onInsert(Runnable r) {
+        postInsertAction = r;
+    }
+    
     public MediaEntry getMediaEntry() {
         return currentEntry;
     }
@@ -65,6 +73,7 @@ public class MassStorageDrive implements MediaConsumer {
         return e.type.isProdosOrdered;
     }
 
+    
     public void eject() {
         if (disk != null) {
             disk.eject();

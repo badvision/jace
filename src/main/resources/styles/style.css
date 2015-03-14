@@ -2,8 +2,11 @@
     -fx-font-weight: bold;
 }
 
+.setting-row {
+    -fx-padding: 5 0 0 4;        
+}
+
 .setting-label, .setting-keyboard-shortcut {
-    -fx-padding: 5 0 0 4;    
     -fx-allignment: center-left;
 }
 

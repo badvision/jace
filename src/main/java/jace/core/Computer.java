@@ -21,7 +21,6 @@ package jace.core;
 import jace.config.ConfigurableField;
 import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
-import jace.library.MediaLibrary;
 import jace.state.StateManager;
 import java.io.IOException;
 import java.util.Optional;
@@ -42,7 +41,6 @@ public abstract class Computer implements Reconfigurable {
     public Keyboard keyboard;
     public StateManager stateManager;
     public Motherboard motherboard;
-    public MediaLibrary mediaLibrary = MediaLibrary.getInstance();
     @ConfigurableField(category = "advanced", name = "State management", shortName = "rewind", description = "This enables rewind support, but consumes a lot of memory when active.")
     public boolean enableStateManager;
 

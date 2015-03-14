@@ -34,6 +34,7 @@ import java.util.Calendar;
 import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.scene.control.Label;
 import javax.swing.ImageIcon;
 
 /**
@@ -49,8 +50,8 @@ import javax.swing.ImageIcon;
 @Name("ThunderClock Plus")
 public class CardThunderclock extends Card {
 
-    ImageIcon clockIcon;
-    ImageIcon clockFixIcon;
+    Label clockIcon;
+    Label clockFixIcon;
     long lastShownIcon = -1;
     // Only mention that the clock is read if it hasn't been checked for over 30 seconds
     // This is to avoid showing it all the time in programs that poll it constantly
@@ -65,9 +66,9 @@ public class CardThunderclock extends Card {
         } catch (IOException ex) {
             Logger.getLogger(CardDiskII.class.getName()).log(Level.SEVERE, null, ex);
         }
-        clockIcon = Utility.loadIcon("clock.png");
-        clockFixIcon = Utility.loadIcon("clock_fix.png");
-        clockFixIcon.setDescription("Fixed");
+        clockIcon = Utility.loadIconLabel("clock.png");
+        clockFixIcon = Utility.loadIconLabel("clock_fix.png");
+        clockFixIcon.setText("Fixed");
     }
 
     // Raw format: 40 bits, in BCD form (it actually streams out in the reverse order of this, bit 0 first)
@@ -153,7 +154,7 @@ public class CardThunderclock extends Card {
                     performProdosPatch();
                 }
                 getTime();
-                clockIcon.setDescription("Slot " + getSlot());
+                clockIcon.setText("Slot " + getSlot());
                 long now = System.currentTimeMillis();
                 if ((now - lastShownIcon) > MIN_WAIT) {
 //                    Emulator.getFrame().addIndicator(this, clockIcon, 3000);

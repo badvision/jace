@@ -32,14 +32,11 @@ import jace.state.Stateful;
 import jace.core.Utility;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Graphics2D;
-import java.awt.GraphicsEnvironment;
 import java.awt.MouseInfo;
 import java.awt.Point;
-import java.awt.Toolkit;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import javax.swing.ImageIcon;
+import javafx.scene.control.Label;
 
 /**
  * Apple Mouse interface implementation. This is fully compatible with several
@@ -86,7 +83,7 @@ public class CardAppleMouse extends Card implements MouseListener {
     public static int CYCLES_PER_UPDATE = (int) (1020484L / 60L);
     @ConfigurableField(name = "Fullscreen fix", shortName = "fsfix", category = "Mouse", description = "If the mouse pointer is a little off when in fullscreen, this should fix it.")
     public boolean fullscreenFix = true;
-    ImageIcon mouseActive = Utility.loadIcon("input-mouse.png");
+    Label mouseActive = Utility.loadIconLabel("input-mouse.png");
 
     public CardAppleMouse(Computer computer) {
         super(computer);
@@ -348,7 +345,7 @@ public class CardAppleMouse extends Card implements MouseListener {
      *      Screen holes are updated
      */
     private void initMouse() {
-        mouseActive.setDescription("Active");
+        mouseActive.setText("Active");
 //        Emulator.getFrame().addIndicator(this, mouseActive, 2000);
         setClampWindowX(0, 0x3ff);
         setClampWindowY(0, 0x3ff);

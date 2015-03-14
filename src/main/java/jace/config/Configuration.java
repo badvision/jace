@@ -95,8 +95,7 @@ public class Configuration implements Reconfigurable {
     }
     
     public static ImageView getChangedIcon() {
-        InputStream imgStream = Configuration.class.getResourceAsStream("/jace/data/icon_exclaim.gif");
-        return new ImageView(new Image(imgStream));
+        return new ImageView(Utility.loadIcon("icon_exclaim.gif"));
     }
     
     @Override

@@ -20,15 +20,15 @@ package jace.library;
 
 import jace.library.MediaEntry.MediaFile;
 import java.io.IOException;
-import javax.swing.ImageIcon;
+import javafx.scene.control.Label;
 
 /**
  *
  * @author brobert
  */
 public interface MediaConsumer {
-    public ImageIcon getIcon();
-    public void setIcon(ImageIcon i);
+    public Label getIcon();
+    public void setIcon(Label i);
     public void insertMedia(MediaEntry e, MediaFile f) throws IOException;
     public MediaEntry getMediaEntry();
     public MediaFile getMediaFile();

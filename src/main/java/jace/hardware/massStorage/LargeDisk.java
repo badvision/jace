@@ -84,7 +84,7 @@ public class LargeDisk implements IDisk {
 
     @Override
     public void boot0(int slot, Computer computer) throws IOException {
-        computer.getCpu().suspend();
+        computer.pause();
         mliRead(0, 0x0800, computer.getMemory());
         byte slot16 = (byte) (slot << 4);
         ((MOS65C02) computer.getCpu()).X = slot16;
@@ -95,7 +95,7 @@ public class LargeDisk implements IDisk {
         // Write location to block read routine to zero page
         memory.writeWord(0x048, 0x0c000 + CardMassStorage.DEVICE_DRIVER_OFFSET + (slot * 0x0100), false, false);
         ((MOS65C02) computer.getCpu()).setProgramCounter(0x0800);
-        computer.getCpu().resume();
+        computer.resume();
     }
 
     public File getPhysicalPath() {

@@ -168,7 +168,7 @@ public class Row {
         ImageIcon getIcon() {
             if (icon == null) {
                 if (value >= 0) {
-                    icon = Utility.loadIcon("ayenvelope"+value+".png");
+//                    icon = Utility.loadIcon("ayenvelope"+value+".png");
                 } else {
                     icon = new ImageIcon(new BufferedImage(64, 12,BufferedImage.TYPE_4BYTE_ABGR));
                 }
