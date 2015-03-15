@@ -18,6 +18,7 @@
  */
 package jace.hardware;
 
+import jace.Emulator;
 import jace.EmulatorUILogic;
 import jace.config.ConfigurableField;
 import jace.config.Name;
@@ -81,9 +82,7 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
         currentDrive = drive1;
         drive1.reset();
         drive2.reset();
-//        if (Emulator.getFrame() != null) {
-//            Emulator.getFrame().removeIndicators(this);
-//        }
+        EmulatorUILogic.removeIndicators(this);
 //        Motherboard.cancelSpeedRequest(this);
     }
 

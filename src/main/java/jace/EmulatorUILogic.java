@@ -48,10 +48,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 import javax.imageio.ImageIO;
@@ -386,8 +388,12 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     static final Map<Object, Set<Label>> indicators = new HashMap<>();
-
     static public void addIndicator(Object owner, Label icon) {
+        addIndicator(owner, icon, 250);
+    }
+    
+    static public void addIndicator(Object owner, Label icon, long TTL) {
+        if (JaceApplication.singleton == null) return;
         synchronized (indicators) {
             Set<Label> ind = indicators.get(owner);
             if (ind == null) {
@@ -400,6 +406,7 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     static public void removeIndicator(Object owner, Label icon) {
+        if (JaceApplication.singleton == null) return;
         synchronized (indicators) {
             Set<Label> ind = indicators.get(owner);
             if (ind != null) {
@@ -410,6 +417,7 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     static public void removeIndicators(Object owner) {
+        if (JaceApplication.singleton == null) return;
         synchronized (indicators) {
             Set<Label> ind = indicators.get(owner);
             if (ind == null) {
@@ -421,7 +429,19 @@ public class EmulatorUILogic implements Reconfigurable {
             indicators.remove(owner);
         }
     }
+    
+    static public void addMouseListener(EventHandler<MouseEvent> handler) {
+        if (JaceApplication.singleton != null) {
+            JaceApplication.singleton.controller.addMouseListener(handler);
+        }
+    }
 
+    static public void removeMouseListener(EventHandler<MouseEvent> handler) {
+        if (JaceApplication.singleton != null) {
+            JaceApplication.singleton.controller.removeMouseListener(handler);
+        }
+    }
+    
     @Override
     public String getName() {
         return "Jace User Interface";

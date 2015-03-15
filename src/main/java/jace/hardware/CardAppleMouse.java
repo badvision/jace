@@ -18,7 +18,7 @@
  */
 package jace.hardware;
 
-import jace.Emulator;
+import jace.EmulatorUILogic;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.RAM128k;
 import jace.config.ConfigurableField;
@@ -30,13 +30,14 @@ import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
 import jace.state.Stateful;
 import jace.core.Utility;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
+import javafx.event.EventHandler;
+import javafx.geometry.Bounds;
+import javafx.scene.Node;
 import javafx.scene.control.Label;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.geometry.Point2D;
+import javafx.geometry.Rectangle2D;
 
 /**
  * Apple Mouse interface implementation. This is fully compatible with several
@@ -46,8 +47,8 @@ import javafx.scene.control.Label;
  */
 @Stateful
 @Name("Apple Mouse")
-public class CardAppleMouse extends Card implements MouseListener {
-
+public class CardAppleMouse extends Card {
+    
     @Stateful
     public int mode;
     @Stateful
@@ -73,18 +74,18 @@ public class CardAppleMouse extends Card implements MouseListener {
     @Stateful
     public int statusByte;
     @Stateful
-    public Point lastMouseLocation;
+    public Point2D lastMouseLocation;
     @Stateful
-    public Point clampMin = new Point(0, 0x03ff);
-    @Stateful
-    public Point clampMax = new Point(0, 0x03ff);
+    public Rectangle2D clampWindow = new Rectangle2D(0, 0, 0x03ff, 0x03ff);
     // By default, update 60 times a second -- roughly every VBL period (in theory)
     @ConfigurableField(name = "Update frequency", shortName = "updateFreq", category = "Mouse", description = "# of CPU cycles between updates; affects polling and interrupt-based routines")
     public static int CYCLES_PER_UPDATE = (int) (1020484L / 60L);
     @ConfigurableField(name = "Fullscreen fix", shortName = "fsfix", category = "Mouse", description = "If the mouse pointer is a little off when in fullscreen, this should fix it.")
     public boolean fullscreenFix = true;
     Label mouseActive = Utility.loadIconLabel("input-mouse.png");
-
+    public boolean movedSinceLastTick = false;
+    public boolean movedSinceLastRead = false;
+    
     public CardAppleMouse(Computer computer) {
         super(computer);
     }
@@ -100,6 +101,30 @@ public class CardAppleMouse extends Card implements MouseListener {
         deactivateMouse();
     }
 
+    EventHandler<MouseEvent> mouseHandler = this::processMouseEvent;
+    
+    private void processMouseEvent(MouseEvent event) {
+        if (event.getEventType() == MouseEvent.MOUSE_MOVED) {
+            Node source = (Node) event.getSource();
+            updateLocation(event.getSceneX(), event.getSceneY(), source.getBoundsInLocal());
+            event.consume();
+        } else if (event.getEventType() == MouseEvent.MOUSE_PRESSED) {
+            mousePressed(event);
+            event.consume();
+        } else if (event.getEventType() == MouseEvent.MOUSE_RELEASED) {
+            mouseReleased(event);
+            event.consume();
+        }
+    }
+
+    private void updateLocation(double x, double y, Bounds bounds) {
+        double scaledX = x / bounds.getWidth();
+        double scaledY = y / bounds.getHeight();
+        lastMouseLocation = new Point2D(scaledX, scaledY);
+        movedSinceLastTick = true;
+        movedSinceLastRead = true;
+    }
+    
     /*
      * Coded against this information
      * http://stason.org/TULARC/pc/apple2/programmer/012-How-do-I-write-programs-which-use-the-mouse.html
@@ -346,7 +371,7 @@ public class CardAppleMouse extends Card implements MouseListener {
      */
     private void initMouse() {
         mouseActive.setText("Active");
-//        Emulator.getFrame().addIndicator(this, mouseActive, 2000);
+        EmulatorUILogic.addIndicator(this, mouseActive, 2000);
         setClampWindowX(0, 0x3ff);
         setClampWindowY(0, 0x3ff);
         clearMouse();
@@ -376,7 +401,7 @@ public class CardAppleMouse extends Card implements MouseListener {
      *      Screen hole positions are updated
      */
     private void homeMouse() {
-        lastMouseLocation = new Point(0, 0);
+        lastMouseLocation = new Point2D(0, 0);
         updateMouseState();
         getCPU().C = 0;
     }
@@ -386,10 +411,7 @@ public class CardAppleMouse extends Card implements MouseListener {
      */
     private void activateMouse() {
         active = true;
-        Component drawingArea = Emulator.getScreen();
-        if (drawingArea != null) {
-            drawingArea.addMouseListener(this);
-        }
+        EmulatorUILogic.addMouseListener(mouseHandler);
     }
 
     /*
@@ -401,10 +423,7 @@ public class CardAppleMouse extends Card implements MouseListener {
         interruptOnMove = false;
         interruptOnPress = false;
         interruptOnVBL = false;
-        Component drawingArea = Emulator.getScreen();
-        if (drawingArea != null) {
-            drawingArea.removeMouseListener(this);
-        }
+        EmulatorUILogic.removeMouseListener(mouseHandler);
     }
 
     @Override
@@ -437,12 +456,12 @@ public class CardAppleMouse extends Card implements MouseListener {
             }
         }
         if (interruptOnMove) {
-            Point currentMouseLocation = MouseInfo.getPointerInfo().getLocation();
-            if (!currentMouseLocation.equals(lastMouseLocation)) {
+            if (movedSinceLastTick) {
                 isInterrupt = true;
                 getCPU().generateInterrupt();
             }
         }
+        movedSinceLastTick = false;
     }
 
     @Override
@@ -456,58 +475,15 @@ public class CardAppleMouse extends Card implements MouseListener {
     }
 
     private void updateMouseState() {
-        Component drawingArea = Emulator.getScreen();
-        if (drawingArea == null) {
-            return;
-        }
-//        Graphics2D screen = (Graphics2D) computer.getVideo().getScreen();
-//        Point currentMouseLocation = MouseInfo.getPointerInfo().getLocation();
-//        Point topLeft = drawingArea.getLocationOnScreen();
-        Point currentMouseLocation = null; //        = Emulator.getFrame().getContentPane().getMousePosition();
-//        if (currentMouseLocation == null) return;
-//        Point topLeft = drawingArea.getLocationOnScreen();
-        Point topLeft = new Point(0,0);
+        double x = lastMouseLocation.getX();        
+        x *= clampWindow.getWidth();
+        x += clampWindow.getMinX();
+        x = Math.min(Math.max(x, clampWindow.getMinX()), clampWindow.getMaxX());
 
-        Dimension d = drawingArea.getBounds().getSize();
-//        if (screen.getTransform() != null) {
-//            d = new Dimension((int) (screen.getTransform().getScaleX() * d.width),
-//                    (int) (screen.getTransform().getScaleY() * d.height));
-//            topLeft.x += screen.getTransform().getTranslateX();
-//            topLeft.y += screen.getTransform().getTranslateY();
-//        }
-        if (fullscreenFix) {
-//            if (Emulator.getFrame().isFullscreenActive()) {
-//                Toolkit t = Toolkit.getDefaultToolkit();
-//                topLeft.y -= t.getScreenInsets(GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration()).top;
-//            }
-        }
-
-        // Scale X and Y to the clamping range of the mouse (will this work for most software?)
-        double width = clampMax.x - clampMin.x;
-        double x = 0;
-//        double x = currentMouseLocation.getX() - topLeft.x;
-        x *= width;
-        x /= d.width;
-        x += clampMin.x;
-        if (x < clampMin.x) {
-            x = clampMin.x;
-        }
-        if (x > clampMax.x) {
-            x = clampMax.x;
-        }
-
-        double height = clampMax.y - clampMin.y;
-        double y = 0;
-//        double y = currentMouseLocation.getY() - topLeft.y;
-        y *= height;
-        y /= d.height;
-        y += clampMin.y;
-        if (y < clampMin.y) {
-            y = clampMin.y;
-        }
-        if (y > clampMax.y) {
-            y = clampMax.y;
-        }
+        double y = lastMouseLocation.getY();
+        y *= clampWindow.getHeight();
+        y += clampWindow.getMinY();
+        y = Math.min(Math.max(y, clampWindow.getMinY()), clampWindow.getMaxY());
 
         PagedMemory m = ((RAM128k) computer.getMemory()).getMainMemory();
         int s = getSlot();
@@ -541,11 +517,10 @@ public class CardAppleMouse extends Card implements MouseListener {
          *     `----------------- Currently, button 0 is up (0) or down (1)        
          */
         int status = 0;
-        boolean mouseMoved = !currentMouseLocation.equals(lastMouseLocation);
         if (button1pressLast) {
             status |= 1;
         }
-        if (interruptOnMove && mouseMoved) {
+        if (interruptOnMove && movedSinceLastRead) {
             status |= 2;
         }
         if (interruptOnPress && (button0press != button0pressLast || button1press != button1pressLast)) {
@@ -557,7 +532,7 @@ public class CardAppleMouse extends Card implements MouseListener {
         if (button1press) {
             status |= 16;
         }
-        if (mouseMoved) {
+        if (movedSinceLastRead) {
             status |= 32;
         }
         if (button0pressLast) {
@@ -576,43 +551,29 @@ public class CardAppleMouse extends Card implements MouseListener {
          */
         m.writeByte(0x07F8 + s, (byte) (mode));
 
-        lastMouseLocation = currentMouseLocation;
         button0pressLast = button0press;
         button1pressLast = button1press;
+        movedSinceLastRead = false;
     }
 
-    @Override
     public void mousePressed(MouseEvent me) {
-        int button = me.getButton();
-        if (button == 1 || button == 2) {
+        MouseButton button = me.getButton();
+        if (button == MouseButton.PRIMARY || button == MouseButton.MIDDLE) {
             button0press = true;
         }
-        if (button == 2 || button == 3) {
+        if (button == MouseButton.SECONDARY || button == MouseButton.MIDDLE) {
             button1press = true;
         }
     }
 
-    @Override
     public void mouseReleased(MouseEvent me) {
-        int button = me.getButton();
-        if (button == 1 || button == 2) {
-            button0press = false;
+       MouseButton button = me.getButton();
+        if (button == MouseButton.PRIMARY || button == MouseButton.MIDDLE) {
+             button0press = false;
         }
-        if (button == 2 || button == 3) {
+        if (button == MouseButton.SECONDARY || button == MouseButton.MIDDLE) {
             button1press = false;
         }
-    }
-
-    @Override
-    public void mouseClicked(MouseEvent me) {
-    }
-
-    @Override
-    public void mouseEntered(MouseEvent me) {
-    }
-
-    @Override
-    public void mouseExited(MouseEvent me) {
     }
 
     private void setClampWindowX(int min, int max) {
@@ -620,8 +581,7 @@ public class CardAppleMouse extends Card implements MouseListener {
         if (max == 32767) {
             max = 560;
         }
-        clampMin.x = min;
-        clampMax.x = max;
+        clampWindow = new Rectangle2D(min, clampWindow.getMinY(), max, clampWindow.getMaxY());
     }
 
     private void setClampWindowY(int min, int max) {
@@ -629,8 +589,7 @@ public class CardAppleMouse extends Card implements MouseListener {
         if (max == 32767) {
             max = 192;
         }
-        clampMin.y = min;
-        clampMax.y = max;
+        clampWindow = new Rectangle2D(clampWindow.getMinX(), min, clampWindow.getMaxX(), max);
     }
 
     @Override

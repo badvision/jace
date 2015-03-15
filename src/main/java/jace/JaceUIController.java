@@ -19,13 +19,10 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -33,16 +30,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.event.EventHandler;
+import javafx.event.EventType;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 
@@ -181,6 +179,9 @@ public class JaceUIController {
     
     Map<Label, Long> iconTTL = new ConcurrentHashMap<>();
     void addIndicator(Label icon) {
+        addIndicator(icon, 250);
+    }
+    void addIndicator(Label icon, long TTL) {
         if (!iconTTL.containsKey(icon)) {
             Application.invokeLater(()->{
                 if (!notificationBox.getChildren().contains(icon)) {
@@ -188,7 +189,7 @@ public class JaceUIController {
                 }
             });
         }
-        trackTTL(icon);
+        trackTTL(icon, TTL);
     }
 
     void removeIndicator(Label icon) {
@@ -200,8 +201,8 @@ public class JaceUIController {
 
     ScheduledExecutorService notificationExecutor = Executors.newSingleThreadScheduledExecutor();
     ScheduledFuture ttlCleanupTask = null;
-    private void trackTTL(Label icon) {
-        iconTTL.put(icon, System.currentTimeMillis()+250L);
+    private void trackTTL(Label icon, long TTL) {
+        iconTTL.put(icon, System.currentTimeMillis()+TTL);
         
         if (ttlCleanupTask == null || ttlCleanupTask.isCancelled()) {        
             ttlCleanupTask = notificationExecutor.scheduleWithFixedDelay(this::processTTL, 1, 100, TimeUnit.MILLISECONDS);
@@ -210,15 +211,26 @@ public class JaceUIController {
     
     private void processTTL() {
         Long now = System.currentTimeMillis();
-        for (Iterator<Label> iterator = iconTTL.keySet().iterator(); iterator.hasNext();) {
-            Label icon = iterator.next();
-            if (iconTTL.get(icon) <= now) {
+        iconTTL.keySet().stream()
+            .filter((icon) -> (iconTTL.get(icon) <= now))
+            .forEach((icon) -> {
                 removeIndicator(icon);
-            }
-        }
+            });
         if (iconTTL.isEmpty()) {
             ttlCleanupTask.cancel(true);
             ttlCleanupTask = null;
         }
+    }
+    
+    public void addMouseListener(EventHandler<MouseEvent> handler) {
+        appleScreen.addEventHandler(MouseEvent.MOUSE_MOVED, handler);
+        appleScreen.addEventHandler(MouseEvent.MOUSE_PRESSED, handler);
+        appleScreen.addEventHandler(MouseEvent.MOUSE_RELEASED, handler);
+    }
+    
+    public void removeMouseListener(EventHandler<MouseEvent> handler) {
+        appleScreen.removeEventHandler(MouseEvent.MOUSE_MOVED, handler);
+        appleScreen.removeEventHandler(MouseEvent.MOUSE_PRESSED, handler);
+        appleScreen.removeEventHandler(MouseEvent.MOUSE_RELEASED, handler);
     }
 }
