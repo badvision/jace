@@ -170,8 +170,8 @@ public class Apple2e extends Computer {
     }
 
     private void insertCard(Class<? extends Card> type, int slot) throws NoSuchMethodException, IllegalArgumentException, InvocationTargetException {
-        if (getMemory().getCard(slot) != null) {
-            if (getMemory().getCard(slot).getClass().equals(type)) {
+        if (getMemory().getCard(slot).isPresent()) {
+            if (getMemory().getCard(slot).get().getClass().equals(type)) {
                 return;
             }
             getMemory().removeCard(slot);
