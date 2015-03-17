@@ -28,9 +28,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.GenericArrayType;
@@ -39,10 +39,14 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -51,7 +55,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.collections.ObservableList;
 import javafx.scene.control.TreeItem;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
 /**
@@ -93,11 +96,11 @@ public class Configuration implements Reconfigurable {
         }
         return null;
     }
-    
+
     public static ImageView getChangedIcon() {
         return new ImageView(Utility.loadIcon("icon_exclaim.gif"));
     }
-    
+
     @Override
     public String getName() {
         return "Configuration";
@@ -124,20 +127,47 @@ public class Configuration implements Reconfigurable {
 
         public transient ConfigNode root;
         public transient ConfigNode parent;
-        private ObservableList<ConfigNode> children;
+        private transient ObservableList<ConfigNode> children;
         public transient Reconfigurable subject;
+        private transient boolean changed = true;
+
         public Map<String, Serializable> settings = new TreeMap<>();
-        public Map<String, String[]> hotkeys = new TreeMap<>();;
-        private boolean changed = true;
+        public Map<String, String[]> hotkeys = new TreeMap<>();
+        public String name;
+        private String id;
+
+        private void writeObject(java.io.ObjectOutputStream out)
+                throws IOException {
+            out.writeObject(id);
+            out.writeObject(name);
+            out.writeObject(settings);
+            out.writeObject(hotkeys);
+            out.writeObject(children.toArray());
+        }
+
+        private void readObject(java.io.ObjectInputStream in)
+                throws IOException, ClassNotFoundException {
+            children = super.getChildren();
+            id = (String) in.readObject();
+            name = (String) in.readObject();
+            settings = (Map) in.readObject();
+            hotkeys = (Map) in.readObject();
+            Object[] nodeArray = (Object[]) in.readObject();
+            for (Object child : nodeArray) {
+                children.add((ConfigNode) child);
+            }
+        }
+
+        private void readObjectNoData()
+                throws ObjectStreamException {
+            name = "Bad read";
+        }
 
         @Override
         public String toString() {
-            if (subject == null) {
-                return "???";
-            }
-            return subject.getName();
+            return name;
         }
-        
+
         public ConfigNode(Reconfigurable subject) {
             this(null, subject);
             this.root = null;
@@ -145,7 +175,13 @@ public class Configuration implements Reconfigurable {
         }
 
         public ConfigNode(ConfigNode parent, Reconfigurable subject) {
+            this(parent, subject, subject.getName());
+        }
+
+        public ConfigNode(ConfigNode parent, Reconfigurable subject, String id) {
             super();
+            this.id = id;
+            this.name = subject.getName();
             this.subject = subject;
             this.children = getChildren();
             this.parent = parent;
@@ -191,36 +227,36 @@ public class Configuration implements Reconfigurable {
             return children.remove(child);
         }
 
-        private ConfigNode findChild(String childName) {
+        private ConfigNode findChild(String id) {
             for (ConfigNode node : children) {
-                if (childName.equalsIgnoreCase(node.toString())) {
+                if (id.equalsIgnoreCase(node.id)) {
                     return node;
                 }
             }
             return null;
         }
 
-        private void putChild(String childName, ConfigNode newChild) {
-            removeChild(childName);
+        private void putChild(String id, ConfigNode newChild) {
+            removeChild(id);
             int index = 0;
             for (ConfigNode node : children) {
-                int compare = node.toString().compareToIgnoreCase(childName);
+                int compare = node.toString().compareToIgnoreCase(id);
                 if (compare >= 0) {
                     break;
                 } else {
                     index++;
                 }
-            }            
+            }
             children.add(index, newChild);
         }
 
         private void setChanged(boolean b) {
-           changed = b;
-           if (!changed) {
-               setGraphic(null);
-           } else {
-               setGraphic(getChangedIcon());
-           }
+            changed = b;
+            if (!changed) {
+                setGraphic(null);
+            } else {
+                setGraphic(getChangedIcon());
+            }
         }
     }
     public static ConfigNode BASE;
@@ -252,10 +288,10 @@ public class Configuration implements Reconfigurable {
         }
 
         for (Field f : node.subject.getClass().getFields()) {
-            System.out.println("Evaluating field " + f.getName());
+//            System.out.println("Evaluating field " + f.getName());
             try {
                 Object o = f.get(node.subject);
-                if (/*o == null ||*/visited.contains(o)) {
+                if (!f.getType().isPrimitive() && visited.contains(o)) {
                     continue;
                 }
                 visited.add(o);
@@ -278,7 +314,7 @@ public class Configuration implements Reconfigurable {
 
                 if (o instanceof Reconfigurable) {
                     Reconfigurable r = (Reconfigurable) o;
-                    ConfigNode child = node.findChild(f.getName());
+                    ConfigNode child = node.findChild(r.getName());
                     if (child == null || !child.subject.equals(o)) {
                         child = new ConfigNode(node, r);
                         node.putChild(f.getName(), child);
@@ -287,13 +323,13 @@ public class Configuration implements Reconfigurable {
                 } else if (o.getClass().isArray()) {
                     String fieldName = f.getName();
                     Class type = o.getClass().getComponentType();
-                    System.out.println("Evaluating " + node.subject.getShortName() + "." + fieldName + "; type is " + type.toGenericString());
+//                    System.out.println("Evaluating " + node.subject.getShortName() + "." + fieldName + "; type is " + type.toGenericString());
                     List<Reconfigurable> children = new ArrayList<>();
                     if (!Reconfigurable.class.isAssignableFrom(type)) {
-                        System.out.println("Looking at type " + type.getName() + " to see if optional");
+//                        System.out.println("Looking at type " + type.getName() + " to see if optional");
                         if (Optional.class.isAssignableFrom(type)) {
                             Type genericTypes = f.getGenericType();
-                            System.out.println("Looking at generic parmeters " + genericTypes.getTypeName() + " for reconfigurable class, type "+genericTypes.getClass().getName());
+//                            System.out.println("Looking at generic parmeters " + genericTypes.getTypeName() + " for reconfigurable class, type " + genericTypes.getClass().getName());
                             if (genericTypes instanceof GenericArrayType) {
                                 GenericArrayType aType = (GenericArrayType) genericTypes;
                                 ParameterizedType pType = (ParameterizedType) aType.getGenericComponentType();
@@ -322,15 +358,15 @@ public class Configuration implements Reconfigurable {
                     }
                     for (int i = 0; i < children.size(); i++) {
                         Reconfigurable child = children.get(i);
-                        String childName = fieldName + i;
+                        String childId = fieldName + i;
                         if (child == null) {
-                            node.removeChild(childName);
+                            node.removeChild(childId);
                             continue;
                         }
-                        ConfigNode grandchild = node.findChild(childName);
+                        ConfigNode grandchild = node.findChild(childId);
                         if (grandchild == null || !grandchild.subject.equals(child)) {
-                            grandchild = new ConfigNode(node, child);
-                            node.putChild(childName, grandchild);
+                            grandchild = new ConfigNode(node, child, childId);
+                            node.putChild(childId, grandchild);
                         }
                         buildTree(grandchild, visited);
                     }
@@ -383,7 +419,6 @@ public class Configuration implements Reconfigurable {
         {
             boolean successful = false;
             ObjectInputStream ois = null;
-            FileInputStream fis = null;
             try {
                 ois = new ObjectInputStream(new FileInputStream(getSettingsFile()));
                 ConfigNode newRoot = (ConfigNode) ois.readObject();

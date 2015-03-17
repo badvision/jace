@@ -82,6 +82,7 @@ public abstract class RAM implements Reconfigurable {
     }
 
     public void addCard(Card c, int slot) {
+        removeCard(slot);
         cards[slot] = Optional.of(c);
         c.setSlot(slot);
         c.attach();

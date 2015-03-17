@@ -45,10 +45,10 @@ import javafx.scene.image.WritableImage;
 public class VideoNTSC extends VideoDHGR {
 
     @ConfigurableField(name = "Text palette", shortName = "textPalette", defaultValue = "false", description = "Use text-friendly color palette")
-    public static boolean useTextPalette = false;
-    static int activePalette[][];
+    public Boolean useTextPalette = true;
+    int activePalette[][] = textPalette;
     @ConfigurableField(name = "Video 7", shortName = "video7", defaultValue = "true", description = "Enable Video 7 RGB rendering support")
-    public static boolean enableVideo7 = false;
+    public Boolean enableVideo7 = true;
     // Scanline represents 560 bits, divided up into 28-bit words
     int[] scanline = new int[20];
     static int[] divBy28 = new int[560];
@@ -305,8 +305,6 @@ public class VideoNTSC extends VideoDHGR {
                 textPalette[offset][pattern] = yiqToRgb(y2, yiq[col][1] * MAX_I, yiq[col][2] * MAX_Q);
             }
         }
-        // Avoid NPE just in case.
-        activePalette = solidPalette;
     }
 
     static public int yiqToRgb(double y, double i, double q) {
@@ -336,7 +334,7 @@ public class VideoNTSC extends VideoDHGR {
     // http://www.freepatentsonline.com/4631692.pdf    
     // as well as the AppleColor adapter card manual
     // http://apple2.info/download/Ext80ColumnAppleColorCardHR.pdf
-    rgbMode graphicsMode = rgbMode.color;
+    rgbMode graphicsMode = rgbMode.mix;
 
     public static enum rgbMode {
 

@@ -49,7 +49,7 @@ public class Joystick extends Device {
 
     @ConfigurableField(name = "Enabled", shortName = "enabled", description = "If unchecked, then there is no joystick support.")
     public boolean enabled;
-    @ConfigurableField(name = "Center Mouse", description = "Moves mouse back to the center of the screen, can get annoying.")
+    @ConfigurableField(name = "Center Mouse", shortName="center", description = "Moves mouse back to the center of the screen, can get annoying.")
     public boolean centerMouse;
     @ConfigurableField(name = "Use keyboard", shortName = "useKeys", description = "Arrow keys will control joystick instead of the mouse.")
     public boolean useKeyboard;
