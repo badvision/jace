@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.event.EventHandler;
-import javafx.event.EventType;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
@@ -223,14 +222,10 @@ public class JaceUIController {
     }
     
     public void addMouseListener(EventHandler<MouseEvent> handler) {
-        appleScreen.addEventHandler(MouseEvent.MOUSE_MOVED, handler);
-        appleScreen.addEventHandler(MouseEvent.MOUSE_PRESSED, handler);
-        appleScreen.addEventHandler(MouseEvent.MOUSE_RELEASED, handler);
+        appleScreen.addEventHandler(MouseEvent.ANY, handler);
     }
     
     public void removeMouseListener(EventHandler<MouseEvent> handler) {
-        appleScreen.removeEventHandler(MouseEvent.MOUSE_MOVED, handler);
-        appleScreen.removeEventHandler(MouseEvent.MOUSE_PRESSED, handler);
-        appleScreen.removeEventHandler(MouseEvent.MOUSE_RELEASED, handler);
+        appleScreen.removeEventHandler(MouseEvent.ANY, handler);
     }
 }

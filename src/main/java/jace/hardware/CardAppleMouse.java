@@ -104,11 +104,12 @@ public class CardAppleMouse extends Card {
     EventHandler<MouseEvent> mouseHandler = this::processMouseEvent;
     
     private void processMouseEvent(MouseEvent event) {
-        if (event.getEventType() == MouseEvent.MOUSE_MOVED) {
+        if (event.getEventType() == MouseEvent.MOUSE_MOVED || event.getEventType() == MouseEvent.MOUSE_DRAGGED) {
             Node source = (Node) event.getSource();
             updateLocation(event.getSceneX(), event.getSceneY(), source.getBoundsInLocal());
             event.consume();
-        } else if (event.getEventType() == MouseEvent.MOUSE_PRESSED) {
+        }
+        if (event.getEventType() == MouseEvent.MOUSE_PRESSED || event.getEventType() == MouseEvent.MOUSE_DRAGGED) {
             mousePressed(event);
             event.consume();
         } else if (event.getEventType() == MouseEvent.MOUSE_RELEASED) {

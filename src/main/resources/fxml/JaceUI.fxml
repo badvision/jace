@@ -13,7 +13,7 @@
       <StackPane fx:id="stackPane" prefHeight="384.0" prefWidth="560.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
          <children>
             <ImageView fx:id="appleScreen" fitHeight="384.0" fitWidth="560.0" pickOnBounds="true" />
-            <HBox fx:id="notificationBox" alignment="BOTTOM_RIGHT" blendMode="SCREEN" fillHeight="false" maxHeight="45.0" prefHeight="45.0" prefWidth="560.0" StackPane.alignment="BOTTOM_CENTER" />
+            <HBox fx:id="notificationBox" alignment="BOTTOM_RIGHT" blendMode="SCREEN" fillHeight="false" maxHeight="45.0" mouseTransparent="true" prefHeight="45.0" prefWidth="560.0" StackPane.alignment="BOTTOM_CENTER" />
          </children>
       </StackPane>
     </children>
