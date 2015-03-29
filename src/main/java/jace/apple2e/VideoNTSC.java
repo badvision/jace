@@ -45,10 +45,10 @@ import javafx.scene.image.WritableImage;
 public class VideoNTSC extends VideoDHGR {
 
     @ConfigurableField(name = "Text palette", shortName = "textPalette", defaultValue = "false", description = "Use text-friendly color palette")
-    public Boolean useTextPalette = true;
+    public boolean useTextPalette = true;
     int activePalette[][] = textPalette;
     @ConfigurableField(name = "Video 7", shortName = "video7", defaultValue = "true", description = "Enable Video 7 RGB rendering support")
-    public Boolean enableVideo7 = true;
+    public boolean enableVideo7 = true;
     // Scanline represents 560 bits, divided up into 28-bit words
     int[] scanline = new int[20];
     static int[] divBy28 = new int[560];
