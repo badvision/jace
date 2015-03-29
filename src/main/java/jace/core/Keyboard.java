@@ -203,7 +203,7 @@ public class Keyboard implements Reconfigurable {
         if (e.isConsumed()) {
             return;
         }
-
+        
         char c = 255;
         if (e.getText().length() > 0) {
             c = e.getText().charAt(0);
@@ -241,11 +241,46 @@ public class Keyboard implements Reconfigurable {
             default:
         }
 
+        if (e.isShiftDown()) {
+            c = fixShiftedChar(c);
+        }
+
+        
         if (c < 128) {
             pressKey((byte) c);
         }
     }
 
+    private char fixShiftedChar(char c) {
+        if (c >= 'a' && c <= 'z') {
+            return (char) (c - 32);
+        } else {
+            switch (c) {
+                case '0': return ')';
+                case '1': return '!';
+                case '2': return '@';
+                case '3': return '#';
+                case '4': return '$';
+                case '5': return '%';
+                case '6': return '^';
+                case '7': return '&';
+                case '8': return '*';
+                case '9': return '(';
+                case '-': return '_';
+                case '=': return '+';
+                case '[': return '{';
+                case ']': return '}';
+                case '\\': return '|';
+                case ';': return ':';
+                case '\'': return '"';
+                case ',': return '<';
+                case '.': return '>';
+                case '/': return '?';
+            }
+        }
+        return c;
+    }
+    
     public void keyReleased(KeyEvent e) {
         KeyCode code = e.getCode();
         processKeyUpEvents(e);
