@@ -44,7 +44,7 @@ import javax.sound.sampled.SourceDataLine;
  * how to reuse active lines if needed. It is possible that this class might be
  * used to manage volume in the future, but that remains to be seen.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class SoundMixer extends Device {
 
@@ -103,19 +103,25 @@ public class SoundMixer extends Device {
 
     @Override
     public synchronized void reconfigure() {
-        detach();
-        try {
-            initMixer();
-            if (lineAvailable) {
-                initAudio();
-            } else {
-                System.out.println("Sound not stared: Line not available");
+        if (isConfigDifferent()) {
+            detach();
+            try {
+                initMixer();
+                if (lineAvailable) {
+                    initAudio();
+                } else {
+                    System.out.println("Sound not stared: Line not available");
+                }
+            } catch (LineUnavailableException ex) {
+                System.out.println("Unable to start sound");
+                Logger.getLogger(SoundMixer.class.getName()).log(Level.SEVERE, null, ex);
             }
-        } catch (LineUnavailableException ex) {
-            System.out.println("Unable to start sound");
-            Logger.getLogger(SoundMixer.class.getName()).log(Level.SEVERE, null, ex);
+            attach();
         }
-        attach();
+    }
+
+    private AudioFormat getAudioFormat() {
+        return new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, RATE, BITS, 2, BITS / 4, RATE, true);
     }
 
     /**
@@ -125,8 +131,7 @@ public class SoundMixer extends Device {
      * available
      */
     private void initAudio() throws LineUnavailableException {
-        af = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, RATE, BITS, 2, BITS / 4, RATE, true);
-//        af = new AudioFormat(RATE, BITS, 2, true, true);
+        af = getAudioFormat();
         DataLine.Info dli = new DataLine.Info(SourceDataLine.class, af);
         lineAvailable = AudioSystem.isLineSupported(dli);
     }
@@ -152,8 +157,10 @@ public class SoundMixer extends Device {
             SourceDataLine sdl = activeLines.remove(requester);
 // Calling drain on pulse driver can cause it to freeze up (?)
 //            sdl.drain();
-            sdl.flush();
-            sdl.stop();
+            if (sdl.isRunning()) {
+                sdl.flush();
+                sdl.stop();
+            }
             availableLines.add(sdl);
         }
     }
@@ -213,7 +220,9 @@ public class SoundMixer extends Device {
         });
         if (theMixer != null) {
             for (Line l : theMixer.getSourceLines()) {
-                l.close();
+//                if (l.isOpen()) {
+//                    l.close();
+//                }
             }
         }
         availableLines.clear();
@@ -241,9 +250,24 @@ public class SoundMixer extends Device {
             }
         }
         theMixer = AudioSystem.getMixer(selected);
-        for (Line l : theMixer.getSourceLines()) {
-            l.close();
-        }
+//        for (Line l : theMixer.getSourceLines()) {
+//            l.close();
+//        }
         lineAvailable = true;
+    }
+
+    String oldPreferredMixer = null;
+
+    private boolean isConfigDifferent() {
+        boolean changed = false;
+        AudioFormat newAf = getAudioFormat();
+        changed |= (af == null || !newAf.matches(af));
+        if (oldPreferredMixer == null) {
+            changed |= preferredMixer.getValue() != null;
+        } else {
+            changed |= !oldPreferredMixer.matches(preferredMixer.getValue());
+        }
+        oldPreferredMixer = preferredMixer.getValue();
+        return changed;
     }
 }

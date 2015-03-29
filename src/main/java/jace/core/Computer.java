@@ -41,14 +41,18 @@ public abstract class Computer implements Reconfigurable {
     public Keyboard keyboard;
     public StateManager stateManager;
     public Motherboard motherboard;
+    public boolean romLoaded;
     @ConfigurableField(category = "advanced", name = "State management", shortName = "rewind", description = "This enables rewind support, but consumes a lot of memory when active.")
     public boolean enableStateManager;
+    public final SoundMixer mixer;
 
     /**
      * Creates a new instance of Computer
      */
     public Computer() {
         keyboard = new Keyboard(this);
+        mixer = new SoundMixer(this);
+        romLoaded = false;
     }
 
     public RAM getMemory() {
@@ -100,12 +104,14 @@ public abstract class Computer implements Reconfigurable {
 
     public void loadRom(String path) throws IOException {
         memory.loadRom(path);
+        romLoaded = true;
     }
 
     public void deactivate() {
         cpu.suspend();
         motherboard.suspend();
         video.suspend();
+        mixer.detach();
     }
     
     @InvokableAction(
@@ -116,7 +122,18 @@ public abstract class Computer implements Reconfigurable {
             consumeKeyEvent = true,
             defaultKeyMapping = {"Ctrl+Shift+Backspace","Ctrl+Shift+Delete"})
     public void invokeColdStart() {
-        coldStart();
+        if (!romLoaded) {
+            System.out.println("Computer booted before rom was loaded");
+            Thread delayedStart = new Thread(() -> {
+                while (!romLoaded) {
+                    Thread.yield();
+                }
+                coldStart();
+            });
+            delayedStart.start();
+        } else {
+            coldStart();
+        }
     }
     public abstract void coldStart();
 
@@ -155,6 +172,7 @@ public abstract class Computer implements Reconfigurable {
 
     @Override
     public void reconfigure() {
+        mixer.reconfigure();
         if (enableStateManager) {
             stateManager = StateManager.getInstance(this);
         } else {

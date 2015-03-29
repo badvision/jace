@@ -177,7 +177,7 @@ public class Speaker extends Device {
         speakerBit = false;
         sdl = null;
         computer.getMotherboard().cancelSpeedRequest(this);
-        computer.getMotherboard().mixer.returnLine(this);
+        computer.mixer.returnLine(this);
 
         return result;
     }
@@ -189,15 +189,16 @@ public class Speaker extends Device {
     public void resume() {
         if (sdl != null && isRunning()) return;
         System.out.println("Resuming speaker sound");
-        sdl = null;
         try {
-            sdl = computer.getMotherboard().mixer.getLine(this);            
+            if (sdl == null || !sdl.isOpen()) {
+                sdl = computer.mixer.getLine(this);            
+            }
             sdl.start();
+            setRun(true);
             counter = 0;
             idleCycles = 0;
             level = 0;
             bufferPos = 0;
-            setRun(true);
             playbackTimer = new Timer();
             playbackTimer.scheduleAtFixedRate(new TimerTask() {          
                 @Override

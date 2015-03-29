@@ -42,7 +42,6 @@ public class Motherboard extends TimedDevice {
     @ConfigurableField(name = "Enable Speaker", shortName = "speaker", defaultValue = "true")
     public static boolean enableSpeaker = true;
     public Speaker speaker;
-    public SoundMixer mixer;
 
     void vblankEnd() {
         SoftSwitches.VBL.getSwitch().setState(true);
@@ -59,7 +58,6 @@ public class Motherboard extends TimedDevice {
      */
     public Motherboard(Computer computer) {
         super(computer);
-        mixer = new SoundMixer(computer);
     }
 
     @Override
@@ -112,21 +110,19 @@ public class Motherboard extends TimedDevice {
         accelorationRequestors.clear();
         super.reconfigure();
         // Now create devices as needed, e.g. sound
-        miscDevices.add(mixer);
-        mixer.reconfigure();
 
         if (enableSpeaker) {
             try {
                 if (speaker == null) {
                     speaker = new Speaker(computer);
+                    if (computer.mixer.lineAvailable) {
+                        speaker.attach();
+                        miscDevices.add(speaker);
+                    } else {
+                        System.out.print("No lines available!  Speaker not running.");
+                    }
                 }
-                if (mixer.lineAvailable) {
-                    speaker.reconfigure();
-                    speaker.attach();
-                    miscDevices.add(speaker);
-                } else {
-                    System.out.print("No lines available!  Speaker not running.");
-                }
+                speaker.reconfigure();
             } catch (Throwable t) {
                 System.out.println("Unable to initalize sound -- deactivating speaker out");
                 speaker.detach();
@@ -167,7 +163,9 @@ public class Motherboard extends TimedDevice {
         synchronized (resume) {
             resume.clear();
             for (Optional<Card> c : computer.getMemory().getAllCards()) {
-                if (!c.isPresent()) continue;
+                if (!c.isPresent()) {
+                    continue;
+                }
                 if (!c.get().suspendWithCPU() || !c.get().isRunning()) {
                     continue;
                 }

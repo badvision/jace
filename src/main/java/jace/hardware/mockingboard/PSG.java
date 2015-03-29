@@ -106,9 +106,11 @@ public class PSG {
     int selectedReg;
     String name;
     Map<Reg, Integer> regValues;
+    public int mask;
 
-    public PSG(int base, int clock, int sample_rate, String name) {
+    public PSG(int base, int clock, int sample_rate, String name, int DDR_Mask) {
         this.name = name;
+        this.mask = DDR_Mask;
         baseReg = base;
         channels = new ArrayList<>();
         for (int i = 0; i < 3; i++) {

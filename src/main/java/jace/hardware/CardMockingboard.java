@@ -30,12 +30,14 @@ import jace.core.SoundMixer;
 import static jace.core.Utility.*;
 import jace.hardware.mockingboard.PSG;
 import jace.hardware.mockingboard.R6522;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.application.Platform;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
@@ -50,7 +52,6 @@ import javax.sound.sampled.SourceDataLine;
 public class CardMockingboard extends Card implements Runnable {
     // If true, emulation will cover 4 AY chips.  Otherwise, only 2 AY chips
 
-    static final int[] AY_ADDRESSES = new int[]{0, 0x080, 0x010, 0x090};
     @ConfigurableField(name = "Volume", shortName = "vol",
     category = "Sound",
     description = "Mockingboard volume, 100=max, 0=silent")
@@ -93,27 +94,33 @@ public class CardMockingboard extends Card implements Runnable {
             //don't ask...
             final int j = i;
             controllers[i] = new R6522(computer) {
+                int controller = j;
+                
                 @Override
                 public void sendOutputA(int value) {
-                    if (activeChip != null) {
-                        activeChip.setBus(value);
-                    } else {
-                        System.out.println("No active AY chip!");
+                    chips[j].setBus(value);                        
+                    if (phasorMode) { 
+                        chips[j+2].setBus(value);
                     }
                 }
 
                 @Override
                 public void sendOutputB(int value) {
-                    if (activeChip != null) {
-                        activeChip.setControl(value & 0x07);
+                    if (phasorMode) {
+                        if ((chips[j].mask & value) != 0) {
+                            chips[j].setControl(value & 0x07);
+                        }
+                        if ((chips[j+2].mask & value) != 0) {
+                            chips[j+2].setControl(value & 0x07);
+                        }
                     } else {
-                        System.out.println("No active AY chip!");
+                        chips[j].setControl(value & 0x07);
                     }
                 }
 
                 @Override
                 public int receiveOutputA() {
-                    return activeChip == null ? 0 : activeChip.bus;
+                    return chips[j] == null ? 0 : chips[j].bus;
                 }
 
                 @Override
@@ -140,22 +147,19 @@ public class CardMockingboard extends Card implements Runnable {
         }
     }
     RAMListener mainListener = null;
-    PSG activeChip = null;
 
     @Override
     protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
 //        System.out.println(e.getType().toString() + " event to mockingboard register "+Integer.toHexString(register)+", value "+e.getNewValue());
-        activeChip = null;
         resume();
         int chip = 0;
         for (PSG psg : chips) {
             if (psg.getBaseReg() == (register & 0x0f0)) {
-                activeChip = psg;
                 break;
             }
             chip++;
         }
-        if (activeChip == null) {
+        if (chip >= 2) {
             System.err.println("Could not determine which PSG to communicate to");
             e.setNewValue(computer.getVideo().getFloatingBus());
             return;
@@ -213,7 +217,7 @@ public class CardMockingboard extends Card implements Runnable {
         boolean restart = suspend();
         initPSG();
         for (PSG chip : chips) {
-            chip.setRate(CLOCK_SPEED, SAMPLE_RATE);
+            chip.setRate(phasorMode ? CLOCK_SPEED*2 : CLOCK_SPEED, SAMPLE_RATE);
             chip.reset();
         }
         super.reconfigure();
@@ -260,7 +264,7 @@ public class CardMockingboard extends Card implements Runnable {
     }
     Thread playbackThread = null;
     boolean pause = false;
-
+    
     @Override
     public void resume() {
         pause = false;
@@ -308,7 +312,7 @@ public class CardMockingboard extends Card implements Runnable {
      */
     public void run() {
         try {
-            SourceDataLine out = computer.getMotherboard().mixer.getLine(this);
+            SourceDataLine out = computer.mixer.getLine(this);
             int[] leftBuffer = new int[BUFFER_LENGTH];
             int[] rightBuffer = new int[BUFFER_LENGTH];
             int frameSize = out.getFormat().getFrameSize();
@@ -319,6 +323,7 @@ public class CardMockingboard extends Card implements Runnable {
             ticksBeteenPlayback = (int) ((Motherboard.SPEED * BUFFER_LENGTH) / SAMPLE_RATE);
             ticksSinceLastPlayback = 0;
             int zeroSamples = 0;
+            setRun(true);
             while (isRunning()) {
                 computer.getMotherboard().requestSpeed(this);
                 playSound(leftBuffer, rightBuffer);
@@ -385,15 +390,21 @@ public class CardMockingboard extends Card implements Runnable {
         } finally {
             computer.getMotherboard().cancelSpeedRequest(this);
             System.out.println("Mockingboard playback stopped");
-            computer.getMotherboard().mixer.returnLine(this);
+            computer.mixer.returnLine(this);
         }
     }
 
     private void initPSG() {
-        int max = phasorMode ? 4 : 2;
-        chips = new PSG[max];
-        for (int i = 0; i < max; i++) {
-            chips[i] = new PSG(AY_ADDRESSES[i], CLOCK_SPEED, SAMPLE_RATE, "AY" + i);
+        if (phasorMode) {
+            chips = new PSG[4];
+            chips[0] = new PSG(0x10, CLOCK_SPEED*2, SAMPLE_RATE, "AY1", 8);
+            chips[1] = new PSG(0x80, CLOCK_SPEED*2, SAMPLE_RATE, "AY2", 8);
+            chips[2] = new PSG(0x10, CLOCK_SPEED*2, SAMPLE_RATE, "AY3", 16);
+            chips[3] = new PSG(0x80, CLOCK_SPEED*2, SAMPLE_RATE, "AY4", 16);
+        } else {
+            chips = new PSG[2];
+            chips[0] = new PSG(0, CLOCK_SPEED, SAMPLE_RATE, "AY1", 255);
+            chips[1] = new PSG(0x80, CLOCK_SPEED, SAMPLE_RATE, "AY2", 255);            
         }
     }
 
