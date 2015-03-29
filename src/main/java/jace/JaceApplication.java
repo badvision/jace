@@ -3,7 +3,6 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package jace;
 
 import java.io.IOException;
@@ -19,10 +18,11 @@ import javafx.stage.Stage;
  * @author blurry
  */
 public class JaceApplication extends Application {
+
     static JaceApplication singleton;
     Stage primaryStage;
     JaceUIController controller;
-    
+
     @Override
     public void start(Stage stage) throws Exception {
         singleton = this;
@@ -38,7 +38,7 @@ public class JaceApplication extends Application {
         } catch (IOException exception) {
             throw new RuntimeException(exception);
         }
-        
+
         primaryStage.show();
         Emulator emulator = new Emulator(getParameters().getRaw());
         javafx.application.Platform.runLater(() -> {
@@ -46,23 +46,24 @@ public class JaceApplication extends Application {
                 Thread.yield();
             }
             controller.connectComputer(Emulator.computer);
+            Emulator.computer.warmStart();
         });
-        primaryStage.setOnCloseRequest(event->{
-            emulator.computer.deactivate();
+        primaryStage.setOnCloseRequest(event -> {
+            Emulator.computer.deactivate();
             Platform.exit();
             System.exit(0);
         });
     }
-    
+
     public static JaceApplication getApplication() {
         return singleton;
     }
-    
+
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
         launch(args);
     }
-    
+
 }
