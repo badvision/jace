@@ -25,6 +25,7 @@ import jace.config.ConfigurationUIController;
 import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
 import jace.core.CPU;
+import jace.core.Computer;
 import jace.core.Debugger;
 import jace.core.RAM;
 import jace.core.RAMEvent;
@@ -46,6 +47,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
@@ -439,6 +443,20 @@ public class EmulatorUILogic implements Reconfigurable {
         if (JaceApplication.singleton != null) {
             JaceApplication.singleton.controller.removeMouseListener(handler);
         }
+    }
+
+    public static void simulateCtrlAppleReset() {
+        Computer computer = JaceApplication.singleton.controller.computer;        
+        computer.keyboard.openApple(true);
+        computer.warmStart();
+        Platform.runLater(() -> {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(EmulatorUILogic.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            computer.keyboard.openApple(false);
+        });
     }
     
     @Override

@@ -383,18 +383,15 @@ public class Apple2e extends Computer {
                                     "        Presented by BLuRry",
                                     "        http://goo.gl/SnzqG",
                                     "",
-                                    "Press F1 to insert disk in Slot 6, D1",
-                                    "Press F2 to insert disk in Slot 6, D2",
-                                    "Press F3 to insert HDV or 2MG in slot 7",
-                                    "Press F4 to open configuration",
-                                    "Press F5 to run raw binary program",
-                                    "Press F8 to correct the aspect ratio",
-                                    "Press F9 to toggle fullscreen",
-                                    "Press F10 to open/close the debugger",
+                                    "To insert a disk, please drag it over",
+                                    "this window and drop on the desired",
+                                    "drive icon.",
                                     "",
-                                    "      If metacheat is enabled:",
-                                    "Press HOME to activate memory heatmap",
-                                    "Press END to activate metacheat search"
+                                    "Press CTRL+SHIFT+C for configuration.",
+                                    "",
+                                    "O-A is Alt/Option",
+                                    "C-A is Shortcut/Command",
+                                    "Reset is Delete/Backspace"
                                 }) {
                                     int addr = 0x0401 + VideoDHGR.calculateTextOffset(row++);
                                     for (char c : s.toCharArray()) {
