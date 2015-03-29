@@ -26,15 +26,19 @@ import jace.core.RAM;
 import jace.state.Stateful;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.Semaphore;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Implementation of a 128k memory space and the MMU found in an Apple //e. The
  * MMU behavior is mimicked by configureActiveMemory.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Stateful
 abstract public class RAM128k extends RAM {
+
     @Stateful
     public PagedMemory mainMemory;
     @Stateful
@@ -62,7 +66,7 @@ abstract public class RAM128k extends RAM {
         }
         initMemoryPattern(mainMemory);
     }
-    
+
     public final void initMemoryPattern(PagedMemory mem) {
         // Format memory with FF FF 00 00 pattern
         for (int i = 0; i < 0x0100; i++) {
@@ -72,18 +76,21 @@ abstract public class RAM128k extends RAM {
             }
         }
     }
-    
+
+    private final Semaphore configurationSemaphone = new Semaphore(1, true);
+
     /**
      *
      */
     @Override
     public void configureActiveMemory() {
-        log("MMU Switches");
-        synchronized (this) {
+        try {
+            log("MMU Switches");
+            configurationSemaphone.acquire();
             // First off, set up read/write for main memory (might get changed later on)
             activeRead.fillBanks(SoftSwitches.RAMRD.getState() ? getAuxMemory() : mainMemory);
             activeWrite.fillBanks(SoftSwitches.RAMWRT.getState() ? getAuxMemory() : mainMemory);
-
+            
             // Handle language card softswitches
             activeRead.fillBanks(rom);
             //activeRead.fillBanks(cPageRom);
@@ -103,7 +110,7 @@ abstract public class RAM128k extends RAM {
                     }
                 }
             }
-
+            
             if (SoftSwitches.LCWRITE.getState()) {
                 if (!SoftSwitches.AUXZP.getState()) {
                     activeWrite.fillBanks(languageCard);
@@ -122,7 +129,7 @@ abstract public class RAM128k extends RAM {
                     activeWrite.set(i, null);
                 }
             }
-
+            
             // Handle 80STORE logic for bankswitching video ram
             if (SoftSwitches._80STORE.isOn()) {
                 activeRead.setBanks(0x04, 0x04, 0x04,
@@ -136,7 +143,7 @@ abstract public class RAM128k extends RAM {
                             SoftSwitches.PAGE2.isOn() ? getAuxMemory() : mainMemory);
                 }
             }
-
+            
             // Handle zero-page bankswitching
             if (SoftSwitches.AUXZP.getState()) {
                 // Aux pages 0 and 1
@@ -147,13 +154,13 @@ abstract public class RAM128k extends RAM {
                 activeRead.setBanks(0, 2, 0, mainMemory);
                 activeWrite.setBanks(0, 2, 0, mainMemory);
             }
-
+            
             /*
-             INTCXROM   SLOTC3ROM  C1,C2,C4-CF   C3
-             0         0          slot         rom
-             0         1          slot         slot
-             1         -          rom          rom
-             */
+            INTCXROM   SLOTC3ROM  C1,C2,C4-CF   C3
+            0         0          slot         rom
+            0         1          slot         slot
+            1         -          rom          rom
+            */
             if (SoftSwitches.CXROM.getState()) {
                 // Enable C1-CF to point to rom
                 activeRead.setBanks(0, 0x0F, 0x0C1, cPageRom);
@@ -168,7 +175,7 @@ abstract public class RAM128k extends RAM {
                         activeRead.set(i, blank.get(0));
                     }
                 } else {
-                    getCard(getActiveSlot()).ifPresent(c -> activeRead.setBanks(0,8,0x0c8, c.getC8Rom()));
+                    getCard(getActiveSlot()).ifPresent(c -> activeRead.setBanks(0, 8, 0x0c8, c.getC8Rom()));
                 }
                 if (SoftSwitches.SLOTC3ROM.isOff()) {
                     // Enable C3 to point to internal ROM
@@ -179,9 +186,12 @@ abstract public class RAM128k extends RAM {
                     activeRead.setBanks(7, 8, 0x0C8, cPageRom);
                 }
             }
+            // All ROM reads not intecepted will return 0xFF! (TODO: floating bus)
+            activeRead.set(0x0c0, blank.get(0));
+            configurationSemaphone.release();
+        } catch (InterruptedException ex) {
+            Logger.getLogger(RAM128k.class.getName()).log(Level.SEVERE, null, ex);
         }
-        // All ROM reads not intecepted will return 0xFF! (TODO: floating bus)
-        activeRead.set(0x0c0, blank.get(0));
     }
 
     public void log(String message) {
@@ -234,10 +244,13 @@ abstract public class RAM128k extends RAM {
     }
 
     abstract public PagedMemory getAuxVideoMemory();
+
     abstract public PagedMemory getAuxMemory();
+
     abstract public PagedMemory getAuxLanguageCard();
+
     abstract public PagedMemory getAuxLanguageCard2();
-    
+
     /**
      * @return the languageCard
      */
