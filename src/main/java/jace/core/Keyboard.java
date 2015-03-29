@@ -203,7 +203,7 @@ public class Keyboard implements Reconfigurable {
         if (e.isConsumed()) {
             return;
         }
-        
+                
         char c = 255;
         if (e.getText().length() > 0) {
             c = e.getText().charAt(0);
@@ -245,6 +245,9 @@ public class Keyboard implements Reconfigurable {
             c = fixShiftedChar(c);
         }
 
+        if (e.isControlDown()) {
+            c = (char) (c & 0x01f);
+        }
         
         if (c < 128) {
             pressKey((byte) c);
@@ -276,6 +279,7 @@ public class Keyboard implements Reconfigurable {
                 case ',': return '<';
                 case '.': return '>';
                 case '/': return '?';
+                case '`': return '~';                    
             }
         }
         return c;
