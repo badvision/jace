@@ -145,7 +145,7 @@ public class Keyboard implements Reconfigurable {
             keyHandlersByOwner.put(owner, new HashSet<>());
         }
         keyHandlersByOwner.get(owner).add(l);
-        System.out.println("Registered handler for "+l.getComboName()+"; code is "+l.getKeyName());
+//        System.out.println("Registered handler for "+l.getComboName()+"; code is "+l.getKeyName());
     }
 
     public static void unregisterAllHandlers(Object owner) {
