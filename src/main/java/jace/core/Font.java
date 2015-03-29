@@ -30,11 +30,17 @@ import javax.imageio.ImageIO;
  */
 public class Font {
     static public int[][] font;
+    static public boolean initialized = false;
     static public int getByte(int c, int yOffset) {
+        if (!initialized) {
+            initalize();
+        }
         return font[c][yOffset];
     }
-    static {
+
+    private static void initalize() {
         font = new int[256][8];
+        initialized = true;
         try {
             InputStream in = ClassLoader.getSystemResourceAsStream("jace/data/font.gif");        
             BufferedImage fontImage = ImageIO.read(in);
