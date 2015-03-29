@@ -35,7 +35,6 @@ import jace.hardware.CardExt80Col;
 import jace.hardware.ConsoleProbe;
 import jace.hardware.Joystick;
 import jace.hardware.massStorage.CardMassStorage;
-import java.awt.Graphics;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -83,6 +82,11 @@ public class Apple2e extends Computer {
     public ClassSelection videoRenderer = new ClassSelection(Video.class, VideoNTSC.class);
     @ConfigurableField(name = "Aux Ram", shortName = "ram", description = "Aux ram card")
     public ClassSelection ramCard = new ClassSelection(RAM128k.class, CardExt80Col.class);
+    @ConfigurableField(name = "Joystick 1 Enabled", shortName = "joy1", description = "If unchecked, then there is no joystick support.", enablesDevice = true)
+    public boolean joy1enabled = false;
+    @ConfigurableField(name = "Joystick 2 Enabled", shortName = "joy2", description = "If unchecked, then there is no joystick support.", enablesDevice = true)
+    public boolean joy2enabled = false;
+
     public Joystick joystick1;
     public Joystick joystick2;
     @ConfigurableField(name = "Activate Cheats", shortName = "cheat", defaultValue = "")
@@ -96,9 +100,6 @@ public class Apple2e extends Computer {
         super();
         try {
             reconfigure();
-            // Setup core resources
-            joystick1 = new Joystick(0, this);
-            joystick2 = new Joystick(1, this);
             setCpu(new MOS65C02(this));
             reinitMotherboard();
         } catch (Throwable t) {
@@ -118,8 +119,6 @@ public class Apple2e extends Computer {
         }
         motherboard = new Motherboard(this);
         motherboard.reconfigure();
-        motherboard.miscDevices.add(joystick1);
-        motherboard.miscDevices.add(joystick2);
     }
 
     @Override
@@ -193,7 +192,7 @@ public class Apple2e extends Computer {
         super.reconfigure();
 
         RAM128k currentMemory = (RAM128k) getMemory();
-        if (currentMemory != null && !(currentMemory.getClass().equals(ramCard.getValue()))) {
+        if (currentMemory != null && ramCard.getValue() != null && !(currentMemory.getClass().equals(ramCard.getValue()))) {
             try {
                 RAM128k newMemory = (RAM128k) ramCard.getValue().getConstructor(Computer.class).newInstance(this);
                 newMemory.copyFrom(currentMemory);
@@ -219,6 +218,28 @@ public class Apple2e extends Computer {
             }
         }
         currentMemory.reconfigure();
+        
+        if (joy1enabled) {
+            if (joystick1 == null) {
+                joystick1 = new Joystick(0, this);
+                motherboard.miscDevices.add(joystick1);
+            }
+        } else if (joystick1 != null) {
+            joystick1.detach();
+            motherboard.miscDevices.remove(joystick1);
+            joystick1 = null;
+        }
+        
+        if (joy2enabled) {
+            if (joystick2 == null) {
+                joystick2 = new Joystick(1, this);
+                motherboard.miscDevices.add(joystick2);
+            }
+        } else if (joystick2 != null) {
+            joystick2.detach();
+            motherboard.miscDevices.remove(joystick2);
+            joystick2 = null;
+        }
 
         try {
             if (useConsoleProbe) {
@@ -234,7 +255,6 @@ public class Apple2e extends Computer {
             }
 
             if (getVideo() == null || getVideo().getClass() != videoRenderer.getValue()) {
-                Graphics g = null;
                 if (getVideo() != null) {
                     getVideo().suspend();
                 }

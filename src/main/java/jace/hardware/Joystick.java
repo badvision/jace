@@ -42,14 +42,11 @@ import java.util.logging.Logger;
  * Actual joystick support isn't offered by Java at this moment in time
  * unfortunately.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Stateful
 public class Joystick extends Device {
-
-    @ConfigurableField(name = "Enabled", shortName = "enabled", description = "If unchecked, then there is no joystick support.")
-    public boolean enabled;
-    @ConfigurableField(name = "Center Mouse", shortName="center", description = "Moves mouse back to the center of the screen, can get annoying.")
+    @ConfigurableField(name = "Center Mouse", shortName = "center", description = "Moves mouse back to the center of the screen, can get annoying.")
     public boolean centerMouse;
     @ConfigurableField(name = "Use keyboard", shortName = "useKeys", description = "Arrow keys will control joystick instead of the mouse.")
     public boolean useKeyboard;
@@ -185,14 +182,12 @@ public class Joystick extends Device {
 
     @Override
     public void reconfigure() {
+        removeListeners();
         x = 0;
         y = 0;
-        if (enabled) {
-            registerListeners();
-        } else {
-            removeListeners();
-        }
+        registerListeners();
     }
+    
     RAMListener listener = new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
         @Override
         protected void doConfig() {
@@ -215,31 +210,49 @@ public class Joystick extends Device {
         }
     };
 
-    @InvokableAction(name="Left", category = "joystick", defaultKeyMapping = "left", notifyOnRelease = true)
+    @InvokableAction(name = "Left", category = "joystick", defaultKeyMapping = "left", notifyOnRelease = true)
     public boolean joystickLeft(boolean pressed) {
         leftPressed = pressed;
+        if (pressed) {
+            rightPressed = false;
+        }
         return hogKeyboard;
-    };
-    @InvokableAction(name="Right", category = "joystick", defaultKeyMapping = "right", notifyOnRelease = true)
+    }
+
+    ;
+    @InvokableAction(name = "Right", category = "joystick", defaultKeyMapping = "right", notifyOnRelease = true)
     public boolean joystickRight(boolean pressed) {
         rightPressed = pressed;
+        if (pressed) {
+            leftPressed = false;
+        }
         return hogKeyboard;
-    };
-    @InvokableAction(name="Up", category = "joystick", defaultKeyMapping = "up", notifyOnRelease = true)
+    }
+
+    ;
+    @InvokableAction(name = "Up", category = "joystick", defaultKeyMapping = "up", notifyOnRelease = true)
     public boolean joystickUp(boolean pressed) {
         upPressed = pressed;
+        if (pressed) {
+            downPressed = false;
+        }
         return hogKeyboard;
-    };
-    @InvokableAction(name="Down", category = "joystick", defaultKeyMapping = "down", notifyOnRelease = true)
+    }
+
+    ;
+    @InvokableAction(name = "Down", category = "joystick", defaultKeyMapping = "down", notifyOnRelease = true)
     public boolean joystickDown(boolean pressed) {
-        leftPressed = pressed;
+        downPressed = pressed;
+        if (pressed) {
+            upPressed = false;
+        }
         return hogKeyboard;
-    };
-    
+    }
+
     private void registerListeners() {
         computer.getMemory().addListener(listener);
     }
-    
+
     private void removeListeners() {
         computer.getMemory().removeListener(listener);
         Keyboard.unregisterAllHandlers(this);
