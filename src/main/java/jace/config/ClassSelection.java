@@ -21,11 +21,11 @@ package jace.config;
 import jace.core.Utility;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  *
@@ -43,12 +43,12 @@ public class ClassSelection extends DynamicSelection<Class> {
 
     @Override
     public LinkedHashMap<Class, String> getSelections() {
-        LinkedHashMap<Class, String> selections = new LinkedHashMap<Class, String>();
-        List<? extends Class> allClasses = (List<? extends Class>) Utility.findAllSubclasses(template);
+        LinkedHashMap<Class, String> selections = new LinkedHashMap<>();
+        Set<? extends Class> allClasses = (Set<? extends Class>) Utility.findAllSubclasses(template);
         if (!allClasses.contains(null)) {
             allClasses.add(null);
         }
-        List<Entry<Class, String>> values = new ArrayList<Map.Entry<Class, String>>();
+        List<Entry<Class, String>> values = new ArrayList<>();
         if (allowNull()) {
             values.add(new Entry<Class, String>() {
 
@@ -71,10 +71,12 @@ public class ClassSelection extends DynamicSelection<Class> {
         for (final Class c : allClasses) {
             Entry<Class, String> entry = new Map.Entry<Class, String>() {
 
+                @Override
                 public Class getKey() {
                     return c;
                 }
 
+                @Override
                 public String getValue() {
                     if (c == null) {
                         return "**Empty**";
@@ -85,6 +87,7 @@ public class ClassSelection extends DynamicSelection<Class> {
                     return c.getSimpleName();
                 }
 
+                @Override
                 public String setValue(String value) {
                     throw new UnsupportedOperationException("Not supported yet.");
                 }
@@ -101,22 +104,20 @@ public class ClassSelection extends DynamicSelection<Class> {
             };
             values.add(entry);
         }
-        Collections.sort(values, new Comparator<Map.Entry<? extends Class, String>>() {
-            public int compare(Entry<? extends Class, String> o1, Entry<? extends Class, String> o2) {
-                if (o1.getKey() == null) {
-                    return -1;
-                }
-                if (o2.getKey() == null) {
-                    return 1;
-                } else {
-                    return (o1.getValue().compareTo(o2.getValue()));
-                }
+        Collections.sort(values, (Entry<? extends Class, String> o1, Entry<? extends Class, String> o2) -> {
+            if (o1.getKey() == null) {
+                return -1;
+            }
+            if (o2.getKey() == null) {
+                return 1;
+            } else {
+                return (o1.getValue().compareTo(o2.getValue()));
             }
         });
-        for (Map.Entry<Class, String> entry : values) {
+        values.stream().forEach((entry) -> {
             Class key = entry.getKey();
             selections.put(key, entry.getValue());
-        }
+        });
         return selections;
     }
 

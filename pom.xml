@@ -11,12 +11,11 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <mainClass>jace.MainApp</mainClass>
+        <mainClass>jace.JaceApplication</mainClass>
     </properties>
 
     <organization>
-        <!-- Used as the 'Vendor' for JNLP generation -->
-        <name>Your Organisation</name>
+        <name>badvision</name>
     </organization>
 
     <build>
@@ -130,19 +129,17 @@
     </build>
 
     <dependencies>
-        <!--        <dependency>
-            <groupId>com.oracle</groupId>
-            <artifactId>javafx</artifactId>
-            <version>2</version>
-            <systemPath>${java.home}/lib/jfxrt.jar</systemPath>
-            <scope>system</scope>
-        </dependency>-->
         <dependency>
             <groupId>javafx-packager</groupId>
             <artifactId>javafx-packager</artifactId>
             <version>1.7</version>
             <systemPath>${java.home}/../lib/ant-javafx.jar</systemPath>
             <scope>system</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.reflections</groupId>
+            <artifactId>reflections</artifactId>
+            <version>0.9.9</version>
         </dependency>
     </dependencies>
 </project>

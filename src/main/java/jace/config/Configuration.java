@@ -39,14 +39,10 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -265,10 +261,6 @@ public class Configuration implements Reconfigurable {
     @ConfigurableField(name = "Autosave Changes", description = "If unchecked, changes are only saved when the Save button is pressed.")
     public static boolean saveAutomatically = false;
 
-    static {
-        buildTree();
-    }
-
     public static void buildTree() {
         BASE = new ConfigNode(new Configuration());
         buildTree(BASE, new LinkedHashSet());
@@ -308,7 +300,8 @@ public class Configuration implements Reconfigurable {
                         node.setRawFieldValue(f.getName(), (Serializable) o);
                     }
                     continue;
-                } else if (o == null) {
+                }   
+                if (o == null) {
                     continue;
                 }
 

@@ -44,4 +44,5 @@ public @interface ConfigurableField {
     public String defaultValue() default "";
     public String description() default "";
     public String category() default "General";
+    public boolean enablesDevice() default false;
 }

@@ -27,6 +27,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import org.reflections.Reflections;
 import java.net.JarURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
@@ -57,12 +58,15 @@ import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 
 /**
- * This is a set of helper functions which do not belong anywhere else.  Functions vary from introspection, discovery, and string/pattern matching.
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * This is a set of helper functions which do not belong anywhere else.
+ * Functions vary from introspection, discovery, and string/pattern matching.
+ *
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Utility {
 
     //--------------- Introspection utilities
+    /*
     private static Set<Class> findClasses(String pckgname, Class clazz) {
         Set<Class> output = new HashSet<>();
         // Code from JWhich
@@ -100,7 +104,6 @@ public class Utility {
                     try {
                         // Try to create an instance of the object
                         String className = pckgname + "." + classname;
-//                        System.out.println("Class: " + className);
                         Class c = Class.forName(className);
                         if (clazz.isAssignableFrom(c)) {
                             output.add(c);
@@ -177,26 +180,36 @@ public class Utility {
         return output;
     }
     private static final Map<Class, Collection<Class>> classCache = new HashMap<>();
-
+*/
+    static Reflections reflections = new Reflections("jace");
+    public static Set<Class> findAllSubclasses(Class clazz) {
+        return reflections.getSubTypesOf(clazz);
+    }
+    /*
     public static List<Class> findAllSubclasses(Class clazz) {
         if (classCache.containsKey(clazz)) {
             return (List<Class>) classCache.get(clazz);
         }
         TreeMap<String, Class> allClasses = new TreeMap<>();
+        List<Class> values = new ArrayList(allClasses.values());
+        classCache.put(clazz, values);
         for (Package p : Package.getPackages()) {
             if (p.getName().startsWith("java")
                     || p.getName().startsWith("com.sun")
+                    || p.getName().startsWith("sun")
                     || p.getName().startsWith("com.oracle")) {
                 continue;
             }
-            findClasses(p.getName(), clazz).stream().filter((c) -> !(Modifier.isAbstract(c.getModifiers()))).forEach((c) -> {
-                allClasses.put(c.getSimpleName(), c);
-            });
+            findClasses(p.getName(), clazz)
+                    .stream()
+                    .filter((c) -> !(Modifier.isAbstract(c.getModifiers())))
+                    .forEach((c) -> {
+                        allClasses.put(c.getSimpleName(), c);
+                    });
         }
-        List<Class> values = new ArrayList(allClasses.values());
-        classCache.put(clazz, values);
         return values;
     }
+    */
 
     //------------------------------ String comparators
     /**
@@ -299,7 +312,7 @@ public class Utility {
                     return super.equals(obj);
                 }
             }
-            
+
         };
         label.setGraphic(new ImageView(img));
         label.setAlignment(Pos.CENTER);
@@ -309,7 +322,6 @@ public class Utility {
         label.setEffect(shadow);
         return label;
     }
-
 
     public static void runModalProcess(String title, final Runnable runnable) {
 //        final JDialog frame = new JDialog(Emulator.getFrame());

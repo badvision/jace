@@ -34,7 +34,7 @@ public abstract class DynamicSelection<T> implements ISelection<T> {
     T currentValue;
     @Override
     public T getValue() {
-        if (currentValue != null || !allowNull()) {
+        if (currentValue != null || allowNull()) {
             return currentValue;
         } else {
             Iterator<? extends T> i = getSelections().keySet().iterator();
