@@ -19,6 +19,7 @@
 package jace.cheat;
 
 import jace.Emulator;
+import jace.EmulatorUILogic;
 import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
 import jace.config.ConfigurableField;
@@ -26,11 +27,9 @@ import jace.core.Computer;
 import jace.core.PagedMemory;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
-import java.awt.Component;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
+import javafx.event.EventHandler;
+import javafx.scene.Node;
+import javafx.scene.input.MouseButton;
 
 /**
  * Prince of Persia game cheats.  This would not have been possible without the
@@ -42,7 +41,7 @@ import java.awt.event.MouseListener;
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
  */
-public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
+public class PrinceOfPersiaCheats extends Cheats {
 
     @ConfigurableField(category = "Hack", name = "Feather fall", defaultValue = "false", description = "Fall like a feather!")
     public static boolean velocityHack;
@@ -153,6 +152,17 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
         super(computer);
     }
 
+    double mouseX;
+    double mouseY;
+    EventHandler<javafx.scene.input.MouseEvent> listener = (event) -> {
+        Node source = (Node) event.getSource();
+        mouseX = event.getSceneX() / source.getBoundsInLocal().getWidth();
+        mouseY = event.getSceneY() / source.getBoundsInLocal().getHeight();
+        if (event.isPrimaryButtonDown()) {
+            mouseClicked(event.getButton());
+        }
+    };
+
     @Override
     protected String getDeviceName() {
         return ("Prince of Persia");
@@ -256,51 +266,33 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
             });
         }
         if (mouseHack) {
-            if (Emulator.getScreen() != null) {
-                Emulator.getScreen().addMouseListener(this);
-            } else {
-                mouseRegistered = true;
-            }
+            EmulatorUILogic.addMouseListener(listener);
         } else {
-            if (Emulator.getScreen() != null) {
-                Emulator.getScreen().removeMouseListener(this);
-            }
+            EmulatorUILogic.removeMouseListener(listener);
         }
     }
 
     @Override
     public void unregisterListeners() {
         super.unregisterListeners();
-        if (Emulator.getScreen() != null) {
-            Emulator.getScreen().removeMouseListener(this);
-        }
+        EmulatorUILogic.removeMouseListener(listener);
         mouseRegistered = false;
     }
     public static int BlueType = 0x0b700;
 
     public void registerMouse() {
         if (mouseRegistered) {
-            Component drawingArea = Emulator.getScreen();
-            if (drawingArea == null) {
-                return;
-            }
-            Emulator.getScreen().addMouseListener(this);
+            EmulatorUILogic.addMouseListener(listener);
             mouseRegistered = false;
         }
     }
 
-    @Override
-    public void mouseClicked(MouseEvent me) {
-        Component drawingArea = Emulator.getScreen();
-        if (drawingArea == null) {
-            return;
-        }
-        Point currentMouseLocation = MouseInfo.getPointerInfo().getLocation();
-        Point topLeft = drawingArea.getLocationOnScreen();
-        Double x = (currentMouseLocation.x - topLeft.x) / drawingArea.getSize().getWidth();
+    public void mouseClicked(MouseButton button) {
+        Double x = mouseX;
         // Offset y by three pixels to account for tiles above
-        Double y = (currentMouseLocation.y - topLeft.y) / drawingArea.getSize().getHeight() - 0.015625;
+        Double y = mouseY - 0.015625;
         // Now we have the x and y coordinates ranging from 0 to 1.0, scale to POP values
+        
         int row = y < 0 ? -1 : (int) (y * 3);
         int col = (int) (x * 10);
 
@@ -324,7 +316,7 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
         RAM128k mem = (RAM128k) computer.getMemory();
         PagedMemory auxMem = mem.getAuxMemory();
 
-        if (me.getButton() == MouseEvent.BUTTON1) {
+        if (button == MouseButton.PRIMARY) {
             // Left click hacks
             // See if there is an opponent we can kill off.
             int opponentX = auxMem.readByte(ShadBlockX);
@@ -436,21 +428,5 @@ public class PrinceOfPersiaCheats extends Cheats implements MouseListener {
                 auxMem.writeByte(NumTrans, (byte) numTransition);
             }
         }
-    }
-
-    @Override
-    public void mousePressed(MouseEvent me) {
-    }
-
-    @Override
-    public void mouseReleased(MouseEvent me) {
-    }
-
-    @Override
-    public void mouseEntered(MouseEvent me) {
-    }
-
-    @Override
-    public void mouseExited(MouseEvent me) {
     }
 }
