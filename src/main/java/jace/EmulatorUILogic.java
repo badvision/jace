@@ -30,7 +30,6 @@ import jace.core.RAM;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import static jace.core.Utility.*;
-import jace.ui.DebuggerPanel;
 import java.awt.Graphics2D;
 import java.awt.HeadlessException;
 import java.awt.image.BufferedImage;
@@ -128,73 +127,73 @@ public class EmulatorUILogic implements Reconfigurable {
     }
     public static List<RAMListener> watches = new ArrayList<>();
 
-    public static void updateWatchList(final DebuggerPanel panel) {
-        java.awt.EventQueue.invokeLater(() -> {
-            watches.stream().forEach((oldWatch) -> {
-                Emulator.computer.getMemory().removeListener(oldWatch);
-            });
-            if (panel == null) {
-                return;
-            }
-            addWatch(panel.textW1, panel.valueW1);
-            addWatch(panel.textW2, panel.valueW2);
-            addWatch(panel.textW3, panel.valueW3);
-            addWatch(panel.textW4, panel.valueW4);
-        });
-    }
+//    public static void updateWatchList(final DebuggerPanel panel) {
+//        java.awt.EventQueue.invokeLater(() -> {
+//            watches.stream().forEach((oldWatch) -> {
+//                Emulator.computer.getMemory().removeListener(oldWatch);
+//            });
+//            if (panel == null) {
+//                return;
+//            }
+//            addWatch(panel.textW1, panel.valueW1);
+//            addWatch(panel.textW2, panel.valueW2);
+//            addWatch(panel.textW3, panel.valueW3);
+//            addWatch(panel.textW4, panel.valueW4);
+//        });
+//    }
+//
+//    private static void addWatch(JTextField watch, final JLabel watchValue) {
+//        final Integer address = getValidAddress(watch.getText());
+//        if (address != null) {
+//            //System.out.println("Adding watch for "+Integer.toString(address, 16));
+//            RAMListener newListener = new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+//                @Override
+//                protected void doConfig() {
+//                    setScopeStart(address);
+//                }
+//
+//                @Override
+//                protected void doEvent(RAMEvent e) {
+//                    watchValue.setText(Integer.toHexString(e.getNewValue() & 0x0FF));
+//                }
+//            };
+//            Emulator.computer.getMemory().addListener(newListener);
+//            watches.add(newListener);
+//            // Print out the current value right away
+//            byte b = Emulator.computer.getMemory().readRaw(address);
+//            watchValue.setText(Integer.toString(b & 0x0ff, 16));
+//        } else {
+//            watchValue.setText("00");
+//        }
+//    }
 
-    private static void addWatch(JTextField watch, final JLabel watchValue) {
-        final Integer address = getValidAddress(watch.getText());
-        if (address != null) {
-            //System.out.println("Adding watch for "+Integer.toString(address, 16));
-            RAMListener newListener = new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-                @Override
-                protected void doConfig() {
-                    setScopeStart(address);
-                }
-
-                @Override
-                protected void doEvent(RAMEvent e) {
-                    watchValue.setText(Integer.toHexString(e.getNewValue() & 0x0FF));
-                }
-            };
-            Emulator.computer.getMemory().addListener(newListener);
-            watches.add(newListener);
-            // Print out the current value right away
-            byte b = Emulator.computer.getMemory().readRaw(address);
-            watchValue.setText(Integer.toString(b & 0x0ff, 16));
-        } else {
-            watchValue.setText("00");
-        }
-    }
-
-    public static void updateBreakpointList(final DebuggerPanel panel) {
-        java.awt.EventQueue.invokeLater(() -> {
-            Integer address;
-            debugger.getBreakpoints().clear();
-            if (panel == null) {
-                return;
-            }
-            address = getValidAddress(panel.textBP1.getText());
-            if (address != null) {
-                debugger.getBreakpoints().add(address);
-            }
-            address = getValidAddress(panel.textBP2.getText());
-            if (address != null) {
-                debugger.getBreakpoints().add(address);
-            }
-            address = getValidAddress(panel.textBP3.getText());
-            if (address != null) {
-                debugger.getBreakpoints().add(address);
-            }
-            address = getValidAddress(panel.textBP4.getText());
-            if (address != null) {
-                debugger.getBreakpoints().add(address);
-            }
-            debugger.updateBreakpoints();
-        });
-    }
-
+//    public static void updateBreakpointList(final DebuggerPanel panel) {
+//        java.awt.EventQueue.invokeLater(() -> {
+//            Integer address;
+//            debugger.getBreakpoints().clear();
+//            if (panel == null) {
+//                return;
+//            }
+//            address = getValidAddress(panel.textBP1.getText());
+//            if (address != null) {
+//                debugger.getBreakpoints().add(address);
+//            }
+//            address = getValidAddress(panel.textBP2.getText());
+//            if (address != null) {
+//                debugger.getBreakpoints().add(address);
+//            }
+//            address = getValidAddress(panel.textBP3.getText());
+//            if (address != null) {
+//                debugger.getBreakpoints().add(address);
+//            }
+//            address = getValidAddress(panel.textBP4.getText());
+//            if (address != null) {
+//                debugger.getBreakpoints().add(address);
+//            }
+//            debugger.updateBreakpoints();
+//        });
+//    }
+//
     @InvokableAction(
             name = "BRUN file",
             category = "file",

@@ -20,9 +20,6 @@ package jace;
 
 import jace.apple2e.Apple2e;
 import jace.config.Configuration;
-import jace.ui.AbstractEmulatorFrame;
-import java.awt.Component;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +40,6 @@ public class Emulator {
 //    }
 
     public static Apple2e computer;
-    public AbstractEmulatorFrame theApp;
 
     /**
      * Creates a new instance of Emulator
@@ -51,6 +47,7 @@ public class Emulator {
      */
     public Emulator(List<String> args) {
         computer = new Apple2e();
+        Configuration.buildTree();
         Configuration.loadSettings();
         mainThread = Thread.currentThread();
         Map<String, String> settings = new LinkedHashMap<>();
@@ -75,77 +72,7 @@ public class Emulator {
             }
         }
         Configuration.applySettings(settings);
-
-//        theApp = new MainFrame();
-//        theApp = new EmulatorFrame(computer);
-//        try {
-//            theApp.setIconImage(ImageIO.read(Emulator.class.getClassLoader().getResourceAsStream("jace/data/woz_figure.gif")));
-//        } catch (IOException ex) {
-//            Logger.getLogger(Emulator.class.getName()).log(Level.SEVERE, null, ex);
-//        }
-//        //theApp.setBounds(new Rectangle((140*6),(192*3)));
-//        theApp.setVisible(true);
-//        theApp.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-//        theApp.setFocusTraversalKeysEnabled(false);
-//        theApp.setTitle("Java Apple Computer Emulator");
-//        theApp.addKeyListener(computer.getKeyboard().getListener());
-//        theApp.addComponentListener(new ComponentListener() {
-//            //        theApp.screen.addComponentListener(new ComponentListener() {
-//            @Override
-//            public void componentResized(ComponentEvent e) {
-////                System.out.println("Screen resized");
-//                resizeVideo();
-//            }
-//
-//            @Override
-//            public void componentMoved(ComponentEvent e) {
-//                resizeVideo();
-//            }
-//
-//            @Override
-//            public void componentShown(ComponentEvent e) {
-//            }
-//
-//            @Override
-//            public void componentHidden(ComponentEvent e) {
-//            }
-//        });
-//        theApp.addWindowListener(new WindowListener() {
-//            @Override
-//            public void windowOpened(WindowEvent e) {
-//            }
-//
-//            @Override
-//            public void windowClosing(WindowEvent e) {
-//            }
-//
-//            @Override
-//            public void windowClosed(WindowEvent e) {
-//            }
-//
-//            @Override
-//            public void windowIconified(WindowEvent e) {
-//                computer.getVideo().suspend();
-//            }
-//
-//            @Override
-//            public void windowDeiconified(WindowEvent e) {
-//                computer.getVideo().resume();
-//                resizeVideo();
-//            }
-//
-//            @Override
-//            public void windowActivated(WindowEvent e) {
-//                resizeVideo();
-//            }
-//
-//            @Override
-//            public void windowDeactivated(WindowEvent e) {
-//                resizeVideo();
-//            }
-//        });
-        EmulatorUILogic.registerDebugger();
-//        computer.getVideo().setScreen(theApp.getScreenGraphics());
+//        EmulatorUILogic.registerDebugger();
         computer.coldStart();
     }
 
@@ -154,14 +81,5 @@ public class Emulator {
 //        if (window != null) {
 //            window.resizeVideo();
 //        }
-    }
-
-    public static Component getScreen() {
-        return null;
-//        AbstractEmulatorFrame window = getFrame();
-//        if (window != null) {
-//            return window.getScreen();
-//        }
-//        return null;
     }
 }
