@@ -389,9 +389,9 @@ public class Apple2e extends Computer {
                                     "",
                                     "Press CTRL+SHIFT+C for configuration.",
                                     "",
-                                    "O-A is Alt/Option",
-                                    "C-A is Shortcut/Command",
-                                    "Reset is Delete/Backspace"
+                                    "O-A: Alt/Option",
+                                    "C-A: Shortcut/Command",
+                                    "Reset: Delete/Backspace"
                                 }) {
                                     int addr = 0x0401 + VideoDHGR.calculateTextOffset(row++);
                                     for (char c : s.toCharArray()) {
