@@ -18,6 +18,7 @@
  */
 package jace.hardware;
 
+import jace.EmulatorUILogic;
 import jace.apple2e.MOS65C02;
 import jace.config.ConfigurableField;
 import jace.config.Name;
@@ -35,7 +36,6 @@ import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.control.Label;
-import javax.swing.ImageIcon;
 
 /**
  * Implementation of the Thunderclock Plus with some limitations:
@@ -157,7 +157,7 @@ public class CardThunderclock extends Card {
                 clockIcon.setText("Slot " + getSlot());
                 long now = System.currentTimeMillis();
                 if ((now - lastShownIcon) > MIN_WAIT) {
-//                    Emulator.getFrame().addIndicator(this, clockIcon, 3000);
+                    EmulatorUILogic.addIndicator(this, clockIcon, 3000);
                 }
                 lastShownIcon = now;
             }
@@ -239,7 +239,7 @@ public class CardThunderclock extends Card {
 
     private void clearBuffer() {
         if (buffer == null) {
-            buffer = new Stack<Boolean>();
+            buffer = new Stack<>();
         } else {
             buffer.clear();
         }
@@ -325,6 +325,6 @@ public class CardThunderclock extends Card {
         ram.writeByte(patchLoc + 1, (byte) year);
         ram.writeByte(patchLoc + 2, (byte) MOS65C02.OPCODE.NOP.getCode());
         ram.writeByte(patchLoc + 3, (byte) MOS65C02.OPCODE.NOP.getCode());
-//        Emulator.getFrame().addIndicator(this, clockFixIcon, 4000);
+        EmulatorUILogic.addIndicator(this, clockFixIcon, 4000);
     }
 }
