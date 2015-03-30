@@ -65,6 +65,7 @@ public class ConfigurationUIController {
 
     @FXML
     void saveConfig(MouseEvent event) {
+        applyConfig(event);
         Configuration.saveSettings();
     }
 
