@@ -129,12 +129,14 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
     @Override
     public void reconfigure() {
         unregisterListeners();
-        int pc = computer.getCpu().getProgramCounter();
-        if (drive1.getCurrentDisk() != null && getSlot() == 7 && (pc >= 0x0c65e && pc <= 0x0c66F)) {
-                // If the computer is in a loop trying to boot from cards 6, fast-boot from here instead
-            // This is a convenience to boot a hard-drive if the emulator has started waiting for a currentDisk
-            currentDrive = drive1;
-            EmulatorUILogic.simulateCtrlAppleReset();
+        if (computer.getCpu() != null) {
+            int pc = computer.getCpu().getProgramCounter();
+            if (drive1.getCurrentDisk() != null && getSlot() == 7 && (pc >= 0x0c65e && pc <= 0x0c66F)) {
+                    // If the computer is in a loop trying to boot from cards 6, fast-boot from here instead
+                // This is a convenience to boot a hard-drive if the emulator has started waiting for a currentDisk
+                currentDrive = drive1;
+                EmulatorUILogic.simulateCtrlAppleReset();
+            }
         }
         registerListeners();
     }
