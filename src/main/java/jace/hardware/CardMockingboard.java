@@ -30,14 +30,12 @@ import jace.core.SoundMixer;
 import static jace.core.Utility.*;
 import jace.hardware.mockingboard.PSG;
 import jace.hardware.mockingboard.R6522;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javafx.application.Platform;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
@@ -70,12 +68,12 @@ public class CardMockingboard extends Card implements Runnable {
     @ConfigurableField(name = "Buffer size",
     category = "Sound",
     description = "Number of samples to generate on each pass")
-    public int BUFFER_LENGTH = 64;
+    public int BUFFER_LENGTH = 2;
     // The array of configured AY chips
     public PSG[] chips;
     // The 6522 controllr chips (always 2)
     public R6522[] controllers;
-    private int ticksBeteenPlayback = 5000;
+    static private int ticksBeteenPlayback = 200;
     Lock timerSync = new ReentrantLock();
     Condition cpuCountReached = timerSync.newCondition();
     Condition playbackFinished = timerSync.newCondition();
@@ -138,13 +136,7 @@ public class CardMockingboard extends Card implements Runnable {
 
     @Override
     public void reset() {
-        // Reset PSG registers
         suspend();
-        if (chips != null) {
-            for (PSG psg : chips) {
-                psg.reset();
-            }
-        }
     }
     RAMListener mainListener = null;
 
@@ -291,6 +283,12 @@ public class CardMockingboard extends Card implements Runnable {
             controller.suspend();
             controller.detach();
         }
+        // Reset PSG registers
+        if (chips != null) {
+            for (PSG psg : chips) {
+                psg.reset();
+            }
+        }        
         if (playbackThread == null || !playbackThread.isAlive()) {
             return false;
         }
