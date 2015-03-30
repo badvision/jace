@@ -44,30 +44,30 @@ import javax.sound.sampled.SourceDataLine;
  * 6522 chips to communicate to two respective AY PSG sound chips. This class
  * manages the I/O access as well as the sound playback thread.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Name("Mockingboard")
 public class CardMockingboard extends Card implements Runnable {
     // If true, emulation will cover 4 AY chips.  Otherwise, only 2 AY chips
 
     @ConfigurableField(name = "Volume", shortName = "vol",
-    category = "Sound",
-    description = "Mockingboard volume, 100=max, 0=silent")
+            category = "Sound",
+            description = "Mockingboard volume, 100=max, 0=silent")
     public int volume = 100;
     static public int MAX_AMPLITUDE = 0x007fff;
     @ConfigurableField(name = "Phasor mode",
-    category = "Sound",
-    description = "If enabled, card will have 4 sound chips instead of 2")
+            category = "Sound",
+            description = "If enabled, card will have 4 sound chips instead of 2")
     public boolean phasorMode = false;
     @ConfigurableField(name = "Clock Rate (hz)",
-    category = "Sound",
-    defaultValue = "1020484",
-    description = "Clock rate of AY oscillators")
+            category = "Sound",
+            defaultValue = "1020484",
+            description = "Clock rate of AY oscillators")
     public int CLOCK_SPEED = 1020484;
     public int SAMPLE_RATE = 48000;
     @ConfigurableField(name = "Buffer size",
-    category = "Sound",
-    description = "Number of samples to generate on each pass")
+            category = "Sound",
+            description = "Number of samples to generate on each pass")
     public int BUFFER_LENGTH = 2;
     // The array of configured AY chips
     public PSG[] chips;
@@ -93,12 +93,12 @@ public class CardMockingboard extends Card implements Runnable {
             final int j = i;
             controllers[i] = new R6522(computer) {
                 int controller = j;
-                
+
                 @Override
                 public void sendOutputA(int value) {
-                    chips[j].setBus(value);                        
-                    if (phasorMode) { 
-                        chips[j+2].setBus(value);
+                    chips[j].setBus(value);
+                    if (phasorMode) {
+                        chips[j + 2].setBus(value);
                     }
                 }
 
@@ -108,8 +108,8 @@ public class CardMockingboard extends Card implements Runnable {
                         if ((chips[j].mask & value) != 0) {
                             chips[j].setControl(value & 0x07);
                         }
-                        if ((chips[j+2].mask & value) != 0) {
-                            chips[j+2].setControl(value & 0x07);
+                        if ((chips[j + 2].mask & value) != 0) {
+                            chips[j + 2].setControl(value & 0x07);
                         }
                     } else {
                         chips[j].setControl(value & 0x07);
@@ -142,7 +142,6 @@ public class CardMockingboard extends Card implements Runnable {
 
     @Override
     protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
-//        System.out.println(e.getType().toString() + " event to mockingboard register "+Integer.toHexString(register)+", value "+e.getNewValue());
         resume();
         int chip = 0;
         for (PSG psg : chips) {
@@ -159,7 +158,6 @@ public class CardMockingboard extends Card implements Runnable {
         R6522 controller = controllers[chip & 1];
         if (e.getType().isRead()) {
             int val = controller.readRegister(register & 0x0f);
-//            System.out.println("Register returns "+Integer.toHexString(val));
             e.setNewValue(val);
         } else {
             controller.writeRegister(register & 0x0f, e.getNewValue());
@@ -209,7 +207,7 @@ public class CardMockingboard extends Card implements Runnable {
         boolean restart = suspend();
         initPSG();
         for (PSG chip : chips) {
-            chip.setRate(phasorMode ? CLOCK_SPEED*2 : CLOCK_SPEED, SAMPLE_RATE);
+            chip.setRate(phasorMode ? CLOCK_SPEED * 2 : CLOCK_SPEED, SAMPLE_RATE);
             chip.reset();
         }
         super.reconfigure();
@@ -217,8 +215,7 @@ public class CardMockingboard extends Card implements Runnable {
             resume();
         }
     }
-    
-     
+
 ///////////////////////////////////////////////////////////
     public static int[] VolTable;
     int[][] buffers;
@@ -249,6 +246,7 @@ public class CardMockingboard extends Card implements Runnable {
             VolTable[i] = (int) Math.round(out);	/* round to nearest */	// [TC: unsigned int cast]
 //            out /= 1.188502227;	/* = 10 ^ (1.5/20) = 1.5dB */
 //            out /= 1.15;	/* = 10 ^ (3/20) = 3dB */
+
             delta += 0.0225;
             out /= delta;   // As per applewin's source, the levels don't scale as documented.
         }
@@ -256,13 +254,17 @@ public class CardMockingboard extends Card implements Runnable {
     }
     Thread playbackThread = null;
     boolean pause = false;
-    
+
     @Override
     public void resume() {
         pause = false;
         if (!isRunning()) {
             if (chips == null) {
                 initPSG();
+                for (PSG psg : chips) {
+                    psg.setRate(phasorMode ? CLOCK_SPEED * 2 : CLOCK_SPEED, SAMPLE_RATE);
+                    psg.reset();
+                }
             }
             for (R6522 controller : controllers) {
                 controller.attach();
@@ -283,12 +285,6 @@ public class CardMockingboard extends Card implements Runnable {
             controller.suspend();
             controller.detach();
         }
-        // Reset PSG registers
-        if (chips != null) {
-            for (PSG psg : chips) {
-                psg.reset();
-            }
-        }        
         if (playbackThread == null || !playbackThread.isAlive()) {
             return false;
         }
@@ -395,14 +391,14 @@ public class CardMockingboard extends Card implements Runnable {
     private void initPSG() {
         if (phasorMode) {
             chips = new PSG[4];
-            chips[0] = new PSG(0x10, CLOCK_SPEED*2, SAMPLE_RATE, "AY1", 8);
-            chips[1] = new PSG(0x80, CLOCK_SPEED*2, SAMPLE_RATE, "AY2", 8);
-            chips[2] = new PSG(0x10, CLOCK_SPEED*2, SAMPLE_RATE, "AY3", 16);
-            chips[3] = new PSG(0x80, CLOCK_SPEED*2, SAMPLE_RATE, "AY4", 16);
+            chips[0] = new PSG(0x10, CLOCK_SPEED * 2, SAMPLE_RATE, "AY1", 8);
+            chips[1] = new PSG(0x80, CLOCK_SPEED * 2, SAMPLE_RATE, "AY2", 8);
+            chips[2] = new PSG(0x10, CLOCK_SPEED * 2, SAMPLE_RATE, "AY3", 16);
+            chips[3] = new PSG(0x80, CLOCK_SPEED * 2, SAMPLE_RATE, "AY4", 16);
         } else {
             chips = new PSG[2];
             chips[0] = new PSG(0, CLOCK_SPEED, SAMPLE_RATE, "AY1", 255);
-            chips[1] = new PSG(0x80, CLOCK_SPEED, SAMPLE_RATE, "AY2", 255);            
+            chips[1] = new PSG(0x80, CLOCK_SPEED, SAMPLE_RATE, "AY2", 255);
         }
     }
 
