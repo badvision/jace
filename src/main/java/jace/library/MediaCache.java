@@ -197,7 +197,7 @@ public class MediaCache implements Serializable {
             e.files = new ArrayList<>();
             getLocalLibrary().add(e);
             getLocalLibrary().createBlankFile(e, "Initial", !isPermanent);
-            getLocalLibrary().downloadImage(e, e.files.get(0), true);
+//            getLocalLibrary().downloadImage(e, e.files.get(0), true);
         }
         for (MediaEntry.MediaFile f : e.files) {
             if (f.activeVersion) {
@@ -340,60 +340,60 @@ public class MediaCache implements Serializable {
     }
 
     private MediaFile downloadTempCopy(MediaEntry e) {
-        downloadImage(e, getCurrentFile(e, false), isDownloading);
+//        downloadImage(e, getCurrentFile(e, false), isDownloading);
         return getCurrentFile(e, false);
     }
     static boolean isDownloading = false;
-
-    public void downloadImage(final MediaEntry e, final MediaFile target, boolean wait) {
-        isDownloading = true;
-        Utility.runModalProcess("Loading disk image...", () -> {
-            InputStream in = null;
-            try {
-                URI uri = null;
-                try {
-                    uri = new URI(e.source);
-                } catch (URISyntaxException ex) {
-                    File f = new File(e.source);
-                    if (f.exists()) {
-                        uri = f.toURI();
-                    }
-                }
-                if (uri == null) {
-                    Utility.gripe("Unable to resolve path: " + e.source);
-                    return;
-                }
-                in = uri.toURL().openStream();
-                saveFile(target, in);
-            } catch (MalformedURLException ex) {
-                Utility.gripe("Unable to resolve path: " + e.source);
-                Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IOException ex) {
-                Utility.gripe("Unable to download file: " + ex.getMessage());
-                Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                isDownloading = false;
-                try {
-                    if (in != null) {
-                        in.close();
-                    }
-                } catch (IOException ex) {
-                    Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        });
-        if (wait) {
-            int timeout = 10000;
-            while (timeout > 0 && isDownloading) {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ex) {
-                    return;
-                }
-                timeout -= 100;
-            }
-        }
-    }
+//
+//    public void downloadImage(final MediaEntry e, final MediaFile target, boolean wait) {
+//        isDownloading = true;
+//        Utility.runModalProcess("Loading disk image...", () -> {
+//            InputStream in = null;
+//            try {
+//                URI uri = null;
+//                try {
+//                    uri = new URI(e.source);
+//                } catch (URISyntaxException ex) {
+//                    File f = new File(e.source);
+//                    if (f.exists()) {
+//                        uri = f.toURI();
+//                    }
+//                }
+//                if (uri == null) {
+//                    Utility.gripe("Unable to resolve path: " + e.source);
+//                    return;
+//                }
+//                in = uri.toURL().openStream();
+//                saveFile(target, in);
+//            } catch (MalformedURLException ex) {
+//                Utility.gripe("Unable to resolve path: " + e.source);
+//                Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
+//            } catch (IOException ex) {
+//                Utility.gripe("Unable to download file: " + ex.getMessage());
+//                Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
+//            } finally {
+//                isDownloading = false;
+//                try {
+//                    if (in != null) {
+//                        in.close();
+//                    }
+//                } catch (IOException ex) {
+//                    Logger.getLogger(MediaCache.class.getName()).log(Level.SEVERE, null, ex);
+//                }
+//            }
+//        });
+//        if (wait) {
+//            int timeout = 10000;
+//            while (timeout > 0 && isDownloading) {
+//                try {
+//                    Thread.sleep(100);
+//                } catch (InterruptedException ex) {
+//                    return;
+//                }
+//                timeout -= 100;
+//            }
+//        }
+//    }
 
     private void createBlankFile(MediaEntry e, String label, boolean isTemporary) {
         MediaFile f = new MediaEntry.MediaFile();

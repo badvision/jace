@@ -28,12 +28,8 @@ import jace.core.CPU;
 import jace.core.Computer;
 import jace.core.Debugger;
 import jace.core.RAM;
-import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import static jace.core.Utility.*;
-import java.awt.Graphics2D;
-import java.awt.HeadlessException;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -50,7 +46,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Platform;
-import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
@@ -58,11 +53,8 @@ import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javax.imageio.ImageIO;
-import javax.swing.JFileChooser;
-import javax.swing.JLabel;
-import javax.swing.JTextField;
 
 /**
  * This class contains miscellaneous user-invoked actions such as debugger
@@ -206,9 +198,8 @@ public class EmulatorUILogic implements Reconfigurable {
             defaultKeyMapping = "ctrl+shift+b")
     public static void runFile() {
         Emulator.computer.pause();
-        JFileChooser select = new JFileChooser();
-//        select.showDialog(Emulator.getFrame(), "Execute binary file");
-        File binary = select.getSelectedFile();
+        FileChooser select = new FileChooser();
+        File binary = select.showOpenDialog(null);
         if (binary == null) {
             Emulator.computer.resume();
             return;
@@ -339,26 +330,25 @@ public class EmulatorUILogic implements Reconfigurable {
             description = "Save image of visible screen",
             alternatives = "Save image,save framebuffer,screenshot",
             defaultKeyMapping = "ctrl+shift+s")
-    public static void saveScreenshot() throws HeadlessException, IOException {
-        JFileChooser select = new JFileChooser();
+    public static void saveScreenshot() throws IOException {
+        FileChooser select = new FileChooser();
         Emulator.computer.pause();
         Image i = Emulator.computer.getVideo().getFrameBuffer();
-        BufferedImage bufImageARGB = SwingFXUtils.fromFXImage(i, null);
-//        select.showSaveDialog(Emulator.getFrame());
-        File targetFile = select.getSelectedFile();
+//        BufferedImage bufImageARGB = SwingFXUtils.fromFXImage(i, null);
+        File targetFile = select.showSaveDialog(null);
         if (targetFile == null) {
             return;
         }
         String filename = targetFile.getName();
         System.out.println("Writing screenshot to " + filename);
         String extension = filename.substring(filename.lastIndexOf(".") + 1);
-        BufferedImage bufImageRGB = new BufferedImage(bufImageARGB.getWidth(), bufImageARGB.getHeight(), BufferedImage.OPAQUE);
-
-        Graphics2D graphics = bufImageRGB.createGraphics();
-        graphics.drawImage(bufImageARGB, 0, 0, null);
-
-        ImageIO.write(bufImageRGB, extension, targetFile);
-        graphics.dispose();
+//        BufferedImage bufImageRGB = new BufferedImage(bufImageARGB.getWidth(), bufImageARGB.getHeight(), BufferedImage.OPAQUE);
+//
+//        Graphics2D graphics = bufImageRGB.createGraphics();
+//        graphics.drawImage(bufImageARGB, 0, 0, null);
+//
+//        ImageIO.write(bufImageRGB, extension, targetFile);
+//        graphics.dispose();
     }
 
     public static final String CONFIGURATION_DIALOG_NAME = "Configuration";

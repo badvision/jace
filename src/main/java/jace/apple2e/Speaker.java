@@ -33,11 +33,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
-import javax.swing.JFileChooser;
-import javax.swing.JOptionPane;
 import java.io.FileNotFoundException;
 import java.util.Timer;
 import java.util.TimerTask;
+import javafx.stage.FileChooser;
 
 /**
  * Apple // Speaker Emulation Created on May 9, 2007, 9:55 PM
@@ -59,18 +58,17 @@ public class Speaker extends Device {
             out = null;
             fileOutputActive = false;
         } else {
-            JFileChooser fileChooser = new JFileChooser();
-            fileChooser.showSaveDialog(null);
-            File f = fileChooser.getSelectedFile();
+            FileChooser fileChooser = new FileChooser();           
+            File f =  fileChooser.showSaveDialog(null);
             if (f == null) {
                 return;
             }
-            if (f.exists()) {
-                int i = JOptionPane.showConfirmDialog(null, "Overwrite existing file?");
-                if (i != JOptionPane.OK_OPTION && i != JOptionPane.YES_OPTION) {
-                    return;
-                }
-            }
+//            if (f.exists()) {
+//                int i = JOptionPane.showConfirmDialog(null, "Overwrite existing file?");
+//                if (i != JOptionPane.OK_OPTION && i != JOptionPane.YES_OPTION) {
+//                    return;
+//                }
+//            }
             try {
                 out = new FileOutputStream(f);
                 fileOutputActive = true;

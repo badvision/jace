@@ -18,45 +18,31 @@
  */
 package jace.core;
 
-import java.awt.BorderLayout;
-import java.awt.EventQueue;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import org.reflections.Reflections;
-import java.net.JarURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
-import javax.swing.BorderFactory;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JProgressBar;
-
 /**
  * This is a set of helper functions which do not belong anywhere else.
  * Functions vary from introspection, discovery, and string/pattern matching.
@@ -323,15 +309,15 @@ public class Utility {
         return label;
     }
 
-    public static void runModalProcess(String title, final Runnable runnable) {
-//        final JDialog frame = new JDialog(Emulator.getFrame());
-        final JProgressBar progressBar = new JProgressBar();
-        progressBar.setIndeterminate(true);
-        final JPanel contentPane = new JPanel();
-        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        contentPane.setLayout(new BorderLayout());
-        contentPane.add(new JLabel(title), BorderLayout.NORTH);
-        contentPane.add(progressBar, BorderLayout.CENTER);
+//    public static void runModalProcess(String title, final Runnable runnable) {
+////        final JDialog frame = new JDialog(Emulator.getFrame());
+//        final JProgressBar progressBar = new JProgressBar();
+//        progressBar.setIndeterminate(true);
+//        final JPanel contentPane = new JPanel();
+//        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+//        contentPane.setLayout(new BorderLayout());
+//        contentPane.add(new JLabel(title), BorderLayout.NORTH);
+//        contentPane.add(progressBar, BorderLayout.CENTER);
 //        frame.setContentPane(contentPane);
 //        frame.pack();
 //        frame.setLocationRelativeTo(null);
@@ -342,7 +328,7 @@ public class Utility {
 //            frame.setVisible(false);
 //            frame.dispose();
 //        }).start();
-    }
+//    }
 
     public static class RankingComparator implements Comparator<String> {
 
@@ -438,8 +424,11 @@ public class Utility {
     }
 
     public static void gripe(final String message) {
-        EventQueue.invokeLater(() -> {
-//            JOptionPane.showMessageDialog(Emulator.getFrame(), message, "Error", JOptionPane.ERROR_MESSAGE);
+        Platform.runLater(() -> {
+            Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+            errorAlert.setContentText(message);
+            errorAlert.setTitle("Error");
+            errorAlert.show();
         });
     }
 
