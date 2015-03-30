@@ -18,7 +18,6 @@
  */
 package jace.apple2e.softswitch;
 
-import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.SoftSwitch;
 
@@ -38,6 +37,7 @@ public class VideoSoftSwitch extends SoftSwitch {
         super(name, offAddrs, onAddrs, queryAddrs, changeType, initalState);
     }
 
+    @Override
     public void stateChanged() {
 //        System.out.println("Set "+getName()+" -> "+getState());
         if (computer.getVideo() != null) {
@@ -45,6 +45,7 @@ public class VideoSoftSwitch extends SoftSwitch {
         }
     }
 
+    @Override
     protected byte readSwitch() {
 //        System.out.println("Read "+getName()+" = "+getState());
         return (byte) (getState() ? 0x080 : 0x000);

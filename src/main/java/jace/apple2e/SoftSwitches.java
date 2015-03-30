@@ -88,12 +88,21 @@ public enum SoftSwitches {
     PB0(new MemorySoftSwitch("Pushbutton0", -1, -1, 0x0c061, RAMEvent.TYPE.ANY, null)),
     PB1(new MemorySoftSwitch("Pushbutton1", -1, -1, 0x0c062, RAMEvent.TYPE.ANY, null)),
     PB2(new MemorySoftSwitch("Pushbutton2", -1, -1, 0x0c063, RAMEvent.TYPE.ANY, null)),
-    PDLTRIG(new MemorySoftSwitch(
-    "PaddleTrigger",
+    PDLTRIG(new SoftSwitch("PaddleTrigger",
     null,
     new int[]{0x0c070, 0x0c071, 0x0c072, 0x0c073, 0x0c074, 0x0c075, 0x0c076, 0x0c077,
         0x0c078, 0x0c079, 0x0c07a, 0x0c07b, 0x0c07c, 0x0c07d, 0x0c07e, 0x0c07f},
-    null, RAMEvent.TYPE.ANY, false)),
+    null, RAMEvent.TYPE.ANY, false) {
+        @Override
+        protected byte readSwitch() {
+            setState(true);
+            return computer.getVideo().getFloatingBus();
+        }
+
+        @Override
+        public void stateChanged() {
+        }
+    }),
     PDL0(new MemorySoftSwitch("Paddle0", -1, -1, 0x0c064, RAMEvent.TYPE.ANY, false)),
     PDL1(new MemorySoftSwitch("Paddle1", -1, -1, 0x0c065, RAMEvent.TYPE.ANY, false)),
     PDL2(new MemorySoftSwitch("Paddle2", -1, -1, 0x0c066, RAMEvent.TYPE.ANY, false)),
@@ -114,7 +123,7 @@ public enum SoftSwitches {
     KEYBOARD_STROBE_READ(new SoftSwitch("KeyStrobe_Read", 0x0c010, -1, -1, RAMEvent.TYPE.READ, false) {
         @Override
         protected byte readSwitch() {
-            throw new UnsupportedOperationException("Not supported yet.");
+            return computer.getVideo().getFloatingBus();
         }
 
         @Override

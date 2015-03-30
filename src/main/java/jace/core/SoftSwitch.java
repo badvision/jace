@@ -144,6 +144,9 @@ public abstract class SoftSwitch {
 
                     @Override
                     protected void doEvent(RAMEvent e) {
+                        if (e.getType().isRead()) {
+                            e.setNewValue(computer.getVideo().getFloatingBus());
+                        }
                         if (!exclusionActivate.contains(e.getAddress())) {
                             //                        System.out.println("Access to "+Integer.toHexString(e.getAddress())+" ENABLES switch "+getName());
                             setState(true);

@@ -199,14 +199,11 @@ public class Joystick extends Device {
         protected void doEvent(RAMEvent e) {
             setRun(true);
             readJoystick();
-//            if (x <= 0) {
             xSwitch.setState(true);
             x = 10 + joyX * 11;
-//            }
-//            if (y <= 0) {
             ySwitch.setState(true);
             y = 10 + joyY * 11;
-//            }
+            e.setNewValue(computer.getVideo().getFloatingBus());
         }
     };
 
