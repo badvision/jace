@@ -18,6 +18,7 @@
  */
 package jace.hardware;
 
+import jace.EmulatorUILogic;
 import jace.config.ConfigurableField;
 import jace.config.Name;
 import jace.config.Reconfigurable;
@@ -26,15 +27,16 @@ import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
 import jace.core.Utility;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.control.Label;
-import javax.swing.ImageIcon;
 
 /**
  * Super Serial Card with serial-over-tcp/ip support. This is fully compatible
@@ -43,12 +45,13 @@ import javax.swing.ImageIcon;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Name("Super Serial Card")
-public class CardSSC extends Card implements Reconfigurable, Runnable {
+public class CardSSC extends Card implements Reconfigurable {
 
     @ConfigurableField(name = "TCP/IP Port", shortName = "port")
-    public static short IP_PORT = 1977;
+    public short IP_PORT = 1977;
     protected ServerSocket socket;
     protected Socket clientSocket;
+    protected BufferedReader socketInput;
     protected Thread listenThread;
     private int lastInputByte = 0;
     private boolean FULL_ECHO = true;
@@ -82,7 +85,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
     // 1 stop bit (SW2-1 on)
     // 8 data bits (SW2-2 on)
     // No parity (SW2-3 don't care, SW2-4 off)
-    private static int SW2_SETTING = 0x04;
+    private int SW2_SETTING = 0x04;
     public int ACIA_Data = 0x08;        // Read=Receive / Write=transmit
     public int ACIA_Status = 0x09;     // Read=Status / Write=Reset
     public int ACIA_Command = 0x0A;
@@ -102,7 +105,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
     public String getDeviceName() {
         return "Super Serial Card";
     }
-    
+
     Label activityIndicator;
 
     @Override
@@ -117,24 +120,28 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
         activityIndicator.setText("Slot " + slot);
     }
 
-    @Override
-    public void run() {
+    boolean newInputAvailable = false;
+    public void socketMonitor() {
         while (socket != null && !socket.isClosed()) {
             try {
                 Logger.getLogger(CardSSC.class.getName()).log(Level.INFO, "Slot " + getSlot() + " listening on port " + IP_PORT, (Throwable) null);
-//                System.out.println("Waiting for connect");
                 while ((clientSocket = socket.accept()) != null) {
+                    socketInput = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                     clientConnected();
                     clientSocket.setTcpNoDelay(true);
                     while (isConnected()) {
                         try {
-                            Thread.sleep(livenessCheck / 2);
+                            Thread.sleep(10);
+                            if (socketInput.ready()) {
+                                newInputAvailable = true;
+                            }
                         } catch (InterruptedException ex) {
                             // Do nothing
                         }
                     }
                     clientDisconnected();
                     hangUp();
+                    socketInput = null;
                 }
             } catch (SocketTimeoutException ex) {
                 // Do nothing
@@ -148,6 +155,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
     // Called when a client first connects via telnet
     public void clientConnected() {
         System.err.println("Client connected");
+
     }
 
     // Called when a client disconnects
@@ -179,10 +187,16 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
 
     @Override
     public void reset() {
-        java.awt.EventQueue.invokeLater(() -> {
+        Thread resetThread = new Thread(() -> {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+            }
             suspend();
             resume();
         });
+        resetThread.start();
     }
 
     @Override
@@ -203,11 +217,8 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
                         newValue |= (PORT_CONNECTED && inputAvailable()) ? 0x00 : 0x01;
                     }
                     if (register == ACIA_Data) {
-//                        Emulator.getFrame().addIndicator(this, activityIndicator);
+                        EmulatorUILogic.addIndicator(this, activityIndicator);
                         newValue = getInputByte();
-                        if (RECV_IRQ_ENABLED) {
-                            triggerIRQ();
-                        }
                     }
                     if (register == ACIA_Status) {
                         newValue = 0;
@@ -215,13 +226,11 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
                         // 1 = Framing error (1)
                         // 2 = Overrun error (1)
                         // 3 = ACIA Receive Register full (1)
-                        if (inputAvailable()) {
+                        if (newInputAvailable || inputAvailable()) {
                             newValue |= 0x08;
                         }
                         // 4 = ACIA Transmit Register empty (1)
-                        if (true) {
-                            newValue |= 0x010;
-                        }
+                        newValue |= 0x010;
                         // 5 = Data Carrier Detect (DCD) true (0)
                         // 6 = Data Set Ready (DSR) true (0)
                         // 7 = Interrupt (IRQ) has occurred
@@ -231,7 +240,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
                         IRQ_TRIGGERED = false;
                     }
                     if (register == ACIA_Command) {
-                        newValue = 0;
+                        newValue = DTR ? 1 : 0;
                         // 0 = DTR Enable (1) / Disable (0) receiver and IRQ
                         // 1 = Allow IRQ (1) when status bit 3 is true
                         if (RECV_IRQ_ENABLED) {
@@ -255,7 +264,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
                     break;
                 case WRITE:
                     if (register == ACIA_Data) {
-//                        Emulator.getFrame().addIndicator(this, activityIndicator);
+                        EmulatorUILogic.addIndicator(this, activityIndicator);
                         sendOutputByte(value & 0x0FF);
                         if (TRANS_IRQ_ENABLED) {
                             triggerIRQ();
@@ -295,7 +304,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
                         }
                         // 4 = Normal mode 0, or Echo mode 1 (bits 2 and 3 must be 0)
                         FULL_ECHO = ((value & 16) > 0);
-                        System.out.println("Echo set to " + FULL_ECHO);
+//                        System.out.println("Echo set to " + FULL_ECHO);
                         // 5 = Control parity
                     }
                     if (register == ACIA_Control) {
@@ -326,7 +335,6 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
                 e.setNewValue(newValue);
                 value = newValue;
             }
-//            System.out.println("SSC I/O "+type+", register "+register+", value "+value);
         } catch (IOException ex) {
             Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -334,12 +342,16 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
 
     @Override
     public void tick() {
-        // Do nothing
+        if (RECV_IRQ_ENABLED && newInputAvailable) {
+            newInputAvailable = false;
+            triggerIRQ();
+        }
     }
 
     public boolean inputAvailable() throws IOException {
-        if (isConnected() && clientSocket != null && clientSocket.getInputStream() != null) {
-            return clientSocket.getInputStream().available() > 0;
+        if (isConnected() && clientSocket != null && socketInput != null) {
+//            return socketInput.available() > 0;
+            return socketInput.ready();
         } else {
             return false;
         }
@@ -347,13 +359,10 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
 
     private int getInputByte() throws IOException {
         if (inputAvailable()) {
-            int in = clientSocket.getInputStream().read() & DATA_BITS;
-//                System.out.write(in & 0x07f);
+            int in = socketInput.read() & DATA_BITS;
             if (RECV_STRIP_LF && in == 10 && lastInputByte == 13) {
-                in = clientSocket.getInputStream().read() & DATA_BITS;
-//                   System.out.write(in & 0x07f);
+                in = socketInput.read() & DATA_BITS;
             }
-//               System.out.flush();
             lastInputByte = in;
         }
         return lastInputByte;
@@ -363,10 +372,8 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
     private void sendOutputByte(int i) throws IOException {
         if (clientSocket != null && clientSocket.isConnected()) {
             try {
-//                System.out.write(i & 0x07f);
                 clientSocket.getOutputStream().write(i & DATA_BITS);
                 if (TRANS_ADD_LF && (i & DATA_BITS) == 13) {
-//                    System.out.write(10);
                     clientSocket.getOutputStream().write(10);
                 }
                 clientSocket.getOutputStream().flush();
@@ -393,7 +400,7 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
 
     private void triggerIRQ() {
         IRQ_TRIGGERED = true;
-        computer.getCpu().generateInterrupt();
+        computer.getCpu().generateInterrupt();            
     }
 
     public void hangUp() {
@@ -419,46 +426,51 @@ public class CardSSC extends Card implements Reconfigurable, Runnable {
      */
     @Override
     public boolean suspend() {
-        if (socket != null) {
-            try {
-                socket.close();
-            } catch (IOException ex) {
-                Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+        synchronized (this) {
+            if (socket != null) {
+                try {
+                    socket.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
-        }
-        hangUp();
-        if (listenThread != null && listenThread.isAlive()) {
-            try {
-                listenThread.join();
-            } catch (InterruptedException ex) {
-                Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+            hangUp();
+            if (listenThread != null && listenThread.isAlive()) {
+                try {
+                    listenThread.join();
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
+            listenThread = null;
+            socket = null;
+            return super.suspend();
         }
-        listenThread = null;
-        socket = null;
-        return super.suspend();
     }
 
     @Override
     public void resume() {
-        if (!isRunning()) {
-            super.resume();
-            RECV_IRQ_ENABLED = false;
-            TRANS_IRQ_ENABLED = false;
-            IRQ_TRIGGERED = false;
+        synchronized (this) {
 
-            try {
-                socket = new ServerSocket(IP_PORT);
-                socket.setReuseAddress(true);
-                socket.setSoTimeout(0);
-                //socket.setReuseAddress(true);
-                listenThread = new Thread(this);
-                listenThread.setDaemon(false);
-                listenThread.setName("SSC port listener");
-                listenThread.start();
-            } catch (IOException ex) {
-                suspend();
-                Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+            if (!isRunning()) {
+                super.resume();
+                RECV_IRQ_ENABLED = false;
+                TRANS_IRQ_ENABLED = false;
+                IRQ_TRIGGERED = false;
+
+                try {
+                    socket = new ServerSocket(IP_PORT);
+                    socket.setReuseAddress(true);
+                    socket.setSoTimeout(0);
+                    //socket.setReuseAddress(true);
+                    listenThread = new Thread(this::socketMonitor);
+                    listenThread.setDaemon(false);
+                    listenThread.setName("SSC port listener, slot" + getSlot());
+                    listenThread.start();
+                } catch (IOException ex) {
+                    suspend();
+                    Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
     }
