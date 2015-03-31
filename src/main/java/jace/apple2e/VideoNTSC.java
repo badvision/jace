@@ -58,9 +58,7 @@ public class VideoNTSC extends VideoDHGR {
             divBy28[i] = i / 28;
         }
     }
-    int pos = 0;
-    int lastKnownY = -1;
-    boolean colorActive = false;
+    boolean[] colorActive = new boolean[80];
     int rowStart = 0;
 
     public VideoNTSC(Computer computer) {
@@ -69,65 +67,48 @@ public class VideoNTSC extends VideoDHGR {
     }
 
     @Override
-    protected void showBW(WritableImage screen, int xOffset, int y, int dhgrWord) {
-        if (lastKnownY != y) {
-            lastKnownY = y;
-            pos = rowStart = divBy28[xOffset];
-            colorActive = false;
-        } else {
-            if (pos > 20) {
-                pos -= 20;
-            }
-        }
-        doDisplay(screen, xOffset, y, dhgrWord);
+    protected void showBW(WritableImage screen, int x, int y, int dhgrWord) {
+        int pos = divBy28[x];
+        colorActive[pos * 4] = colorActive[pos * 4 + 1] = colorActive[pos * 4 + 2] = colorActive[pos * 4 + 3] = false;
+        scanline[pos] = dhgrWord;
     }
 
     @Override
-    protected void showDhgr(WritableImage screen, int xOffset, int y, int dhgrWord) {
-        if (lastKnownY != y) {
-            lastKnownY = y;
-            pos = rowStart = divBy28[xOffset];
-            colorActive = true;
-        }
-        doDisplay(screen, xOffset, y, dhgrWord);
+    protected void showDhgr(WritableImage screen, int x, int y, int dhgrWord) {
+        int pos = divBy28[x];
+        colorActive[pos * 4] = colorActive[pos * 4 + 1] = colorActive[pos * 4 + 2] = colorActive[pos * 4 + 3] = true;
+        scanline[pos] = dhgrWord;
     }
 
     @Override
     protected void displayLores(WritableImage screen, int xOffset, int y, int rowAddress) {
-        // Skip odd columns since this does two at once
-        if ((xOffset & 0x01) == 1) {
-            return;
-        }
-
-        if (lastKnownY != y) {
-            lastKnownY = y;
-            pos = rowStart = divBy28[xOffset];
-            colorActive = true;
-        }
-        int c1 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
-        if ((y & 7) < 4) {
-            c1 &= 15;
+        int pos = xOffset >> 1;
+        colorActive[xOffset * 2] = colorActive[xOffset * 2 + 1] = true;
+        int data = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        if ((xOffset & 1) == 0) {
+            if ((y & 7) < 4) {
+                data &= 15;
+            } else {
+                data >>= 4;
+            }
+            int pat = data | data << 4 | data << 8 | (data & 3) << 12;
+            scanline[pos] = pat;
         } else {
-            c1 >>= 4;
+            int pat = scanline[pos];
+            if ((y & 7) < 4) {
+                data &= 15;
+            } else {
+                data >>= 4;
+            }
+            pat |= (data & 12) << 12 | data << 16 | data << 20 | data << 24;
+            scanline[pos] = pat;
         }
-        int c2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1) & 0x0FF;
-        if ((y & 7) < 4) {
-            c2 &= 15;
-        } else {
-            c2 >>= 4;
-        }
-        int pat = c1 | c1 << 4 | c1 << 8 | (c1 & 3) << 12;
-        pat |= (c2 & 12) << 12 | c2 << 16 | c2 << 20 | c2 << 24;
-        scanline[pos++] = pat;
     }
 
     @Override
     protected void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
-        if (lastKnownY != y) {
-            lastKnownY = y;
-            pos = rowStart = divBy28[xOffset];
-            colorActive = true;
-        }
+        int pos = xOffset >> 1;
+        colorActive[xOffset * 2] = colorActive[xOffset * 2 + 1] = true;
         int c1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
             c1 &= 15;
@@ -149,16 +130,7 @@ public class VideoNTSC extends VideoDHGR {
             pat |= (c1 & 12) << 12 | c1 << 16 | (c1 & 1) << 20;
             pat |= (c2 & 12) << 19 | c2 << 23 | (c2 & 1) << 27;
             scanline[pos] = pat;
-            pos++;
         }
-    }
-
-    private void doDisplay(WritableImage screen, int xOffset, int y, int dhgrWord) {
-        if (pos >= 20) {
-            pos -= 20;
-        }
-        scanline[pos] = dhgrWord;
-        pos++;
     }
 
     @Override
@@ -166,7 +138,6 @@ public class VideoNTSC extends VideoDHGR {
         if (isDirty) {
             renderScanline(screen, y);
         }
-        lastKnownY = -1;
     }
     // Offset is based on location in graphics buffer that corresponds with the row and
     // a number (0-20) that represents how much of the scanline was rendered
@@ -184,76 +155,59 @@ public class VideoNTSC extends VideoDHGR {
 
     private void renderScanline(WritableImage screen, int y) {
         PixelWriter writer = screen.getPixelWriter();
-        try {
             // This is equivilant to y*560 but is 5% faster
-            //int yOffset = ((y << 4) + (y << 5) + (y << 9))+xOffset;
+        //int yOffset = ((y << 4) + (y << 5) + (y << 9))+xOffset;
 
-            // For some reason this jumps up to 40 in the wayout title screen (?)
-            int p = 0;
-            if (rowStart > 0) {
-                getCurrentWriter().markDirty(y);
-            }
-            // Reset scanline position
-            if (colorActive && (!dhgrMode || !enableVideo7 || graphicsMode.isColor())) {
-                int byteCounter = 0;
-                for (int s = rowStart; s < 20; s++) {
-                    int add = 0;
-                    int bits;
-                    if (hiresMode) {
-                        bits = scanline[s] << 2;
-                        if (s > 0) {
-                            bits |= (scanline[s - 1] >> 26) & 3;
-                        }
-                    } else {
-                        bits = scanline[s] << 3;
-                        if (s > 0) {
-                            bits |= (scanline[s - 1] >> 25) & 7;
-                        }
-                    }
-                    if (s < 19) {
-                        add = (scanline[s + 1] & 7);
-                    }
-                    boolean isBW = false;
-                    if (enableVideo7 && dhgrMode && graphicsMode == rgbMode.mix) {
-                        for (int i = 0; i < 28; i++) {
-                            if (i % 7 == 0) {
-                                isBW = !hiresMode && !useColor[byteCounter];
-                                byteCounter++;
-                            }
-                            if (isBW) {
-                                writer.setColor(p++, y, ((bits & 0x8) == 0) ? BLACK : WHITE);
-                            } else {
-                                writer.setArgb(p++, y, activePalette[i % 4][bits & 0x07f]);
-                            }
-                            bits >>= 1;
-                            if (i == 20) {
-                                bits |= add << (hiresMode ? 9 : 10);
-                            }
-                        }
-                    } else {
-                        for (int i = 0; i < 28; i++) {
-                            writer.setArgb(p++, y, activePalette[i % 4][bits & 0x07f]);
-                            bits >>= 1;
-                            if (i == 20) {
-                                bits |= add << (hiresMode ? 9 : 10);
-                            }
-                        }
-                    }
+        // For some reason this jumps up to 40 in the wayout title screen (?)
+        int p = 0;
+        if (rowStart > 0) {
+            getCurrentWriter().markDirty(y);
+        }
+        // Reset scanline position
+        int byteCounter = 0;
+        for (int s = rowStart; s < 20; s++) {
+            int add = 0;
+            int bits;
+            if (hiresMode) {
+                bits = scanline[s] << 2;
+                if (s > 0) {
+                    bits |= (scanline[s - 1] >> 26) & 3;
                 }
             } else {
-                for (int s = rowStart; s < 20; s++) {
-                    int bits = scanline[s];
-                    for (int i = 0; i < 28; i++) {
-                        writer.setColor(p++, y, ((bits & 1) == 0) ? BLACK : WHITE);
-                        bits >>= 1;
-                    }
+                bits = scanline[s] << 3;
+                if (s > 0) {
+                    bits |= (scanline[s - 1] >> 25) & 7;
                 }
             }
-        } catch (ArrayIndexOutOfBoundsException ex) {
-            // Flag this scanline to be written again, something screwed up!
-            // This only happens during a race condition when the video
-            // mode changes at just the wrong time.
-            getCurrentWriter().markDirty(y);
+            if (s < 19) {
+                add = (scanline[s + 1] & 7);
+            }
+            boolean isBW = false;
+            boolean mixed = enableVideo7 && dhgrMode && graphicsMode == rgbMode.mix;
+            for (int i = 0; i < 28; i++) {
+                if (i % 7 == 0) {
+                    isBW = !colorActive[byteCounter] || (mixed && !hiresMode && !useColor[byteCounter]);
+                    byteCounter++;
+                }
+                if (isBW) {
+                    writer.setColor(p++, y, ((bits & 0x8) == 0) ? BLACK : WHITE);
+                } else {
+                    writer.setArgb(p++, y, activePalette[i % 4][bits & 0x07f]);
+                }
+                bits >>= 1;
+                if (i == 20) {
+                    bits |= add << (hiresMode ? 9 : 10);
+                }
+            }
+//                    } else {
+//                        for (int i = 0; i < 28; i++) {
+//                            writer.setArgb(p++, y, activePalette[i % 4][bits & 0x07f]);
+//                            bits >>= 1;
+//                            if (i == 20) {
+//                                bits |= add << (hiresMode ? 9 : 10);
+//                            }
+//                        }
+//                    }
         }
     }
     // y Range [0,1]

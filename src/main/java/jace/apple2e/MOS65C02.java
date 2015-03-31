@@ -81,7 +81,6 @@ public class MOS65C02 extends CPU {
     }
 
     public enum OPCODE {
-
         ADC_IMM(0x0069, COMMAND.ADC, MODE.IMMEDIATE, 2),
         ADC_ZP(0x0065, COMMAND.ADC, MODE.ZEROPAGE, 3),
         ADC_ZP_X(0x0075, COMMAND.ADC, MODE.ZEROPAGE_X, 4),
@@ -385,11 +384,12 @@ public class MOS65C02 extends CPU {
         }),
         INDIRECT_ZP_Y(2, "$(~1),Y", (cpu) -> {
             int address = 0x00FF & cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
-            address = cpu.getMemory().readWord(address, TYPE.READ_DATA, true, false) + cpu.Y;
-            if ((address & 0x00ff00) > 0) {
+            address = cpu.getMemory().readWord(address, TYPE.READ_DATA, true, false);
+            int address2 = address + cpu.Y;
+            if ((address & 0x00ff00) != (address2 & 0x00ff00)) {
                 cpu.addWaitCycles(1);
             }
-            return address;
+            return address2;
         }),
         ABSOLUTE(3, "$~2~1", (cpu) -> cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false)),
         ABSOLUTE_X(3, "$~2~1,X", (cpu) -> {
