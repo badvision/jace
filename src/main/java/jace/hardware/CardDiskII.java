@@ -18,7 +18,6 @@
  */
 package jace.hardware;
 
-import jace.Emulator;
 import jace.EmulatorUILogic;
 import jace.config.ConfigurableField;
 import jace.config.Name;
@@ -128,7 +127,9 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
                 // read/write latch
                 currentDrive.write();
                 e.setNewValue(currentDrive.readLatch());
-                EmulatorUILogic.addIndicator(this, currentDrive.getIcon());
+                if (currentDrive.isOn()) {
+                    EmulatorUILogic.addIndicator(this, currentDrive.getIcon());
+                }
                 break;
             case 0xF:
                 // write mode

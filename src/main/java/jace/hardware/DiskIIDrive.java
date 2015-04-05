@@ -131,13 +131,16 @@ public class DiskIIDrive implements MediaConsumer {
             spinCount = (spinCount + 1) & 0x0F;
             if (spinCount > 0) {
                 if (disk != null) {
-                    result = disk.nibbles[trackStartOffset + nibbleOffset++];
+                    result = disk.nibbles[trackStartOffset + nibbleOffset];
+                    if (isOn()) {
+                        nibbleOffset++;
+                        if (nibbleOffset >= FloppyDisk.TRACK_NIBBLE_LENGTH) {
+                            nibbleOffset = 0;
+                        }
+                    }
                 } else {
                     result = (byte) 0x0ff;
                 }
-            }
-            if (nibbleOffset >= FloppyDisk.TRACK_NIBBLE_LENGTH) {
-                nibbleOffset = 0;
             }
         } else {
             spinCount = (spinCount + 1) & 0x0F;
