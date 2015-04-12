@@ -67,8 +67,6 @@ public class CardThunderclock extends Card {
             Logger.getLogger(CardDiskII.class.getName()).log(Level.SEVERE, null, ex);
         }
         clockIcon = Utility.loadIconLabel("clock.png");
-        clockFixIcon = Utility.loadIconLabel("clock_fix.png");
-        clockFixIcon.setText("Fixed");
     }
 
     // Raw format: 40 bits, in BCD form (it actually streams out in the reverse order of this, bit 0 first)
@@ -151,7 +149,7 @@ public class CardThunderclock extends Card {
             shiftMode = isShift;
             if (isRead) {
                 if (attemptYearPatch) {
-                    performProdosPatch();
+                    performProdosPatch(computer);
                 }
                 getTime();
                 clockIcon.setText("Slot " + getSlot());
@@ -288,14 +286,14 @@ public class CardThunderclock extends Card {
         (byte) 0x0f2
     };
     static int DRIVER_OFFSET = -26;
-    int patchLoc = -1;
+    static int patchLoc = -1;
 
     /**
      * Scan active memory for the Prodos clock driver and patch the internal
      * code to use a fixed value for the present year. This means Prodos will
      * always tell time correctly.
      */
-    private void performProdosPatch() {
+    public static void performProdosPatch(Computer computer) {
         PagedMemory ram = computer.getMemory().activeRead;
         if (patchLoc > 0) {
             // We've already patched, just validate
@@ -325,6 +323,8 @@ public class CardThunderclock extends Card {
         ram.writeByte(patchLoc + 1, (byte) year);
         ram.writeByte(patchLoc + 2, (byte) MOS65C02.OPCODE.NOP.getCode());
         ram.writeByte(patchLoc + 3, (byte) MOS65C02.OPCODE.NOP.getCode());
-        EmulatorUILogic.addIndicator(this, clockFixIcon, 4000);
+        Label clockFixIcon = Utility.loadIconLabel("clock_fix.png");
+        clockFixIcon.setText("Fixed");
+        EmulatorUILogic.addIndicator(CardThunderclock.class, clockFixIcon, 4000);
     }
 }

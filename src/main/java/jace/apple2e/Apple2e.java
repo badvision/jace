@@ -34,6 +34,7 @@ import jace.hardware.CardDiskII;
 import jace.hardware.CardExt80Col;
 import jace.hardware.ConsoleProbe;
 import jace.hardware.Joystick;
+import jace.hardware.NoSlotClock;
 import jace.hardware.massStorage.CardMassStorage;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -59,7 +60,6 @@ public class Apple2e extends Computer {
     @ConfigurableField(name = "Slot 1", shortName = "s1card")
     public ClassSelection card1 = new ClassSelection(Card.class, null);
     @ConfigurableField(name = "Slot 2", shortName = "s2card")
-//    public Class<? extends Card> card2 = CardSSC.class;
     public ClassSelection card2 = new ClassSelection(Card.class, null);
     @ConfigurableField(name = "Slot 3", shortName = "s3card")
     public ClassSelection card3 = new ClassSelection(Card.class, null);
@@ -86,12 +86,15 @@ public class Apple2e extends Computer {
     public boolean joy1enabled = false;
     @ConfigurableField(name = "Joystick 2 Enabled", shortName = "joy2", description = "If unchecked, then there is no joystick support.", enablesDevice = true)
     public boolean joy2enabled = false;
+    @ConfigurableField(name = "No-Slot Clock Enabled", shortName = "clock", description = "If checked, no-slot clock will be enabled", enablesDevice = true)
+    public boolean clockEnabled = true;
 
     public Joystick joystick1;
     public Joystick joystick2;
     @ConfigurableField(name = "Activate Cheats", shortName = "cheat", defaultValue = "")
     public ClassSelection cheatEngine = new ClassSelection(Cheats.class, null);
     public Cheats activeCheatEngine = null;
+    public NoSlotClock clock;
 
     /**
      * Creates a new instance of Apple2e
@@ -218,27 +221,43 @@ public class Apple2e extends Computer {
             }
         }
         currentMemory.reconfigure();
-        
-        if (joy1enabled) {
-            if (joystick1 == null) {
-                joystick1 = new Joystick(0, this);
-                motherboard.miscDevices.add(joystick1);
+
+        if (motherboard != null) {
+            if (joy1enabled) {
+                if (joystick1 == null) {
+                    joystick1 = new Joystick(0, this);
+                    motherboard.miscDevices.add(joystick1);
+                    joystick1.attach();
+                }
+            } else if (joystick1 != null) {
+                joystick1.detach();
+                motherboard.miscDevices.remove(joystick1);
+                joystick1 = null;
             }
-        } else if (joystick1 != null) {
-            joystick1.detach();
-            motherboard.miscDevices.remove(joystick1);
-            joystick1 = null;
-        }
-        
-        if (joy2enabled) {
-            if (joystick2 == null) {
-                joystick2 = new Joystick(1, this);
-                motherboard.miscDevices.add(joystick2);
+
+            if (joy2enabled) {
+                if (joystick2 == null) {
+                    joystick2 = new Joystick(1, this);
+                    motherboard.miscDevices.add(joystick2);
+                    joystick2.attach();
+                }
+            } else if (joystick2 != null) {
+                joystick2.detach();
+                motherboard.miscDevices.remove(joystick2);
+                joystick2 = null;
             }
-        } else if (joystick2 != null) {
-            joystick2.detach();
-            motherboard.miscDevices.remove(joystick2);
-            joystick2 = null;
+
+            if (clockEnabled) {
+                if (clock == null) {
+                    clock = new NoSlotClock(this);
+                    motherboard.miscDevices.add(clock);
+                    clock.attach();
+                }
+            } else if (clock != null) {
+                motherboard.miscDevices.remove(clock);
+                clock.detach();
+                clock = null;
+            }
         }
 
         try {
