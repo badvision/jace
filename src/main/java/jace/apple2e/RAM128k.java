@@ -97,29 +97,29 @@ abstract public class RAM128k extends RAM {
             for (int i = 0x0c0; i < 0x0d0; i++) {
                 activeWrite.set(i, null);
             }
-            if (SoftSwitches.LCRAM.getState()) {
-                if (!SoftSwitches.AUXZP.getState()) {
+            if (SoftSwitches.LCRAM.isOn()) {
+                if (SoftSwitches.AUXZP.isOff()) {
                     activeRead.fillBanks(languageCard);
-                    if (!SoftSwitches.LCBANK1.getState()) {
+                    if (SoftSwitches.LCBANK1.isOff()) {
                         activeRead.fillBanks(languageCard2);
                     }
                 } else {
                     activeRead.fillBanks(getAuxLanguageCard());
-                    if (!SoftSwitches.LCBANK1.getState()) {
+                    if (SoftSwitches.LCBANK1.isOff()) {
                         activeRead.fillBanks(getAuxLanguageCard2());
                     }
                 }
             }
             
-            if (SoftSwitches.LCWRITE.getState()) {
-                if (!SoftSwitches.AUXZP.getState()) {
+            if (SoftSwitches.LCWRITE.isOn()) {
+                if (SoftSwitches.AUXZP.isOff()) {
                     activeWrite.fillBanks(languageCard);
-                    if (!SoftSwitches.LCBANK1.getState()) {
+                    if (SoftSwitches.LCBANK1.isOff()) {
                         activeWrite.fillBanks(languageCard2);
                     }
                 } else {
                     activeWrite.fillBanks(getAuxLanguageCard());
-                    if (!SoftSwitches.LCBANK1.getState()) {
+                    if (SoftSwitches.LCBANK1.isOff()) {
                         activeWrite.fillBanks(getAuxLanguageCard2());
                     }
                 }
@@ -181,7 +181,7 @@ abstract public class RAM128k extends RAM {
                     // Enable C3 to point to internal ROM
                     activeRead.setBanks(2, 1, 0x0C3, cPageRom);
                 }
-                if (SoftSwitches.INTC8ROM.getState()) {
+                if (SoftSwitches.INTC8ROM.isOn()) {
                     // Enable C8-CF to point to internal ROM
                     activeRead.setBanks(7, 8, 0x0C8, cPageRom);
                 }
