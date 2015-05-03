@@ -5,11 +5,13 @@
  */
 package jace;
 
+import jace.core.Utility;
 import java.io.IOException;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 
@@ -35,6 +37,8 @@ public class JaceApplication extends Application {
             controller.initialize();
             Scene s = new Scene(node);
             primaryStage.setScene(s);
+            primaryStage.setTitle("Jace");
+            primaryStage.getIcons().add(Utility.loadIcon("woz_figure.gif"));
         } catch (IOException exception) {
             throw new RuntimeException(exception);
         }
