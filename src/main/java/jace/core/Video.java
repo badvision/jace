@@ -164,7 +164,7 @@ public abstract class Video extends Device {
                 setScannerLocation(currentWriter.getYOffset(y));
             }
         } else {
-            if (!isVblank) {
+            if (!isVblank && x < (APPLE_CYCLES_PER_LINE-1)) {
                 draw();
             }
             if (x >= APPLE_CYCLES_PER_LINE - 1) {
