@@ -82,6 +82,8 @@ public class CardAppleMouse extends Card {
     public static int CYCLES_PER_UPDATE = (int) (1020484L / 60L);
     @ConfigurableField(name = "Fullscreen fix", shortName = "fsfix", category = "Mouse", description = "If the mouse pointer is a little off when in fullscreen, this should fix it.")
     public boolean fullscreenFix = true;
+    @ConfigurableField(name = "Blazing Paddles fix", shortName = "bpfix", category = "Mouse", description = "Use different clamping values to make Blazing Paddles work more reliably.")
+    public boolean blazingPaddles = false;
     Label mouseActive = Utility.loadIconLabel("input-mouse.png");
     public boolean movedSinceLastTick = false;
     public boolean movedSinceLastRead = false;
@@ -98,6 +100,7 @@ public class CardAppleMouse extends Card {
     @Override
     public void reset() {
         mode = 0;
+        clampWindow = new Rectangle2D(0, 0, 0x03ff, 0x03ff);
         deactivateMouse();
     }
 
@@ -196,6 +199,9 @@ public class CardAppleMouse extends Card {
                 case 7:
                     initMouse();
                     break;
+                case 8:
+                    getMouseClamp();
+                    break;
             }
             // Always pass back RTS
             e.setNewValue(0x060);
@@ -251,6 +257,9 @@ public class CardAppleMouse extends Card {
                 case 0x19:
                     e.setNewValue(0x087);
                     break;
+                case 0x1A:
+                    e.setNewValue(0x088);
+                    break;
                 default:
                     e.setNewValue(0x069);
             }
@@ -276,17 +285,19 @@ public class CardAppleMouse extends Card {
         } else {
             getCPU().C = 0;
         }
+        //Interrupt on VBL
+        interruptOnVBL = ((mode & 8) != 0);
         //Mouse off (0) or on (1)
         if ((mode & 1) == 0) {
             deactivateMouse();
+            interruptOnMove = false;
+            interruptOnPress = false;            
             return;
         }
         //Interrupt if mouse is moved
         interruptOnMove = ((mode & 2) != 0);
         //Interrupt if button is pressed
         interruptOnPress = ((mode & 4) != 0);
-        //Interrupt on VBL
-        interruptOnVBL = ((mode & 8) != 0);
         activateMouse();
     }
 
@@ -355,12 +366,25 @@ public class CardAppleMouse extends Card {
         byte clampMaxHi = memory.getMainMemory().readByte(0x05F8);
         int min = (clampMinLo & 0x0ff) | ((clampMinHi << 8) & 0x0FF00);
         int max = (clampMaxLo & 0x0ff) | ((clampMaxHi << 8) & 0x0FF00);
+        if (min >= 32768) {
+            min -= 65536;
+        }
+        if (max >= 32768) {
+            max -= 65536;
+        }
         if (getCPU().A == 0) {
+            if (blazingPaddles) {
+                min = -1;
+                max = 281;
+            }
             setClampWindowX(min, max);
-        } else if (getCPU().A == 1) {
+        } else {
+            if (blazingPaddles) {
+                min = -1;
+                max = 193;
+            }
             setClampWindowY(min, max);
         }
-//        System.out.println("Set mouse clamping to:" + clampMin.toString() + ";" + clampMax.toString());
     }
 
     /*
@@ -407,6 +431,47 @@ public class CardAppleMouse extends Card {
         getCPU().C = 0;
     }
 
+
+    /**
+     * Described in Apple Mouse technical note #7
+     * Cn1A: Read mouse clamping values
+     * Register number is stored in $478 and ranges from x47 to x4e
+     * Return value should be stored in $5782
+     * Values should be returned in this order:
+     * MinXH, MinYH, MinXL, MinYL, MaxXH, MaxYH, MaxXL, MaxYL
+     */
+    private void getMouseClamp() {
+        byte reg = computer.getMemory().readRaw(0x0478);
+        byte val = 0;
+        switch (reg - 0x047) {
+            case 0:
+                val = (byte) ((int) clampWindow.getMinX() >> 8);
+                break;
+            case 1:
+                val = (byte) ((int) clampWindow.getMinY() >> 8);
+                break;
+            case 2:
+                val = (byte) ((int) clampWindow.getMinX() & 255);
+                break;
+            case 3:
+                val = (byte) ((int) clampWindow.getMinY() & 255);
+                break;
+            case 4:
+                val = (byte) ((int) clampWindow.getMaxX() >> 8);
+                break;
+            case 5:
+                val = (byte) ((int) clampWindow.getMaxY() >> 8);
+                break;
+            case 6:
+                val = (byte) ((int) clampWindow.getMaxX() & 255);
+                break;
+            case 7:
+                val = (byte) ((int) clampWindow.getMaxY() & 255);
+                break;
+        }
+        computer.getMemory().write(0x0578, val, false, false);
+    }
+
     /*
      * This is called whenever the mouse firmware has been activated in software
      */
@@ -423,7 +488,6 @@ public class CardAppleMouse extends Card {
         mode = 0;
         interruptOnMove = false;
         interruptOnPress = false;
-        interruptOnVBL = false;
         EmulatorUILogic.removeMouseListener(mouseHandler);
     }
 
@@ -468,7 +532,7 @@ public class CardAppleMouse extends Card {
     @Override
     public void notifyVBLStateChanged(boolean state) {
         // VBL is false when it is the vertical blanking period
-        if (!state && interruptOnVBL && active) {
+        if (!state && interruptOnVBL) {
             isVBL = true;
             isInterrupt = true;
             getCPU().generateInterrupt();
