@@ -93,6 +93,10 @@ public class AcmeCompiler implements CompileResult<File> {
             String[] params = {"--outfile", compiledAsset.getAbsolutePath(), "-f", "cbm", "--maxerrors","16",sourceFile.getAbsolutePath()};
             int status = acme.run("Acme", params);
             successful = status == 0;
+            if (!successful) {
+                compiledAsset.delete();
+                compiledAsset = null;
+            }
         } finally {
             restoreSystemOutput();
             System.setProperty("user.dir", oldPath);
