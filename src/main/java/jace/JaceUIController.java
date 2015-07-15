@@ -7,7 +7,6 @@
 package jace;
 
 import com.sun.glass.ui.Application;
-import com.sun.org.apache.xerces.internal.util.URI;
 import jace.core.Card;
 import jace.core.Computer;
 import jace.library.MediaCache;
@@ -16,6 +15,7 @@ import jace.library.MediaConsumerParent;
 import jace.library.MediaEntry;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -95,9 +95,10 @@ public class JaceUIController {
             media = MediaCache.getMediaFromUrl(evt.getDragboard().getUrl());
         } else if (evt.getDragboard().hasString()) {
             String path = evt.getDragboard().getString();
-            if (URI.isWellFormedAddress(path)) {
+            try {
+                URI.create(path);
                 media = MediaCache.getMediaFromUrl(path);
-            } else {
+            } catch (IllegalArgumentException ex) {
                 File f = new File(path);
                 if (f.exists()) {
                     media = MediaCache.getMediaFromFile(f);

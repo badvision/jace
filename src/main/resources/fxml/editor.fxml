@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.input.*?>
+<?import javafx.scene.web.*?>
+<?import java.lang.*?>
+<?import java.net.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane id="AnchorPane" prefHeight="400.0" prefWidth="600.0" styleClass="mainFxmlClass" xmlns="http://javafx.com/javafx/8.0.40" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.ide.IdeController">
+    <stylesheets>
+        <URL value="@/styles/editor.css" />
+    </stylesheets>
+   <children>
+      <VBox layoutX="116.0" layoutY="63.0" prefHeight="200.0" prefWidth="100.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+         <children>
+            <MenuBar id="menuBar">
+              <menus>
+                <Menu mnemonicParsing="false" text="File">
+                  <items>
+                        <Menu mnemonicParsing="false" text="New...">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="N" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+                           </accelerator>
+                           <items>
+                              <MenuItem mnemonicParsing="false" onAction="#newAssemblyListingClicked" text="Assembly Listing" />
+                              <MenuItem mnemonicParsing="false" onAction="#newApplesoftBasicClicked" text="Applesoft Basic Listing" />
+                              <MenuItem mnemonicParsing="false" onAction="#newPlainTextClicked" text="Plain Text" />
+                              <MenuItem mnemonicParsing="false" onAction="#newHexdataClicked" text="Data (Hex)" />
+                           </items>
+                        </Menu>
+                        <SeparatorMenuItem mnemonicParsing="false" />
+                        <MenuItem mnemonicParsing="false" onAction="#onOpenClicked" text="Open">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="O" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+                           </accelerator></MenuItem>
+                        <Menu disable="true" mnemonicParsing="false" text="Open Recent" />
+                        <SeparatorMenuItem mnemonicParsing="false" />
+                        <MenuItem fx:id="saveMenuItem" disable="true" mnemonicParsing="false" onAction="#onSaveClicked" text="Save">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="S" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+                           </accelerator></MenuItem>
+                        <MenuItem fx:id="saveAllMenuItem" disable="true" mnemonicParsing="false" onAction="#onSaveAllClicked" text="Save All" />
+                        <MenuItem fx:id="saveAsMenuItem" disable="true" mnemonicParsing="false" onAction="#onSaveAsClicked" text="Save As...">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="S" control="UP" meta="UP" shift="DOWN" shortcut="DOWN" />
+                           </accelerator></MenuItem>
+                        <SeparatorMenuItem mnemonicParsing="false" />
+                    <MenuItem fx:id="closeMenuItem" disable="true" mnemonicParsing="false" onAction="#onCloseClicked" text="Close">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="W" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+                           </accelerator></MenuItem>
+                        <MenuItem fx:id="closeAllMenuItem" disable="true" mnemonicParsing="false" onAction="#onCloseAllClicked" text="Close All">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="W" control="UP" meta="UP" shift="DOWN" shortcut="DOWN" />
+                           </accelerator></MenuItem>
+                  </items>
+                </Menu>
+                <Menu fx:id="editMenu" mnemonicParsing="false" text="Edit">
+                  <items>
+                    <MenuItem mnemonicParsing="false" text="Cut" />
+                        <MenuItem mnemonicParsing="false" text="Copy" />
+                        <MenuItem mnemonicParsing="false" text="Paste" />
+                        <SeparatorMenuItem mnemonicParsing="false" />
+                        <MenuItem mnemonicParsing="false" text="Undo" />
+                        <MenuItem mnemonicParsing="false" text="Redo" />
+                        <SeparatorMenuItem mnemonicParsing="false" />
+                        <MenuItem mnemonicParsing="false" text="Find/Replace" />
+                        <MenuItem mnemonicParsing="false" text="Go to line..." />
+                  </items>
+                </Menu>
+                  <Menu fx:id="runMenu" mnemonicParsing="false" text="Run">
+                    <items>
+                      <MenuItem mnemonicParsing="false" onAction="#testCompileClicked" text="Test-compile program">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="T" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+                           </accelerator></MenuItem>
+                        <MenuItem mnemonicParsing="false" onAction="#executeClicked" text="Execute program">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="R" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+                           </accelerator></MenuItem>
+                        <MenuItem mnemonicParsing="false" onAction="#viewCompilerOutputClicked" text="View compiler output">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="DIGIT1" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+                           </accelerator></MenuItem>
+                        <MenuItem mnemonicParsing="false" onAction="#viewSymbolTableClicked" text="View symbol table">
+                           <accelerator>
+                              <KeyCodeCombination alt="UP" code="DIGIT2" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+                           </accelerator></MenuItem>
+                    </items>
+                  </Menu>
+                  <Menu mnemonicParsing="false" text="Options">
+                     <items>
+                        <Menu mnemonicParsing="false" text="Auto-compile">
+                          <items>
+                              <RadioMenuItem mnemonicParsing="false" selected="true" text="Automatically">
+                                 <toggleGroup>
+                                    <ToggleGroup fx:id="autocompile" />
+                                 </toggleGroup>
+                              </RadioMenuItem>
+                              <RadioMenuItem mnemonicParsing="false" text="When saving" toggleGroup="$autocompile" />
+                              <RadioMenuItem mnemonicParsing="false" text="Disabled" toggleGroup="$autocompile" />
+                          </items>
+                        </Menu>
+                        <CheckMenuItem mnemonicParsing="false" text="Show line numbers" />
+                     </items>
+                  </Menu>
+                <Menu mnemonicParsing="false" text="Help">
+                  <items>
+                    <MenuItem mnemonicParsing="false" text="About Jace IDE" />
+                        <MenuItem mnemonicParsing="false" text="Acme Help" />
+                        <Menu mnemonicParsing="false" text="Cheat sheets">
+                          <items>
+                              <MenuItem mnemonicParsing="false" text="6502/65C02 Opcodes" />
+                            <MenuItem mnemonicParsing="false" text="Zero page maps" />
+                              <MenuItem mnemonicParsing="false" text="Peeks, pokes and calls" />
+                          </items>
+                        </Menu>
+                  </items>
+                </Menu>
+              </menus>
+            </MenuBar>
+            <TabPane id="documentTabs" fx:id="tabPane" prefHeight="342.0" prefWidth="600.0" tabClosingPolicy="ALL_TABS" VBox.vgrow="ALWAYS" />
+            <ToolBar id="toolBar" fx:id="statusBar" prefHeight="40.0" prefWidth="200.0" />
+         </children>
+      </VBox>
+   </children>
+</AnchorPane>

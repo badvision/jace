@@ -785,8 +785,7 @@ public class MOS65C02 extends CPU {
             cpu.setProgramCounter(address);
         }),
         JSR((address, value, addressMode, cpu) -> {
-            cpu.pushWord(cpu.getProgramCounter() - 1);
-            cpu.setProgramCounter(address);
+            cpu.JSR(address);
         }),
         LDA((address, value, addressMode, cpu) -> {
             cpu.A = value;
@@ -1163,6 +1162,12 @@ public class MOS65C02 extends CPU {
     private void waitForInterrupt() {
         I = true;
         suspend();
+    }
+
+    @Override
+    public void JSR(int address) {
+            pushWord(getProgramCounter() - 1);
+            setProgramCounter(address);
     }
 
     public void BRK() {

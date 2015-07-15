@@ -31,7 +31,7 @@ public class Line {
     private int number;
     private Line next;
     private Line previous;
-    private List<Command> commands = new ArrayList<Command>();
+    private List<Command> commands = new ArrayList<>();
     private int length;
 
     /**
@@ -116,20 +116,20 @@ public class Line {
         return out;
     }
 
-    static Line fromBinary(byte[] binary, int pos) {
+    static Line fromBinary(List<Byte> binary, int pos) {
         Line l = new Line();
-        int lineNumber = (binary[pos+2] & 0x0ff) + ((binary[pos+3] & 0x0ff) << 8);
+        int lineNumber = (binary.get(pos+2) & 0x0ff) + ((binary.get(pos+3) & 0x0ff) << 8);
         l.setNumber(lineNumber);
         pos += 4;
         Command c = new Command();
         int size = 5;
-        while (binary[pos] != 0) {
+        while (binary.get(pos) != 0) {
             size++;
-            if (binary[pos] == STATEMENT_BREAK) {
+            if (binary.get(pos) == STATEMENT_BREAK) {
                 l.commands.add(c);
                 c = new Command();
             } else {
-                Command.ByteOrToken bt = new Command.ByteOrToken(binary[pos]);
+                Command.ByteOrToken bt = new Command.ByteOrToken(binary.get(pos));
                 c.parts.add(bt);
             }
             pos++;

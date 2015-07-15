@@ -310,6 +310,7 @@ public class Keyboard implements Reconfigurable {
     }
 
     public static void pasteFromString(String text) {
+        text = text.replaceAll("\\r?\\n|\\r", (char) 0x0d + "");
         pasteBuffer = new StringReader(text);
     }
 
@@ -319,7 +320,7 @@ public class Keyboard implements Reconfigurable {
             Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
             String contents = (String) clip.getData(DataFlavor.stringFlavor);
             if (contents != null && !"".equals(contents)) {
-                contents = contents.replaceAll("\\n(\\r)?", (char) 0x0d + "");
+                contents = contents.replaceAll("\\r?\\n|\\r", (char) 0x0d + "");
                 pasteBuffer = new StringReader(contents);
             }
         } catch (UnsupportedFlavorException | IOException ex) {

@@ -30,6 +30,7 @@ import jace.core.Debugger;
 import jace.core.RAM;
 import jace.core.RAMListener;
 import static jace.core.Utility.*;
+import jace.ide.IdeController;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -370,6 +371,28 @@ public class EmulatorUILogic implements Reconfigurable {
             Scene s = new Scene(node);
             configWindow.setScene(s);
             configWindow.show();
+        } catch (IOException exception) {
+            throw new RuntimeException(exception);
+        }
+    }
+    
+    @InvokableAction(
+            name = "Open IDE",
+            category = "development",
+            description = "Open new IDE window for Basic/Assembly/Plasma coding",
+            alternatives = "dev,development,acme,assembler,editor",
+            defaultKeyMapping = {"ctrl+shift+i"})
+    public static void showIDE() {
+        FXMLLoader fxmlLoader = new FXMLLoader(EmulatorUILogic.class.getResource("/fxml/editor.fxml"));
+        fxmlLoader.setResources(null);
+        try {
+            Stage editorWindow = new Stage();
+            AnchorPane node = (AnchorPane) fxmlLoader.load();
+            IdeController controller = fxmlLoader.getController();
+            controller.initialize();
+            Scene s = new Scene(node);
+            editorWindow.setScene(s);
+            editorWindow.show();
         } catch (IOException exception) {
             throw new RuntimeException(exception);
         }
