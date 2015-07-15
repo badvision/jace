@@ -407,6 +407,7 @@ public class Apple2e extends Computer {
                                     "drive icon.",
                                     "",
                                     "Press CTRL+SHIFT+C for configuration.",
+                                    "Press CTRL+SHIFT+I for IDE window.",
                                     "",
                                     "O-A: Alt/Option",
                                     "C-A: Shortcut/Command",
