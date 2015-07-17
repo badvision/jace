@@ -13,7 +13,9 @@ public interface CompileResult<T> {
     
     public T getCompiledAsset();
     
-    public Map<Integer, String> getErrorsAndWarnings();
+    public Map<Integer, String> getErrors();
+
+    public Map<Integer, String> getWarnings();
 
     public List<String> getOtherMessages();
 

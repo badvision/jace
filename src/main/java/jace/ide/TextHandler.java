@@ -32,7 +32,12 @@ class TextHandler implements LanguageHandler<String> {
             }
 
             @Override
-            public Map<Integer, String> getErrorsAndWarnings() {
+            public Map<Integer, String> getErrors() {
+                return Collections.EMPTY_MAP;
+            }
+            
+            @Override
+            public Map<Integer, String> getWarnings() {
                 return Collections.EMPTY_MAP;
             }
 

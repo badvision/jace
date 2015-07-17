@@ -1,6 +1,7 @@
 <html>
     <head>
         <title>Jace IDE</title>
+        <!--<script src="lib/jquery-2.1.4.min.js"></script>-->
         <script src="lib/codemirror.js"></script>
         <link rel="stylesheet" href="lib/codemirror.css"/>
     </head>
@@ -14,6 +15,38 @@
                 overflow-x: hidden;
                 overflow-y: hidden;
             }
+            .line-error {
+                background: #FBC2C4 !important;
+                color: #8a1f11 !important;
+            }
+            .line-warning {
+                background: #F8FFAB !important;
+                color: #000080 !important;
+            }
         </style>
+        <script>
+            var messages = [];
+            function clearHighlights() {
+                codeMirror.eachLine(function (line) {
+                    codeMirror.removeLineClass(line, "background", "line-error");
+                    codeMirror.removeLineClass(line, "background", "line-warning");
+                });
+                for (var i = 0; i < messages.length; ++i) {
+                    codeMirror.removeLineWidget(messages[i]);
+                }
+                messages = [];
+            }
+            function highlightLine(lineNumber, isError, message) {
+                if (isError) {
+                    codeMirror.removeLineClass(lineNumber-1, "background", "line-warning");
+                }
+                codeMirror.addLineClass(lineNumber - 1, 'background', isError ? 'line-error' : 'line-warning');
+                var msg = document.createElement("div");
+                var text = document.createTextNode(message);
+                msg.appendChild(text);
+                var widget = codeMirror.addLineWidget(lineNumber - 1, msg, {coverGutter: false, noHScroll: true});
+                messages.push(widget);
+            }
+        </script>
     </body>
 </html>

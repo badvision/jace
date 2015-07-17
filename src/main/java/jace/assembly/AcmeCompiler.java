@@ -24,7 +24,8 @@ public class AcmeCompiler implements CompileResult<File> {
 
     boolean successful = false;
     File compiledAsset = null;
-    Map<Integer, String> errorsAndWarnings = new LinkedHashMap<>();
+    Map<Integer, String> errors = new LinkedHashMap<>();
+    Map<Integer, String> warnings = new LinkedHashMap<>();
     List<String> otherWarnings = new ArrayList<>();
     List<String> rawOutput = new ArrayList<>();
 
@@ -39,8 +40,13 @@ public class AcmeCompiler implements CompileResult<File> {
     }
 
     @Override
-    public Map<Integer, String> getErrorsAndWarnings() {
-        return errorsAndWarnings;
+    public Map<Integer, String> getErrors() {
+        return errors;
+    }
+
+    @Override
+    public Map<Integer, String> getWarnings() {
+        return warnings;
     }
 
     @Override
@@ -101,11 +107,33 @@ public class AcmeCompiler implements CompileResult<File> {
             restoreSystemOutput();
             System.setProperty("user.dir", oldPath);
         }
-        String output = baosOut.toString();
-        String errors = baosErr.toString();
-        System.out.println("output: "+output);
-        System.out.println("error: "+errors);
-        
+        rawOutput.add("Error output:");
+        extractOutput(baosErr.toString());
+        rawOutput.add("");
+        rawOutput.add("------------------------------");
+        rawOutput.add("Standard output:");
+        extractOutput(baosOut.toString());
+    }
+
+    public void extractOutput(String output) throws NumberFormatException {
+        for (String line : output.split("\\n")) {
+            rawOutput.add(line);
+            int lineNumberStart = line.indexOf(", line") + 6;
+            if (lineNumberStart > 6) {
+                int lineNumberEnd = line.indexOf(' ', lineNumberStart+1);
+                int actualLineNumber = Integer.parseUnsignedInt(line.substring(lineNumberStart, lineNumberEnd).trim());
+                String message = line.substring(lineNumberEnd).trim();
+                if (line.startsWith("Error")) {
+                    errors.put(actualLineNumber, message);
+                } else {
+                    warnings.put(actualLineNumber, message);
+                }
+            } else {
+                if (line.trim().length() > 1) {
+                    otherWarnings.add(line);
+                }
+            }
+        }
     }
 
     public void restoreSystemOutput() {

@@ -29,36 +29,6 @@ public class Program {
 
     public static String CODEMIRROR_EDITOR = "/codemirror/editor.html";
 
-    public void save(File newTarget) {
-        FileWriter writer = null;
-        if (newTarget == null && targetFile == null) {
-            return;
-        }
-        if (newTarget != null) {
-            targetFile = newTarget;
-        }
-        filename = targetFile.getName();
-        try {
-            writer = new FileWriter(targetFile, false);
-            writer.append(getValue());
-            writer.close();
-        } catch (IOException ex) {
-            Logger.getLogger(Program.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            try {
-                if (writer != null) {
-                    writer.close();
-                }
-            } catch (IOException ex) {
-                Logger.getLogger(Program.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-    }
-
-    public boolean isChanged() {
-        return (Boolean) codeMirror.call("isClean");
-    }
-
     public static enum DocumentType {
 
         applesoft(new ApplesoftHandler(), "textfile", "*.bas"), assembly(new AssemblyHandler(), "textfile", "*.a", "*.s", "*.asm"), plain(new TextHandler(), "textfile", "*.txt"), hex(new TextHandler(), "textfile", "*.bin", "*.raw");
@@ -165,7 +135,8 @@ public class Program {
     public void createEditor() {
         String document = targetFile == null ? getHandler().getNewDocumentContent() : getFileContents(targetFile);
         String optionString = buildOptions();
-        codeMirror = (JSObject) editor.getEngine().executeScript("CodeMirror(document.body, " + optionString + ");");
+        editor.getEngine().executeScript("var codeMirror = CodeMirror(document.body, " + optionString + ");");
+        codeMirror = (JSObject) editor.getEngine().executeScript("codeMirror");
         setValue(document);
     }
 
@@ -195,6 +166,37 @@ public class Program {
         return "";
     }
 
+
+    public void save(File newTarget) {
+        FileWriter writer = null;
+        if (newTarget == null && targetFile == null) {
+            return;
+        }
+        if (newTarget != null) {
+            targetFile = newTarget;
+        }
+        filename = targetFile.getName();
+        try {
+            writer = new FileWriter(targetFile, false);
+            writer.append(getValue());
+            writer.close();
+        } catch (IOException ex) {
+            Logger.getLogger(Program.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                if (writer != null) {
+                    writer.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Program.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public boolean isChanged() {
+        return (Boolean) codeMirror.call("isClean");
+    }
+
     private String buildOptions() {
         StringBuilder builder = new StringBuilder();
         builder.append("{");
@@ -215,6 +217,7 @@ public class Program {
 
     public void execute() {
         lastResult = getHandler().compile(this);
+        manageCompileResult(lastResult);
         if (lastResult.isSuccessful()) {
             getHandler().execute(lastResult);
         }
@@ -222,8 +225,23 @@ public class Program {
 
     public void test() {
         lastResult = getHandler().compile(this);
+        manageCompileResult(lastResult);
     }
 
+    private void manageCompileResult(CompileResult lastResult) {
+        editor.getEngine().executeScript("clearHighlights()");
+        lastResult.getWarnings().forEach((line,message) -> 
+            editor.getEngine().executeScript("highlightLine("+line+",false,\""+escapeString(message)+"\");")
+        );
+        lastResult.getErrors().forEach((line,message) -> 
+            editor.getEngine().executeScript("highlightLine("+line+",true,\""+escapeString(message)+"\");")
+        );
+    }    
+
+    private String escapeString(Object message) {
+        return String.valueOf(message).replaceAll("\\\"", "&quot;");
+    }
+    
     public void log(String message) {
         System.out.println(message);
     }

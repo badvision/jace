@@ -18,6 +18,7 @@ import javafx.collections.ListChangeListener;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.fxml.FXML;
+import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Tab;
@@ -200,12 +201,18 @@ public class IdeController {
 
     @FXML
     void executeClicked(ActionEvent event) {
-        getCurrentProgram().ifPresent(proxy -> proxy.execute());
+        getCurrentProgram().ifPresent(program -> {
+            program.execute();
+            updateStatusMessages(program.lastResult);
+        });
     }
 
     @FXML
     void testCompileClicked(ActionEvent event) {
-        getCurrentProgram().ifPresent(proxy -> proxy.test());
+        getCurrentProgram().ifPresent(program -> {
+            program.test();
+            updateStatusMessages(program.lastResult);
+        });
     }
 
     @FXML
@@ -241,5 +248,13 @@ public class IdeController {
             editMenu.setDisable(hasNoItems);
             runMenu.setDisable(hasNoItems);
         });
+    }
+
+    private void updateStatusMessages(CompileResult lastResult) {
+        String message = "Compiler was " + (lastResult.isSuccessful() ? " successful" : " NOT SUCCESSFUL");
+        message += " -- ";
+        message += lastResult.getErrors().size() + " error(s) and "+lastResult.getWarnings().size()+" warning(s) reported.";
+        statusBar.getItems().clear();
+        statusBar.getItems().add(new Label(message));
     }
 }
