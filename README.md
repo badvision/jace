@@ -1,7 +1,10 @@
 Java Apple Computer Emulator
 ====
 
+[Download current version with built-in IDE](https://www.dropbox.com/s/svduwode1yl3ly0/jace-with-ide-beta.zip?dl=0)
+
 Jace is a java-based Apple //e emulator with many compelling features:
+* NEW: Built-in IDE for writing basic and assembly programs, using ACME to compile and execute directly without leaving the emulator.
 * Disk and Mass-storage (hard drive, 3.5 floppy) images
 * Joystick and Mouse are fully supported (Joystick can be emulated with either keyboard or mouse, Java doesn't have native joystick support
 * All graphics modes are supported, including Apple RGB "Mixed" and B&W modes.
