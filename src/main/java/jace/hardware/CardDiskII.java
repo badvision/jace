@@ -209,7 +209,7 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     }
 
     private void tweakTiming() {
-        if (drive1.isOn() || drive2.isOn()) {
+        if ((drive1.isOn() && drive1.disk != null) || (drive2.isOn() && drive2.disk != null)) {
             if (USE_MAX_SPEED) {
                 computer.getMotherboard().requestSpeed(this);
             }
