@@ -18,6 +18,7 @@
  */
 package jace.applesoft;
 
+import jace.Emulator;
 import jace.core.RAM;
 import java.io.File;
 import java.io.FileInputStream;
@@ -40,6 +41,7 @@ public class ApplesoftProgram {
 
     List<Line> lines = new ArrayList<>();
     public static final int startingAddressPointer = 0x067;
+    public static final int BASIC_RUN = 0x0e000;
     int startingAddress = 0x0801;
 
     public static void main(String... args) {
@@ -112,5 +114,54 @@ public class ApplesoftProgram {
         String out = "";
         out = lines.stream().map((l) -> l.toString() + "\n").reduce(out, String::concat);
         return out;
+    }
+    
+    public static ApplesoftProgram fromString(String programSource) {
+        ApplesoftProgram program = new ApplesoftProgram();
+        for (String line : programSource.split("\\n")) {
+            if (line.trim().isEmpty()) continue;
+            program.lines.add(Line.fromString(line));
+        }
+        //correct line linkage
+        for (int i=0; i < program.lines.size(); i++) {
+            if (i > 0) {
+                program.lines.get(i).setPrevious(program.lines.get(i-1));
+            }
+            if (i < program.lines.size()-1) {
+                program.lines.get(i).setNext(program.lines.get(i+1));
+            }
+        }
+        return program;
+    };
+
+    public void run() {
+        RAM memory = Emulator.computer.memory;
+        Emulator.computer.pause();
+        int pos = memory.readWordRaw(startingAddressPointer);
+        for (Line line : lines) {
+            int nextPos = pos + line.getLength() + 1;
+            memory.write(pos++, (byte) (nextPos & 0x0ff), false, true);
+            memory.write(pos++, (byte) (nextPos>>8 & 0x0ff), false, true);
+            memory.write(pos++, (byte) (line.getNumber() & 0x0ff), false, true);
+            memory.write(pos++, (byte) (line.getNumber() >> 8 & 0x0ff), false, true);
+            boolean isFirst = true;
+            for (Command command : line.getCommands()) {
+                if (!isFirst) {
+                    memory.write(pos++, (byte) ':', false, true);
+                }
+                isFirst = false;
+                for (Command.ByteOrToken part : command.parts) {
+                    memory.write(pos++, part.getByte(), false, true);
+                }
+            }
+            memory.write(pos++, (byte) 0, false, true);
+        }
+        memory.write(pos++, (byte) 0, false, true);
+        memory.write(pos++, (byte) 0, false, true);
+        memory.write(pos++, (byte) 0, false, true);
+        memory.write(pos++, (byte) 0, false, true);
+        
+//        Emulator.computer.cpu.setProgramCounter(BASIC_RUN);
+        Emulator.computer.resume();
     }
 }

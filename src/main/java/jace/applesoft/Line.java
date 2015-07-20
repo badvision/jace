@@ -18,21 +18,26 @@
  */
 package jace.applesoft;
 
+import jace.applesoft.Command.TOKEN;
+import static java.lang.Character.isDigit;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Representation of a line of applesoft basic, having a line number and a list of program commands.
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * Representation of a line of applesoft basic, having a line number and a list
+ * of program commands.
+ *
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Line {
 
-    private static char STATEMENT_BREAK = ':'; // delimits multiple commands, the colon character
-    private int number;
+    private static final char STATEMENT_BREAK = ':'; // delimits multiple commands, the colon character
+
+    private int number = -1;
     private Line next;
     private Line previous;
     private List<Command> commands = new ArrayList<>();
-    private int length;
+    private int length = 0;
 
     /**
      * @return the number
@@ -109,7 +114,9 @@ public class Line {
         String out = String.valueOf(getNumber());
         boolean isFirst = true;
         for (Command c : commands) {
-            if (!isFirst) out += STATEMENT_BREAK;
+            if (!isFirst) {
+                out += STATEMENT_BREAK;
+            }
             out += c.toString();
             isFirst = false;
         }
@@ -118,7 +125,7 @@ public class Line {
 
     static Line fromBinary(List<Byte> binary, int pos) {
         Line l = new Line();
-        int lineNumber = (binary.get(pos+2) & 0x0ff) + ((binary.get(pos+3) & 0x0ff) << 8);
+        int lineNumber = (binary.get(pos + 2) & 0x0ff) + ((binary.get(pos + 3) & 0x0ff) << 8);
         l.setNumber(lineNumber);
         pos += 4;
         Command c = new Command();
@@ -138,4 +145,73 @@ public class Line {
         l.length = size;
         return l;
     }
+
+    static Line fromString(String lineString) {
+        Line l = new Line();
+        boolean inString = false;
+        boolean hasLineNumber = false;
+        boolean isComment = false;
+        Command currentCommand = new Command();
+        l.commands.add(currentCommand);
+        l.length = 4;
+        lineString = lineString.trim();
+        String upperLineString = lineString.toUpperCase();
+        for (int i = 0; i < lineString.length(); i++) {
+            if (!hasLineNumber) {
+                int lineNumber = 0;
+                for (; i < lineString.length() && isDigit(lineString.charAt(i)); i++) {
+                    lineNumber = lineNumber * 10 + lineString.charAt(i) - '0';
+                }
+                i--;
+                l.setNumber(lineNumber);
+                hasLineNumber = true;
+            } else if (inString || isComment) {
+                if (!isComment && lineString.charAt(i) == '"') {
+                    inString = false;
+                }
+                currentCommand.parts.add(new Command.ByteOrToken((byte) lineString.charAt(i)));
+                l.length++;
+            } else if (lineString.charAt(i) == '"') {
+                inString = true;
+                currentCommand.parts.add(new Command.ByteOrToken((byte) lineString.charAt(i)));
+                l.length++;
+            } else if (lineString.charAt(i) == STATEMENT_BREAK) {
+                currentCommand = new Command();
+                l.commands.add(currentCommand);
+                l.length++;                
+            } else if (lineString.charAt(i) == '?') {
+                Command.ByteOrToken part = new Command.ByteOrToken(TOKEN.PRINT);
+                currentCommand.parts.add(part);
+                l.length++;                
+            } else {
+                TOKEN match = Command.TOKEN.findMatch(upperLineString, i);
+                if (match != null) {
+                    if (match == TOKEN.REM) {
+                        isComment = true;
+                    }
+                    Command.ByteOrToken part = new Command.ByteOrToken(match);
+                    currentCommand.parts.add(part);
+                    for (int j=0; j+i <= match.toString().length(); j++) {
+                        while (lineString.charAt(i+j) == ' ') {
+                            i++;
+                        }
+                    }
+                    i += match.toString().length() - 1;
+                    if (isComment) {
+                        while (i+1 < lineString.length() && lineString.charAt(i+1) == ' ') {
+                            i++;
+                        }
+                    }
+                    l.length++;
+                } else {
+                    if (lineString.charAt(i) != ' ') {
+                        currentCommand.parts.add(new Command.ByteOrToken((byte) upperLineString.charAt(i)));
+                        l.length++;                        
+                    }
+                }
+            }
+        }
+        return l;
+    }
+
 }

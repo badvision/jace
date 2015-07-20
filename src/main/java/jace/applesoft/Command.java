@@ -25,7 +25,7 @@ import java.util.List;
  * A command is a list of parts, either raw bytes (ascii text) or tokens. When
  * put together they represent a single basic statement.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Command {
 
@@ -138,11 +138,32 @@ public class Command {
         LEFT((byte) 0x0E8, "LEFT$"),
         RIGHT((byte) 0x0E9, "RIGHT$"),
         MID((byte) 0x0EA, "MID$");
+
+        static TOKEN findMatch(String search, int start) {
+            for (TOKEN t : values()) {
+                int i = start;
+                boolean found = true;
+                for (int j = 0; j < t.toString().length() && j + i < search.length(); j++) {
+                    while (search.charAt(j + i) == ' ') {
+                        i++;
+                    }
+                    if (i + j >= search.length()
+                            || (search.charAt(i + j) != t.toString().charAt(j))) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) {
+                    return t;
+                }
+            }
+            return null;
+        }
         private String str;
-        private byte b;
+        public byte code;
 
         TOKEN(byte b, String str) {
-            this.b = b;
+            this.code = b;
             this.str = str;
         }
 
@@ -153,7 +174,7 @@ public class Command {
 
         public static TOKEN fromByte(byte b) {
             for (TOKEN t : values()) {
-                if (t.b == b) {
+                if (t.code == b) {
                     return t;
                 }
             }
@@ -179,11 +200,24 @@ public class Command {
 
         }
 
+        public ByteOrToken(TOKEN token) {
+            isToken = true;
+            this.t = token;
+        }
+
         @Override
         public String toString() {
             return isToken
                     ? " " + t.toString() + " "
                     : String.valueOf((char) b);
+        }
+
+        public byte getByte() {
+            if (isToken) {
+                return t.code;
+            } else {
+                return b;
+            }
         }
     }
     List<ByteOrToken> parts = new ArrayList<ByteOrToken>();
