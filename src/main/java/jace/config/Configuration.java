@@ -492,8 +492,10 @@ public class Configuration implements Reconfigurable {
         }
         newRoot.getChildren().stream().forEach((child) -> {
             String childName = child.toString();
+            ConfigNode oldChild = oldRoot.findChild(childName);
+            if (oldChild == null) {oldChild = oldRoot.findChild(child.id);}
             //            System.out.println("Applying settings for " + childName);
-            applyConfigTree(child, oldRoot.findChild(childName));
+            applyConfigTree(child, oldChild);
         });
     }
 

@@ -122,6 +122,15 @@ public class CardSSC extends Card implements Reconfigurable {
 
     boolean newInputAvailable = false;
     public void socketMonitor() {
+        try {
+            socket = new ServerSocket(IP_PORT);
+            socket.setReuseAddress(true);
+            socket.setSoTimeout(0);
+        } catch (IOException ex) {
+            Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+            suspend();
+            return;
+        }
         while (socket != null && !socket.isClosed()) {
             try {
                 Logger.getLogger(CardSSC.class.getName()).log(Level.INFO, "Slot " + getSlot() + " listening on port " + IP_PORT, (Throwable) null);
@@ -458,19 +467,11 @@ public class CardSSC extends Card implements Reconfigurable {
                 TRANS_IRQ_ENABLED = false;
                 IRQ_TRIGGERED = false;
 
-                try {
-                    socket = new ServerSocket(IP_PORT);
-                    socket.setReuseAddress(true);
-                    socket.setSoTimeout(0);
                     //socket.setReuseAddress(true);
                     listenThread = new Thread(this::socketMonitor);
                     listenThread.setDaemon(false);
                     listenThread.setName("SSC port listener, slot" + getSlot());
                     listenThread.start();
-                } catch (IOException ex) {
-                    suspend();
-                    Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
-                }
             }
         }
     }
