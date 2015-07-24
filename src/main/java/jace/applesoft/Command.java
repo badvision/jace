@@ -143,8 +143,8 @@ public class Command {
             for (TOKEN t : values()) {
                 int i = start;
                 boolean found = true;
-                for (int j = 0; j < t.toString().length() && j + i < search.length(); j++) {
-                    while (search.charAt(j + i) == ' ') {
+                for (int j = 0; j < t.toString().length(); j++) {
+                    while (i+j < search.length() && search.charAt(j + i) == ' ') {
                         i++;
                     }
                     if (i + j >= search.length()

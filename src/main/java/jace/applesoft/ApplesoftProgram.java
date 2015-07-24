@@ -66,10 +66,6 @@ public class ApplesoftProgram {
         return bytes;
     }
 
-    public static ApplesoftProgram fromBinary(List<Byte> binary) {
-        return fromBinary(binary, 0x0801);
-    }
-
     public static ApplesoftProgram fromMemory(RAM memory) {
         int startAddress = memory.readWordRaw(startingAddressPointer);
         int nextCheck = memory.readWordRaw(startAddress);
@@ -82,6 +78,10 @@ public class ApplesoftProgram {
             nextCheck = memory.readWordRaw(nextCheck);
         }
         return fromBinary(bytes, startAddress);
+    }
+
+    public static ApplesoftProgram fromBinary(List<Byte> binary) {
+        return fromBinary(binary, 0x0801);
     }
 
     public static ApplesoftProgram fromBinary(List<Byte> binary, int startAddress) {

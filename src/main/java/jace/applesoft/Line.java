@@ -154,7 +154,6 @@ public class Line {
         Command currentCommand = new Command();
         l.commands.add(currentCommand);
         l.length = 4;
-        lineString = lineString.trim();
         String upperLineString = lineString.toUpperCase();
         for (int i = 0; i < lineString.length(); i++) {
             if (!hasLineNumber) {
@@ -183,24 +182,23 @@ public class Line {
                 Command.ByteOrToken part = new Command.ByteOrToken(TOKEN.PRINT);
                 currentCommand.parts.add(part);
                 l.length++;                
+            } else if (lineString.charAt(i) == ' ') {
+                continue;
             } else {
                 TOKEN match = Command.TOKEN.findMatch(upperLineString, i);
                 if (match != null) {
-                    if (match == TOKEN.REM) {
-                        isComment = true;
-                    }
                     Command.ByteOrToken part = new Command.ByteOrToken(match);
                     currentCommand.parts.add(part);
-                    for (int j=0; j+i <= match.toString().length(); j++) {
-                        while (lineString.charAt(i+j) == ' ') {
+                    if (match == TOKEN.REM || match == TOKEN.DATA) {
+                        isComment = true;
+                    }
+                    for (int j=0; j < match.toString().length(); j++, i++) {
+                        while (i < lineString.length() && lineString.charAt(i) == ' ') {
                             i++;
                         }
                     }
-                    i += match.toString().length() - 1;
-                    if (isComment) {
-                        while (i+1 < lineString.length() && lineString.charAt(i+1) == ' ') {
-                            i++;
-                        }
+                    if (!isComment) {
+                        i--;
                     }
                     l.length++;
                 } else {

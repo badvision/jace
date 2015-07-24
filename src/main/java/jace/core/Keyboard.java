@@ -95,7 +95,7 @@ public class Keyboard implements Reconfigurable {
         registerKeyHandler(new KeyHandler(code) {
             @Override
             public boolean handleKeyUp(KeyEvent e) {
-                if (!action.notifyOnRelease()) {
+                if (action == null || !action.notifyOnRelease()) {
                     return false;
                 }
 //                System.out.println("Key up: "+method.toString());
@@ -131,7 +131,7 @@ public class Keyboard implements Reconfigurable {
                 if (returnValue != null) {
                     return (Boolean) returnValue;
                 }
-                return action.consumeKeyEvent();
+                return action != null ? action.consumeKeyEvent() : null;
             }
         }, owner);
     }
