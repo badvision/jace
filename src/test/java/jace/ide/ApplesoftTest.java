@@ -6,19 +6,12 @@
 package jace.ide;
 
 import com.google.common.collect.Lists;
-import jace.Emulator;
-import jace.apple2e.Apple2e;
 import jace.applesoft.ApplesoftProgram;
-import jace.core.Video;
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import javafx.scene.image.WritableImage;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -39,10 +32,6 @@ public class ApplesoftTest {
     
     @BeforeClass
     public static void setUpClass() throws URISyntaxException, IOException {
-//        Emulator.computer = new Apple2e();
-//        Emulator.computer.card6.setValue(null);
-//        Emulator.computer.card7.setValue(null);
-        
         byte[] lemonadeStand = readBinary("/jace/lemonade_stand.bin");
         lemonadeStandBinary = ApplesoftProgram.toObjects(lemonadeStand);
     }
