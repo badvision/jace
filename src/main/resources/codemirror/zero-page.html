@@ -1,0 +1,147 @@
+<i>This comes from the comp.sys.apple2 FAQ maintained by Jeff Hurlburt (rubywand@swbell.net)</i>
+<br><br>
+<p>&nbsp;&nbsp;&nbsp;&nbsp; When it comes to writing compact fast-executing
+code, knowing which Zero Page locations are available is essential information
+for assembly language programmers.
+<p>&nbsp;&nbsp;&nbsp;&nbsp; The chart here uses information from Apple's
+Apple II technical references, Beneath Apple DOS (by Worth and Lechner),
+and Exploring Apple GS/OS and ProDOS 8 (by Little). It shows which Zero
+Page locations are used by the Monitor, Applesoft BASIC, Integer BASIC,
+DOS 3.3, ProDOS, and ProDOS BASIC.SYSTEM.
+<br>&nbsp;
+<p><b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <font size=+1>Apple
+II Zero Page Usage</font></tt></b>
+<p><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Lo Nibble of Address</tt>
+<br><tt>Hi</tt>
+<br><tt>Nib&nbsp; <b>0&nbsp;&nbsp; 1&nbsp;&nbsp; 2&nbsp;&nbsp; 3&nbsp;&nbsp;
+4&nbsp;&nbsp; 5&nbsp;&nbsp; 6&nbsp;&nbsp; 7&nbsp;&nbsp; 8&nbsp;&nbsp; 9&nbsp;&nbsp;
+A&nbsp;&nbsp; B&nbsp;&nbsp; C&nbsp;&nbsp; D&nbsp;&nbsp; E&nbsp;&nbsp; F</b></tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; --- --- --- --- --- --- --- --- --- ---
+--- --- --- --- --- ---</tt>
+<br><tt><b>&nbsp;0</b> | A~&nbsp; A~&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp;
+A&nbsp;&nbsp; A&nbsp;&nbsp; -&nbsp;&nbsp; -&nbsp;&nbsp; -&nbsp;&nbsp; -&nbsp;&nbsp;
+A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; AI&nbsp; A&nbsp;&nbsp; A</tt>
+<br><tt><font color="#CC6600"><b>&nbsp;1</b> | A&nbsp;&nbsp; A&nbsp;&nbsp;
+A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp;
+A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp;
+-&nbsp;&nbsp; M*</font></tt>
+<br><tt><b>&nbsp;2</b> | M&nbsp;&nbsp; M&nbsp;&nbsp; M&nbsp;&nbsp; M&nbsp;&nbsp;
+M3&nbsp; M&nbsp;&nbsp; MA3 MA3 M3&nbsp; M3&nbsp; M3&nbsp; M3&nbsp; MA3
+MA3 M3&nbsp; MA3</tt>
+<br><tt><font color="#CC6600"><b>&nbsp;3</b> | MA&nbsp; M&nbsp;&nbsp; MA&nbsp;
+MA3 M&nbsp;&nbsp; M3&nbsp; M3B M3B M3B M3B M~&nbsp; M~&nbsp; MA3~MA3~MA3~MA3~</font></tt>
+<br><tt><b>&nbsp;4</b> | M3~ M3~ M3~ M3~ M3~ M3~ M3~ M3~ M3~ M3~ I3~ I3~
+I3~ I3~ M~&nbsp; M</tt>
+<br><tt><font color="#CC6600"><b>&nbsp;5</b> | MA&nbsp; MA&nbsp; MA&nbsp;
+MA&nbsp; MA&nbsp; MAI AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI&nbsp; AI</font></tt>
+<br><tt><b>&nbsp;6</b> | AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI3 AI3 AI3 AI3 AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI3</tt>
+<br><tt><font color="#CC6600"><b>&nbsp;7</b> | AI3 AI&nbsp; AI&nbsp; AI3
+AI3 AI&nbsp; AI3 AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI</font></tt>
+<br><tt><b>&nbsp;8</b> | AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI</tt>
+<br><tt><font color="#CC6600"><b>&nbsp;9</b> | AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI</font></tt>
+<br><tt><b>&nbsp;A</b> | AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI3</tt>
+<br><tt><font color="#CC6600"><b>&nbsp;B</b> | AI3 AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI&nbsp; AI</font></tt>
+<br><tt><b>&nbsp;C</b> | AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI&nbsp; AI&nbsp; AI3 AI3 AI3 AI3 I&nbsp;&nbsp; I</tt>
+<br><tt><font color="#CC6600"><b>&nbsp;D</b> | AI&nbsp; AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI&nbsp; AI3 I&nbsp;&nbsp; AI3 AI3 AI&nbsp; AI&nbsp;
+AI&nbsp; AI&nbsp; AI3 AI</font></tt>
+<br><tt><b>&nbsp;E</b> | A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp;
+A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp;
+A&nbsp;&nbsp; -&nbsp;&nbsp; -&nbsp;&nbsp; -&nbsp;&nbsp; -&nbsp;&nbsp; -</tt>
+<br><tt><font color="#CC6600"><b>&nbsp;F</b> | A&nbsp;&nbsp; A&nbsp;&nbsp;
+A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp; A&nbsp;&nbsp;
+A&nbsp;&nbsp; A&nbsp;&nbsp; -&nbsp;&nbsp; -&nbsp;&nbsp; -&nbsp;&nbsp; -&nbsp;
+I&nbsp;&nbsp; AI</font></tt>
+<br>&nbsp;
+<p><tt>M = Used by Monitor; * used in early Apple IIe ROMs-- now free</tt>
+<br><tt>A = Used by Applesoft BASIC</tt>
+<br><tt>I = Used by Integer BASIC</tt>
+<br><tt>3 = Used by DOS 3.3</tt>
+<br><tt>~ = Used by ProDOS ($40-$4E is saved before and restored after
+use)</tt>
+<br><tt>B = Used by ProDOS BASIC.SYSTEM (also uses all Applesoft locations)</tt>
+<br><tt>- = Free; not used</tt>
+<p>--Bryan Dunphy, Michael J. Mahon, Rubywand</p>
+<hr>
+<i> List compiled by Jon Relay </i>
+<pre>
+$06-$09 - Free Space (Address of Main Menu Routine for Jon Relay's Desktop)
+$0A-$0C - JMP to USR() User Function Routine
+$18     - First Data Track
+$19     - First Data Sector
+$1A-$1B - Shape Pointer for DRAW (???)
+$1C     - Last COLOR Used
+$1D-$1E - Free Space
+$20     - Left Margin (0 - 39/79, 0 is default)
+$21     - Width (1 - 40/80, 40 is default, 0 crashes Applesoft)
+$22     - Top Margin (0 - 23, 0 is default, 20 in graphics mode)
+$23     - Bottom Margin (0 - 23, 23 is default)
+$24     - Horizontal Cursor Position (0 - 39/79)
+$25     - Vertical Cursor Position (0 - 23)
+$26-$27 - Address of Byte Containing X,Y (???)
+$28-$29 - Base Address of Text Cursor's Position
+$2B     - Boot Slot * 16
+$2C     - Lo-Res HLIN/VLIN Endpoint
+$30     - COLOR Value * 17
+$32     - Text Mask ($FF = Normal, $7F = Inverse, $3F = Flashing)
+$33     - Prompt Character
+$36-$37 - Address of Output Routine
+$38-$39 - Address of Input Routine
+$3C-$4E - Prodos/Dos 3.3 routines
+$50-$51 - Result of the Conversion of the FAC to a 16-Bit Integer
+$67-$68 - Address of Beginning of BASIC Program ($0801 is default)
+$69-$6A - Address of Beginning of BASIC Variables (LOMEM / vartab)
+$6B-$6C - Address of Beginning of BASIC Arrays
+$6D-$6E - Address of End of BASIC Variables
+$6F-$70 - Address of End of String Data
+$71-$72 - Address to Move String To (???)
+$73-$74 - Address of Beginning of String Data
+$75-$76 - Current Line Number Being Executed
+$77-$78 - Line Number Where END or STOP or BREAK Occurred
+$79-$7A - Address of Line Number Being Executed
+$7B-$7C - Current Address of DATA
+$7D-$7E - Next Address of DATA
+$7F-$80 - Address of Input or Data (???)
+$81-$82 - Last Used Variable's Name
+$83-$84 - Last Used Variable's Address
+$9B-$9C - Pointer for $D61A and $F7D9 (???)
+$9D-$A3 - Floating Point Accumulator (FAC)
+$A5-$AB - Floating Point Argument Register (ARG)
+$AF-$B0 - Address of End of BASIC Program
+$B1-$B6 - Subroutine to Increase the String Data Pointer
+$B7-$BE - Subroutine to Return the Character Pointed to by the String Data Pointer
+$CE-$CF - Free Space
+$D4     - Error Code Flag (???)
+$D7     - Free Space
+$D8     - Error Flag (>=128 if error handler active)
+$DA-$DB - Line Number Where Error Occurred
+$DE     - Error Code
+$E0-$E1 - Horizontal Coordinate of HPLOT
+$E2     - Vertical Coordinate of HPLOT
+$E3     - Free Space
+$E4     - HCOLOR Value (0=0, 1=42, 2=85, 3=127, 4=128, 5=170, 6=213, 7=255)
+$E6     - High Byte of Address of First Byte of Where HGR is Plotted
+$E7     - SCALE Value (0 = 256)
+$E8-$E9 - Address of Shape Table
+$EA     - DRAW/XDRAW Collision Count
+$EB-$EF - Free Space
+$F1     - SPEED Value (Subtracted From 256)
+$F3     - Text OR mask (for flashing text)
+$F4-$F5 - address of error handler (points to line number after ONERR GOTO...)
+$F9     - ROT Value
+$FA-$FE - Free Space
+$FF     - Free Space (Flag Bits for Jon Relay's Desktop), also used by Applesoft STR$ routine
+</pre>

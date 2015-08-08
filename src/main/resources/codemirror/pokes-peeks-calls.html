@@ -1,0 +1,296 @@
+$F800 PLOT
+$F819 HLIN
+$F828 VLIN
+$F864 COLOR=
+$F871 SCRN(
+$F94A HTAB (input in X register)
+$FAA6 REBOOT
+$FB1E PDL(
+$FB39 TEXT
+$FB40 GR
+$FB5B VTAB (input in X register)
+$FB60 BANNER (doesn't work on clones, sometimes crashes a IIgs)
+$FC58 CLRSCR
+$FC9C CLREOL
+$FDOC GETCH
+   (basically deadwaits on the highorder bit of $C000, then hits $C010)
+$FDED PUTCH (input in A register)
+   (for NORMAL text set the high-order bit)
+$FD6A GETLIN (output to address $200 and up. with CR termination)
+   (length of string minus the CR is stored in the X register)
+   
+AppleSoft Graphic, Input, Output and String Instructions
+
+-----------------------------------------------------------------
+GR
+
+	; Method 1
+  JSR $FB40	; Sets Lo-Res graphics mode with 4 lines of text
+		; and clears the graphic area to black
+
+
+	;Method 2
+  STA $C050	; Sets Lo-Res graphics mode with 4 lines of text
+  STA $C053	; but doesn't clear the graphics area
+  STA $C054
+  STA $C056
+
+-----------------------------------------------------------------
+
+COLOR
+
+  LDA #N	; Sets the plotting color to N, 0 <= N <= 15
+  JSR $F864
+
+-----------------------------------------------------------------
+
+PLOT
+
+  LDY #X	; Lo-Res Plot X (Horizontal) Coordinate (0-39)
+  LDA #Y	; Lo-Res Plot Y (Vertical) Coordinate (0-39)
+  JSR $F800
+
+-----------------------------------------------------------------
+
+HLIN
+
+  LDA #Y	; Y Coordinate (0-39)
+  LDY #Xr	; Rightmost X Coordinate (0-39)
+  STY $2C	; Store it at H2
+  LDY #Xl	; Leftmost X Coordinate (0-39)
+  JSR $F819
+
+-----------------------------------------------------------------
+
+VLIN
+
+  LDY #X	; X Coordinate (0-39)
+  LDA #Yb	; Bottom Y Coordinate (0-39)
+  STA $2C	; Store it at V2
+  LDA #Yt	; Top Y Coordinate (0-39)
+  JSR $F828
+
+-----------------------------------------------------------------
+
+SCRN
+
+  LDY #X	; X Coordinate (0-39)
+  LDA #Y	; Y Coordinate (0-39)
+  JSR $F871	; Result (0-15) in Accumulator
+
+-----------------------------------------------------------------
+
+HGR
+
+	; Method 1
+  JSR $F3E2	; Sets Hi-Res Mode with 4 lines of text,
+		; and clears the graphics screen
+
+	; Method 2
+  STA $C050	; Sets Hi-Res Mode with 4 lines of text, 
+  STA $C053	; and doesn't clear the graphics screen
+  STA $C054
+  STA $C057
+  LDA #$20
+  STA $E6
+
+-----------------------------------------------------------------
+
+HGR2
+
+	; Method 1
+  JSR $F3D8	; Full Screen Hi-Res Page 2, Clears Screen
+
+	; Method 2
+  STA $C050	; Full Screen Hi-Res Page 2, Doesn't Clear Screen
+  STA $C052
+  STA $C055
+  STA $C057
+  LDA #$40
+  STA $E6
+
+-----------------------------------------------------------------
+
+HCOLOR
+
+  LDA #N	; Select Color N (0-7)
+  JSR $F6EC
+
+-----------------------------------------------------------------
+
+HPLOT
+
+  LDX #Xl	; Low Byte of X Coordinate (0-255)
+  LDY #Xh	; High Byte of X Coordinate (0 or 1)
+  LDA #Y	; Y Coordinate (0-191)
+  JSR $F457
+
+-----------------------------------------------------------------
+
+HPLOT TO
+
+  LDA #Xl	; Low Byte of X Coordinate (0-255)
+  LDX #Xh	; High Byte of X Coordinate (0 or 1)
+  LDY #Y	; Y Coordinate (0-191)
+  JSR $F53A
+
+-----------------------------------------------------------------
+
+PDL(X)
+
+  LDX #N	; Select Paddle (0-3 on //e and II+; 0-1 on //c)
+  JSR $FB1E	; Result in Y register
+
+-----------------------------------------------------------------
+
+ROT
+
+  LDA #N	; Sets rotation (0-255), immediately before DRAW
+		; or XDRAW call [See DRAW and XDRAW]
+
+-----------------------------------------------------------------
+
+SCALE
+
+  LDA #N	; Sets SCALE, N = scale value
+  STA $E7
+
+-----------------------------------------------------------------
+
+DRAW
+
+  LDY #Xh	; High byte of X Coordinate
+  LDX #Xl	; Low byte of X Coordinate
+  LDA #Y	; Y Coordinate
+  JSR $F411	; Move Hi-Res Cursor
+  LDY #SAH	; High Byte of Actual Shape Address (not table)
+  LDX #SAL	; Low Byte of actual shape address
+  LDA #R	; Set Rotation
+  JSR $F601	; Execute the DRAW Function
+
+-----------------------------------------------------------------
+
+XDRAW
+
+  LDY #Xh	; High byte of X Coordinate
+  LDX #Xl	; Low byte of X Coordinate
+  LDA #Y	; Y Coordinate
+  JSR $F411	; Move Hi-Res Cursor
+  LDY #SAH	; High Byte of Actual Shape Address (not table)
+  LDX #SAL	; Low Byte of actual shape address
+  LDA #R	; Set Rotation
+  JSR $F65D	; Execute the XDRAW Function
+
+-----------------------------------------------------------------
+
+TEXT
+
+	; Method 1
+  JSR $FB2F	; Sets text mode, normal full-screen format
+
+	; Method 2
+  STA $C051	; Text mode, window set to existing parameters
+
+-----------------------------------------------------------------
+
+HOME
+
+  JSR $FC58	; Clears Text Screen, Cursor to upper left
+
+-----------------------------------------------------------------
+
+NORMAL
+
+  JSR $FE84	; Set Normal-Text Mode
+
+-----------------------------------------------------------------
+
+INVERSE
+
+  JSR $FE80	; Set Inverse-Text Mode
+
+-----------------------------------------------------------------
+
+FLASH
+
+  LDA #$7F	; Set Flashing-Text Mode
+  JSR $FE86
+
+-----------------------------------------------------------------
+
+PRINT
+
+  JSR $FD8E	; Prints a carriage-return
+
+-----------------------------------------------------------------
+
+PRINT "AB"
+
+  LDA #$C1	; Code for letter "A"
+  JSR $FDED	; (COUT) Print "A"
+  LDA #$C2	; Code for letter "B"
+  JSR $FDED	; (COUT) Print "B"
+  JSR $FD8E	; Print Carriage-Return
+
+-----------------------------------------------------------------
+
+GET A$
+
+  JSR $FD0C	; Hex code of character is in Accumulator
+
+-----------------------------------------------------------------
+
+VTAB
+
+  LDA #n	; Count
+  STA $25
+  JSR $FC22
+
+-----------------------------------------------------------------
+RND
+
+  JSR $EFAE
+  LDA $9F	; Get Random Number
+
+-----------------------------------------------------------------
+
+INPUT A$
+
+  JSR $FD6A	; On return, X register contains length of string
+		; and string data is at $200
+
+  STX addr	; Save Length of string at user address <addr>
+  TXA		; Move Length of Accumulator
+  BEQ L1	; Jump to L1 if Length is 0
+  TAY		; Set Y register to Length
+  DEX		; Set X register to length - 1
+L2:
+  LDA $200,X	; Get Character from $200 Buffer
+  STA addr,Y	; Save at user address buffer
+  DEX
+  DEY
+  BNE L2
+L1:
+  RTS
+
+-----------------------------------------------------------------
+
+PRINT A$;
+
+  LDA addr	; Get string length (first byte)
+  BEQ L2	; Exit if Length is 0
+  LDX #1	; Point to start of string
+L1:
+  LDA addr,X	; Get Character
+  JSR $FDED	; Print Character
+  INX		; Move To Next Character
+  CPX addr	; Compare X Register to Length of String
+  BCC L1
+  BEQ L1
+L2:
+  RTS
+
+-----------------------------------------------------------------
+
+
+
