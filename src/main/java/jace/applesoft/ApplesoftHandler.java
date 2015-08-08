@@ -65,5 +65,8 @@ public class ApplesoftHandler implements LanguageHandler<ApplesoftProgram> {
     public void execute(CompileResult<ApplesoftProgram> lastResult) {
         lastResult.getCompiledAsset().run();
     }
-    
+
+    @Override
+    public void clean(CompileResult<ApplesoftProgram> lastResult) {
+    }    
 }

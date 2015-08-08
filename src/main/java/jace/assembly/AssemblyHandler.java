@@ -48,6 +48,11 @@ public class AssemblyHandler implements LanguageHandler<File> {
                 Logger.getLogger(AssemblyHandler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+        clean(lastResult);
+    }
+
+    @Override
+    public void clean(CompileResult<File> lastResult) {
         lastResult.getCompiledAsset().delete();
     }
 }

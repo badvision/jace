@@ -9,7 +9,7 @@ import java.util.Map;
  *
  * @author blurry
  */
-class TextHandler implements LanguageHandler<String> {
+public class TextHandler implements LanguageHandler<String> {
     public TextHandler() {
     }
 
@@ -56,5 +56,9 @@ class TextHandler implements LanguageHandler<String> {
     @Override
     public void execute(CompileResult<String> lastResult) {
         Keyboard.pasteFromString(lastResult.getCompiledAsset());
+    }
+
+    @Override
+    public void clean(CompileResult<String> lastResult) {
     }
 }

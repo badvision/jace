@@ -219,12 +219,15 @@ public class Program {
         manageCompileResult(lastResult);
         if (lastResult.isSuccessful()) {
             getHandler().execute(lastResult);
+        } else {
+            getHandler().clean(lastResult);
         }
     }
 
     public void test() {
         lastResult = getHandler().compile(this);
         manageCompileResult(lastResult);
+        getHandler().clean(lastResult);
     }
 
     private void manageCompileResult(CompileResult lastResult) {
