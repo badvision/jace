@@ -39,6 +39,7 @@ public class NoiseGenerator extends TimedGenerator {
     }
     public static final int bit17 = 0x010000;
     public void updateRng() {
+        // noise = (noise >> 1) ^ ((noise & 1) ? 0x14000 : 0);
         int newBit17 = (rng & 0x04) > 0 == (rng & 0x01) > 0 ? bit17 : 0;
         rng = newBit17 + (rng >> 1);
     }

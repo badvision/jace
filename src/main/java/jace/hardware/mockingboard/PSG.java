@@ -207,6 +207,7 @@ public class PSG {
         /* Also, note that period = 0 is the same as period = 1. This is mentioned */
         /* in the YM2203 data sheets. However, this does NOT apply to the Envelope */
         /* period. In that case, period = 0 is half as period = 1. */
+        value = value & 0x0ff;
         switch (r) {
             case ACoarse:
             case AFine:
@@ -221,7 +222,8 @@ public class PSG {
                 channels.get(2).setPeriod(getReg(Reg.CFine) + (getReg(Reg.CCoarse) << 8));
                 break;
             case NoisePeriod:
-                noiseGenerator.setPeriod(value);
+                if (value == 0) value = 32;
+                noiseGenerator.setPeriod(value+16);
                 noiseGenerator.counter = 0;
                 break;
             case Enable:
