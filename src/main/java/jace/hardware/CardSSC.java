@@ -152,6 +152,7 @@ public class CardSSC extends Card implements Reconfigurable {
                     hangUp();
                     socketInput = null;
                 }
+                Thread.yield();
             } catch (SocketTimeoutException ex) {
                 // Do nothing
             } catch (IOException ex) {
@@ -446,7 +447,8 @@ public class CardSSC extends Card implements Reconfigurable {
             hangUp();
             if (listenThread != null && listenThread.isAlive()) {
                 try {
-                    listenThread.join();
+                    listenThread.interrupt();
+                    listenThread.join(100);
                 } catch (InterruptedException ex) {
                     Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
                 }
