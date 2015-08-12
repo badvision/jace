@@ -341,7 +341,7 @@ public class MOS65C02 extends CPU {
         }
     }
 
-    private static interface AddressCalculator {
+    public static interface AddressCalculator {
 
         abstract int calculateAddress(MOS65C02 cpu);
 
