@@ -18,19 +18,22 @@
  */
 package jace.core;
 
-import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.io.InputStream;
-import javax.imageio.ImageIO;
+import javafx.scene.image.Image;
+import javafx.scene.image.PixelReader;
+import javafx.scene.paint.Color;
 
 /**
- * Represents the Apple ][ character font used in text modes.
- * Created on January 16, 2007, 8:16 PM
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * Represents the Apple ][ character font used in text modes. Created on January
+ * 16, 2007, 8:16 PM
+ *
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Font {
+
     static public int[][] font;
     static public boolean initialized = false;
+
     static public int getByte(int c, int yOffset) {
         if (!initialized) {
             initalize();
@@ -39,32 +42,33 @@ public class Font {
     }
 
     private static void initalize() {
-        font = new int[256][8];
         initialized = true;
-        try {
-            InputStream in = ClassLoader.getSystemResourceAsStream("jace/data/font.gif");        
-            BufferedImage fontImage = ImageIO.read(in);
-            for (int i=0; i < 256; i++) {
-                int x = (i >> 4)*13 + 2;
-                int y = (i & 15)*13 + 4;
-                for (int j=0; j < 8; j++) {
+        font = new int[256][8];
+        Thread fontLoader = new Thread(() -> {
+            InputStream in = ClassLoader.getSystemResourceAsStream("jace/data/font.png");
+            Image image = new Image(in);
+            PixelReader reader = image.getPixelReader();
+            for (int i = 0; i < 256; i++) {
+                int x = (i >> 4) * 13 + 2;
+                int y = (i & 15) * 13 + 4;
+                for (int j = 0; j < 8; j++) {
                     int row = 0;
-                    for (int k=0; k < 7; k++) {
-                        int color = fontImage.getRGB((7-k)+x, j+y);
-                        row = (row<<1) | (1-(color&1));
-//                        row = (row<<1) | (color&1);
+                    for (int k = 0; k < 7; k++) {
+                        Color color = reader.getColor((7 - k) + x, j + y);
+                        boolean on = color.getRed() != 0;
+                        row = (row << 1) | (on ? 0 : 1);
                     }
-                    font[i][j]=row;
+                    font[i][j] = row;
                 }
             }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
+        });
+        fontLoader.start();
     }
-    
-    
-    /** Creates a new instance of Font */
+
+    /**
+     * Creates a new instance of Font
+     */
     private Font() {
     }
-    
+
 }
