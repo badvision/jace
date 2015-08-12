@@ -495,7 +495,7 @@ public class MOS65C02 extends CPU {
         }
     }
 
-    private static interface CommandProcessor {
+    public static interface CommandProcessor {
 
         public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu);
     }
@@ -1064,25 +1064,32 @@ public class MOS65C02 extends CPU {
             int wait = 0;
             int bytes = 2;
             int n = op & 0x0f;
-            if (n == 2) {
-                wait = 2;
-            } else if (n == 3 || n == 7 || n == 0x0b || n == 0x0f) {
-                wait = 1;
-                bytes = 1;
-            } else if (n == 4) {
-                bytes = 2;
-                if ((op & 0x0f0) == 0x040) {
-                    wait = 3;
-                } else {
-                    wait = 4;
-                }
-            } else if (n == 0x0c) {
-                bytes = 3;
-                if ((op & 0x0f0) == 0x050) {
-                    wait = 8;
-                } else {
-                    wait = 4;
-                }
+            switch (n) {
+                case 2:
+                    wait = 2;
+                    break;
+                case 3:
+                case 7:
+                case 0x0b:
+                case 0x0f:
+                    wait = 1;
+                    bytes = 1;
+                    break;
+                case 4:
+                    bytes = 2;
+                    if ((op & 0x0f0) == 0x040) {
+                        wait = 3;
+                    } else {
+                        wait = 4;
+                    }   break;
+                case 0x0c:
+                    bytes = 3;
+                    if ((op & 0x0f0) == 0x050) {
+                        wait = 8;
+                    } else {
+                        wait = 4;
+                    }   break;
+                default:
             }
             incrementProgramCounter(bytes);
             addWaitCycles(wait);
@@ -1212,7 +1219,6 @@ public class MOS65C02 extends CPU {
     // Cold/Warm boot procedure
     @Override
     public void reset() {
-        boolean restart = computer.pause();
         pushWord(getProgramCounter());
         push(getStatus());
         //        STACK = 0x0ff;
@@ -1227,9 +1233,6 @@ public class MOS65C02 extends CPU {
         int newPC = getMemory().readWord(RESET_VECTOR, TYPE.READ_DATA, true, false);
         System.out.println("Reset called, setting PC to (" + Integer.toString(RESET_VECTOR, 16) + ") = " + Integer.toString(newPC, 16));
         setProgramCounter(newPC);
-        if (restart) {
-            computer.resume();
-        }
     }
 
     @Override

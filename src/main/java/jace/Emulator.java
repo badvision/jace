@@ -73,7 +73,7 @@ public class Emulator {
         }
         Configuration.applySettings(settings);
 //        EmulatorUILogic.registerDebugger();
-        computer.coldStart();
+//        computer.coldStart();
     }
 
     public static void resizeVideo() {

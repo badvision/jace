@@ -128,18 +128,16 @@ public class Apple2e extends Computer {
     public void coldStart() {
         pause();
         reinitMotherboard();
-        reboot();
         //getMemory().dump();
         for (SoftSwitches s : SoftSwitches.values()) {
             s.getSwitch().reset();
         }
         getMemory().configureActiveMemory();
         getVideo().configureVideoMode();
-        getCpu().reset();
         for (Optional<Card> c : getMemory().getAllCards()) {
             c.ifPresent(Card::reset);
         }
-
+        reboot();
         resume();
         /*
          getCpu().resume();
