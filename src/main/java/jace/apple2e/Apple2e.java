@@ -41,6 +41,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -364,7 +368,64 @@ public class Apple2e extends Computer {
     }
     private List<RAMListener> hints = new ArrayList<>();
 
-    Thread twinkleEffect;
+    ScheduledExecutorService animationTimer = new ScheduledThreadPoolExecutor(1);
+    Runnable drawHints = () -> {
+        if (getCpu().getProgramCounter() >> 8 != 0x0c6) {
+            return;
+        }
+        int row = 2;
+        for (String s : new String[]{
+            "              Welcome to",
+            "         _    __    ___   ____ ",
+            "        | |  / /\\  / / ` | |_  ",
+            "      \\_|_| /_/--\\ \\_\\_, |_|__ ",
+            "",
+            "    Java Apple Computer Emulator",
+            "",
+            "        Presented by BLuRry",
+            "        http://goo.gl/SnzqG",
+            "",
+            "To insert a disk, please drag it over",
+            "this window and drop on the desired",
+            "drive icon.",
+            "",
+            "Press CTRL+SHIFT+C for configuration.",
+            "Press CTRL+SHIFT+I for IDE window.",
+            "",
+            "O-A: Alt/Option",
+            "C-A: Shortcut/Command",
+            "Reset: Delete/Backspace"
+        }) {
+            int addr = 0x0401 + VideoDHGR.calculateTextOffset(row++);
+            for (char c : s.toCharArray()) {
+                getMemory().write(addr++, (byte) (c | 0x080), false, true);
+            }
+        }
+    };
+    int animAddr, animCycleNumber;
+    byte animOldValue;
+    final String animation = "+xX*+-";
+    ScheduledFuture animationSchedule;
+    Runnable doAnimation = () -> {
+        if (animAddr == 0 || animCycleNumber >= animation.length()) {
+            if (animAddr > 0) {
+                getMemory().write(animAddr, animOldValue, true, true);
+            }
+            int animX = (int) (Math.random() * 24.0) + 7;
+            int animY = (int) (Math.random() * 3.0) + 3;
+            animAddr = 0x0400 + VideoDHGR.calculateTextOffset(animY) + animX;
+            animOldValue = getMemory().readRaw(animAddr);
+            animCycleNumber = 0;
+        }
+        if (getCpu().getProgramCounter() >> 8 == 0x0c6) {
+            getMemory().write(animAddr, (byte) (animation.charAt(animCycleNumber) | 0x080), true, true);
+            animCycleNumber++;
+        } else {
+            getMemory().write(animAddr, animOldValue, true, true);
+            animationSchedule.cancel(false);
+            animAddr = 0;
+        }
+    };
 
     private void enableHints() {
         if (hints.isEmpty()) {
@@ -376,67 +437,9 @@ public class Apple2e extends Computer {
 
                 @Override
                 protected void doEvent(RAMEvent e) {
-                    if (getCpu().getProgramCounter() != getScopeStart()) {
-                        return;
-                    }
-                    if (twinkleEffect == null || !twinkleEffect.isAlive()) {
-                        twinkleEffect = new Thread(() -> {
-                            try {
-                                // Give the floppy drive time to start
-                                Thread.sleep(1000);
-                                if (getCpu().getProgramCounter() >> 8 != 0x0c6) {
-                                    return;
-                                }
-
-                                int row = 2;
-                                for (String s : new String[]{
-                                    "              Welcome to",
-                                    "         _    __    ___   ____ ",
-                                    "        | |  / /\\  / / ` | |_  ",
-                                    "      \\_|_| /_/--\\ \\_\\_, |_|__ ",
-                                    "",
-                                    "    Java Apple Computer Emulator",
-                                    "",
-                                    "        Presented by BLuRry",
-                                    "        http://goo.gl/SnzqG",
-                                    "",
-                                    "To insert a disk, please drag it over",
-                                    "this window and drop on the desired",
-                                    "drive icon.",
-                                    "",
-                                    "Press CTRL+SHIFT+C for configuration.",
-                                    "Press CTRL+SHIFT+I for IDE window.",
-                                    "",
-                                    "O-A: Alt/Option",
-                                    "C-A: Shortcut/Command",
-                                    "Reset: Delete/Backspace"
-                                }) {
-                                    int addr = 0x0401 + VideoDHGR.calculateTextOffset(row++);
-                                    for (char c : s.toCharArray()) {
-                                        getMemory().write(addr++, (byte) (c | 0x080), false, true);
-                                    }
-                                }
-                                while (getCpu().getProgramCounter() >> 8 == 0x0c6) {
-                                    int x = (int) (Math.random() * 26.0) + 7;
-                                    int y = (int) (Math.random() * 4.0) + 3;
-                                    int addr = 0x0400 + VideoDHGR.calculateTextOffset(y) + x;
-                                    byte old = getMemory().readRaw(addr);
-                                    for (char c : "+xX*+".toCharArray()) {
-                                        if (getCpu().getProgramCounter() >> 8 != 0x0c6) {
-                                            break;
-                                        }
-                                        getMemory().write(addr, (byte) (c | 0x080), true, true);
-                                        Thread.sleep(100);
-                                    }
-                                    getMemory().write(addr, old, true, true);
-                                }
-                            } catch (InterruptedException ex) {
-                                Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                        });
-                        twinkleEffect.setName("Startup Animation");
-                        twinkleEffect.start();
-                    }
+                    animationTimer.schedule(drawHints, 1, TimeUnit.SECONDS);                    
+                    animationSchedule = 
+                            animationTimer.scheduleAtFixedRate(doAnimation, 1250, 100, TimeUnit.MILLISECONDS);
                 }
             });
             // Latch to the PRODOS SYNTAX CHECK parser
