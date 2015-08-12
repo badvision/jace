@@ -288,7 +288,6 @@ public class Utility {
     public static Label loadIconLabel(String filename) {
         Image img = loadIcon(filename);
         Label label = new Label() {
-
             @Override
             public boolean equals(Object obj) {
                 if (obj instanceof Label) {
@@ -299,6 +298,10 @@ public class Utility {
                 }
             }
 
+            @Override
+            public int hashCode() {
+                return getText().hashCode();
+            }
         };
         label.setGraphic(new ImageView(img));
         label.setAlignment(Pos.CENTER);

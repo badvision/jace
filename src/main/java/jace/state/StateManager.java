@@ -25,8 +25,6 @@ import jace.config.Reconfigurable;
 import jace.core.Computer;
 import jace.core.PagedMemory;
 import java.awt.image.BufferedImage;
-import java.awt.image.ColorModel;
-import java.awt.image.WritableRaster;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
@@ -98,7 +96,7 @@ public class StateManager implements Reconfigurable {
 
                 @Override
                 public Object getCurrentValue() {
-                    return Boolean.valueOf(ss.getSwitch().getState());
+                    return ss.getSwitch().getState();
                 }
             };
             switchVar.name = "switch";
@@ -138,9 +136,7 @@ public class StateManager implements Reconfigurable {
                     // This is not stateful, but examine its children just in case
                     buildStateMap(child, visited);
                 }
-            } catch (IllegalArgumentException ex) {
-                Logger.getLogger(StateManager.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IllegalAccessException ex) {
+            } catch (IllegalArgumentException | IllegalAccessException ex) {
                 Logger.getLogger(StateManager.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -224,7 +220,7 @@ public class StateManager implements Reconfigurable {
      */
     private void addMemoryPages(ObjectGraphNode<PagedMemory> node, Field f) {
         PagedMemory mem = node.getCurrentValue();
-        ObjectGraphNode<byte[][]> internalmem = new ObjectGraphNode<byte[][]>(mem.internalMemory);
+        ObjectGraphNode<byte[][]> internalmem = new ObjectGraphNode<>(mem.internalMemory);
         internalmem.parent = node;
         internalmem.name = "internalMemory";
         for (int i = 0; i < mem.internalMemory.length; i++) {
@@ -232,7 +228,7 @@ public class StateManager implements Reconfigurable {
             if (memPage == null) {
                 continue;
             }
-            ObjectGraphNode<byte[]> page = new ObjectGraphNode<byte[]>(memPage);
+            ObjectGraphNode<byte[]> page = new ObjectGraphNode<>(memPage);
             page.parent = internalmem;
             page.name = String.valueOf(i);
             page.index = i;
@@ -254,10 +250,20 @@ public class StateManager implements Reconfigurable {
         node.markDirty();
     }
 
+    /**
+     *
+     * @return
+     */
+    @Override
     public String getName() {
         return "State Manager";
     }
 
+    /**
+     *
+     * @return
+     */
+    @Override
     public String getShortName() {
         return "state";
     }
@@ -344,24 +350,25 @@ public class StateManager implements Reconfigurable {
     private State captureAlphaState() {
         State s = new State();
         s.deltaState = false;
-        for (ObjectGraphNode node : allStateVariables) {
+        allStateVariables.stream().map((node) -> {
             s.put(node, new StateValue(node));
+            return node;
+        }).forEach((node) -> {
             node.markClean();
-        }
+        });
         return s;
     }
 
     private State captureDeltaState(State tail) {
         State s = new State();
         s.deltaState = true;
-        for (ObjectGraphNode node : allStateVariables) {
-            if (!node.valueChanged(tail)) {
-                // If there are no changes to this node value, don't waste memory on it.
-                continue;
-            }
+        allStateVariables.stream().filter((node) -> !(!node.valueChanged(tail))).map((node) -> {
+            // If there are no changes to this node value, don't waste memory on it.
             s.put(node, new StateValue(node));
+            return node;
+        }).forEach((node) -> {
             node.markClean();
-        }
+        });
         return s;
 
     }

@@ -42,7 +42,7 @@ public class VideoDHGR extends Video {
     // Reorder bits 3,2,1,0 -> 0,3,2,1
     // Fixes double-hires color palette
 
-    public final static int flipNybble[] = {
+    public final static int[] FLIP_NYBBLE = {
         0, 2, 4, 6,
         8, 10, 12, 14,
         1, 3, 5, 7,
@@ -63,12 +63,13 @@ public class VideoDHGR extends Video {
     private VideoWriter dhiresPage1;
     private VideoWriter dhiresPage2;
     // Mixed mode
-    private VideoWriter mixed;
+    private final VideoWriter mixed;
     private VideoWriter currentGraphicsWriter = null;
     private VideoWriter currentTextWriter = null;
 
     /**
      * Creates a new instance of VideoDHGR
+     * @param computer
      */
     public VideoDHGR(Computer computer) {
         super(computer);
@@ -310,7 +311,7 @@ public class VideoDHGR extends Video {
         dhgrWord |= (0x07f & b2) << 7;
         dhgrWord |= (0x07f & b3) << 14;
         dhgrWord |= (0x07f & b4) << 21;
-        showDhgr(screen, times14[xOffset], y, dhgrWord);
+        showDhgr(screen, TIMES_14[xOffset], y, dhgrWord);
     }
     boolean extraHalfBit = false;
 
@@ -321,35 +322,35 @@ public class VideoDHGR extends Video {
         }
         int b1 = 0x0ff & ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset);
         int b2 = 0x0ff & ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
-        int dhgrWord = hgrToDhgr[(extraHalfBit && xOffset > 0) ? b1 | 0x0100 : b1][b2];
+        int dhgrWord = HGR_TO_DHGR[(extraHalfBit && xOffset > 0) ? b1 | 0x0100 : b1][b2];
         extraHalfBit = (dhgrWord & 0x10000000) != 0;
-        showDhgr(screen, times14[xOffset], y, dhgrWord & 0xfffffff);
+        showDhgr(screen, TIMES_14[xOffset], y, dhgrWord & 0xfffffff);
 // If you want monochrome, use this instead...
 //            showBW(screen, times14[xOffset], y, dhgrWord);
     }
     // Take two consecutive bytes and double them, taking hi-bit into account
     // This should yield a 28-bit word of 7 color dhgr pixels
     // This looks like crap on text...
-    static final int[][] hgrToDhgr;
+    static final int[][] HGR_TO_DHGR;
     // Take two consecutive bytes and double them, disregarding hi-bit
     // Useful for text mode
-    static final int[][] hgrToDhgrBW;
-    static final int[] times14;
-    static final int[] flipBits;
+    static final int[][] HGR_TO_DHGR_BW;
+    static final int[] TIMES_14;
+    static final int[] FLIP_BITS;
 
     static {
         // complete reverse of 8 bits
-        flipBits = new int[256];
+        FLIP_BITS = new int[256];
         for (int i = 0; i < 256; i++) {
-            flipBits[i] = (((i * 0x0802 & 0x22110) | (i * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0x0ff;
+            FLIP_BITS[i] = (((i * 0x0802 & 0x22110) | (i * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0x0ff;
         }
 
-        times14 = new int[40];
+        TIMES_14 = new int[40];
         for (int i = 0; i < 40; i++) {
-            times14[i] = i * 14;
+            TIMES_14[i] = i * 14;
         }
-        hgrToDhgr = new int[512][256];
-        hgrToDhgrBW = new int[256][256];
+        HGR_TO_DHGR = new int[512][256];
+        HGR_TO_DHGR_BW = new int[256][256];
         for (int bb1 = 0; bb1 < 512; bb1++) {
             for (int bb2 = 0; bb2 < 256; bb2++) {
                 int value = ((bb1 & 0x0181) >= 0x0101) ? 1 : 0;
@@ -368,8 +369,8 @@ public class VideoDHGR extends Video {
                 if ((bb2 & 0x040) != 0) {
                     value |= 0x10000000;
                 }
-                hgrToDhgr[bb1][bb2] = value;
-                hgrToDhgrBW[bb1 & 0x0ff][bb2]
+                HGR_TO_DHGR[bb1][bb2] = value;
+                HGR_TO_DHGR_BW[bb1 & 0x0ff][bb2]
                         = byteDoubler((byte) bb1) | (byteDoubler((byte) bb2) << 14);
             }
         }
@@ -385,21 +386,21 @@ public class VideoDHGR extends Video {
         Color color = Palette.color[c1];
         // Unrolled loop, faster
         PixelWriter writer = screen.getPixelWriter();
-        int x = xOffset * 7;
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
+        int xx = xOffset * 7;
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
     }
 
     protected void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
@@ -416,22 +417,22 @@ public class VideoDHGR extends Video {
 //        int yOffset = xyOffset[y][times14[xOffset]];
         Color color = Palette.color[c1];
         // Unrolled loop, faster
-        int x = xOffset * 7;
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
+        int xx = xOffset * 7;
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
         color = Palette.color[c2];
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
-        writer.setColor(x++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
+        writer.setColor(xx++, y, color);
     }
     boolean flashInverse = false;
     int flashTimer = 0;
@@ -556,8 +557,8 @@ public class VideoDHGR extends Video {
         int b2 = Font.getByte(c2, yOffset);
         // Why is this getting inversed now?  Bug in hgrToDhgrBW?
         // Nick says: are you getting confused because the //e video ROM is inverted? (1=black)
-        int out = hgrToDhgrBW[b1][b2];
-        showBW(screen, times14[xOffset], y, out);
+        int out = HGR_TO_DHGR_BW[b1][b2];
+        showBW(screen, TIMES_14[xOffset], y, out);
     }
 
     protected void displayText80(WritableImage screen, int xOffset, int y, int rowAddress) {
@@ -572,7 +573,7 @@ public class VideoDHGR extends Video {
         int c4 = getFontChar(((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1));
         int bits = Font.getByte(c1, yOffset) | (Font.getByte(c2, yOffset) << 7)
                 | (Font.getByte(c3, yOffset) << 14) | (Font.getByte(c4, yOffset) << 21);
-        showBW(screen, times14[xOffset], y, bits);
+        showBW(screen, TIMES_14[xOffset], y, bits);
     }
 
     private void displayMixed(WritableImage screen, int xOffset, int y, int textOffset, int graphicsOffset) {
@@ -612,15 +613,15 @@ public class VideoDHGR extends Video {
 
     protected void showDhgr(WritableImage screen, int xOffset, int y, int dhgrWord) {
         //Graphics2D g = (Graphics2D) screen.getGraphics();
-        int x = xOffset * 7;
+        int xx = xOffset * 7;
         PixelWriter writer = screen.getPixelWriter();
         try {
             for (int i = 0; i < 7; i++) {
-                Color color = Palette.color[flipNybble[dhgrWord & 15]];
-                writer.setColor(x++, y, color);
-                writer.setColor(x++, y, color);
-                writer.setColor(x++, y, color);
-                writer.setColor(x++, y, color);
+                Color color = Palette.color[FLIP_NYBBLE[dhgrWord & 15]];
+                writer.setColor(xx++, y, color);
+                writer.setColor(xx++, y, color);
+                writer.setColor(xx++, y, color);
+                writer.setColor(xx++, y, color);
                 dhgrWord >>= 4;
             }
         } catch (ArrayIndexOutOfBoundsException ex) {
@@ -629,19 +630,18 @@ public class VideoDHGR extends Video {
     }
     static final Color BLACK = Color.BLACK;
     static final Color WHITE = Color.WHITE;
-    static final int[][] xyOffset;
+    static final int[][] XY_OFFSET;
 
     static {
-        xyOffset = new int[192][560];
+        XY_OFFSET = new int[192][560];
         for (int y = 0; y < 192; y++) {
             for (int x = 0; x < 560; x++) {
-                xyOffset[y][x] = y * 560 + x;
+                XY_OFFSET[y][x] = y * 560 + x;
             }
         }
     }
 
     protected void showBW(WritableImage screen, int xOffset, int y, int dhgrWord) {
-        int color = 0;
         // Using the data buffer directly is about 15 times faster than setRGB
         // This is because setRGB does extra (useless) color model logic
         // For that matter even Graphics.drawLine is faster than setRGB!
@@ -649,11 +649,11 @@ public class VideoDHGR extends Video {
         // Also, adding xOffset now makes it additionally 5% faster
         //int yOffset = ((y << 4) + (y << 5) + (y << 9))+xOffset;
 
-        int x = xOffset * 7;
+        int xx = xOffset * 7;
         PixelWriter writer = screen.getPixelWriter();
         for (int i = 0; i < 28; i++) {
             // yOffset++ is used instead of yOffset+i, because it is faster
-            writer.setColor(x++, y, (dhgrWord & 1) == 1 ? WHITE : BLACK);
+            writer.setColor(xx++, y, (dhgrWord & 1) == 1 ? WHITE : BLACK);
             dhgrWord >>= 1;
         }
     }

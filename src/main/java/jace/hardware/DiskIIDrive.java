@@ -209,7 +209,7 @@ public class DiskIIDrive implements MediaConsumer {
         lastWriteTime = System.currentTimeMillis();
         if (writerThread == null || !writerThread.isAlive()) {
             writerThread = new Thread(() -> {
-                long diff = 0;
+                long diff;
                 // Wait until there have been no virtual writes for specified delay time
                 while ((diff = System.currentTimeMillis() - lastWriteTime) < WRITE_UPDATE_DELAY) {
                     // Sleep for difference of time

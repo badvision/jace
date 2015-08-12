@@ -403,18 +403,18 @@ public class EmulatorUILogic implements Reconfigurable {
         return false;
     }
 
-    static final Map<Object, Set<Label>> indicators = new HashMap<>();
+    static final Map<Object, Set<Label>> INDICATORS = new HashMap<>();
     static public void addIndicator(Object owner, Label icon) {
         addIndicator(owner, icon, 250);
     }
     
     static public void addIndicator(Object owner, Label icon, long TTL) {
         if (JaceApplication.singleton == null) return;
-        synchronized (indicators) {
-            Set<Label> ind = indicators.get(owner);
+        synchronized (INDICATORS) {
+            Set<Label> ind = INDICATORS.get(owner);
             if (ind == null) {
                 ind = new HashSet<>();
-                indicators.put(owner, ind);
+                INDICATORS.put(owner, ind);
             }
             ind.add(icon);
             JaceApplication.singleton.controller.addIndicator(icon);
@@ -423,8 +423,8 @@ public class EmulatorUILogic implements Reconfigurable {
 
     static public void removeIndicator(Object owner, Label icon) {
         if (JaceApplication.singleton == null) return;
-        synchronized (indicators) {
-            Set<Label> ind = indicators.get(owner);
+        synchronized (INDICATORS) {
+            Set<Label> ind = INDICATORS.get(owner);
             if (ind != null) {
                 ind.remove(icon);
             }
@@ -434,15 +434,15 @@ public class EmulatorUILogic implements Reconfigurable {
 
     static public void removeIndicators(Object owner) {
         if (JaceApplication.singleton == null) return;
-        synchronized (indicators) {
-            Set<Label> ind = indicators.get(owner);
+        synchronized (INDICATORS) {
+            Set<Label> ind = INDICATORS.get(owner);
             if (ind == null) {
                 return;
             }
             ind.stream().forEach((icon) -> {
                 JaceApplication.singleton.controller.removeIndicator(icon);
             });
-            indicators.remove(owner);
+            INDICATORS.remove(owner);
         }
     }
     

@@ -60,8 +60,8 @@ public abstract class DiskNode {
     private String name;
 
     public DiskNode() {
-        additionalNodes = new ArrayList<DiskNode>();
-        children = new ArrayList<DiskNode>();
+        additionalNodes = new ArrayList<>();
+        children = new ArrayList<>();
     }
 
     public boolean checkFile() throws IOException {
@@ -94,9 +94,9 @@ public abstract class DiskNode {
             allocated = false;
             additionalNodes.clear();
             // NOTE: This is recursive!
-            for (DiskNode node : getChildren()) {
+            getChildren().stream().forEach((node) -> {
                 node.deallocate();
-            }
+            });
         }
     }
 

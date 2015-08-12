@@ -158,6 +158,7 @@ public class Speaker extends Device {
 
     /**
      * Creates a new instance of Speaker
+     * @param computer
      */
     public Speaker(Computer computer) {
         super(computer);

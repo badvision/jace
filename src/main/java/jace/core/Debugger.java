@@ -43,7 +43,7 @@ public abstract class Debugger {
     public boolean isActive() {
         return active;
     }
-    private List<Integer> breakpoints = new ArrayList<Integer>();
+    private final List<Integer> breakpoints = new ArrayList<>();
 
     public List<Integer> getBreakpoints() {
         return breakpoints;

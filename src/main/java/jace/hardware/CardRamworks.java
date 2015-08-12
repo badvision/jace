@@ -54,9 +54,9 @@ public class CardRamworks extends RAM128k {
     public int maxBank = memorySize / 64;
     private Map<BankType, PagedMemory> generateBank() {
             Map<BankType, PagedMemory> memoryBank = new EnumMap<>(BankType.class);
-            memoryBank.put(BankType.MAIN_MEMORY, new PagedMemory(0xc000, PagedMemory.Type.ram, computer));
-            memoryBank.put(BankType.LANGUAGE_CARD_1, new PagedMemory(0x3000, PagedMemory.Type.languageCard, computer));
-            memoryBank.put(BankType.LANGUAGE_CARD_2, new PagedMemory(0x1000, PagedMemory.Type.languageCard, computer));
+            memoryBank.put(BankType.MAIN_MEMORY, new PagedMemory(0xc000, PagedMemory.Type.RAM, computer));
+            memoryBank.put(BankType.LANGUAGE_CARD_1, new PagedMemory(0x3000, PagedMemory.Type.LANGUAGE_CARD, computer));
+            memoryBank.put(BankType.LANGUAGE_CARD_2, new PagedMemory(0x1000, PagedMemory.Type.LANGUAGE_CARD, computer));
             return memoryBank;
     }
 

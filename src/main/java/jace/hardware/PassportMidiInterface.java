@@ -55,7 +55,7 @@ public class PassportMidiInterface extends Card {
     // MIDI timing: 31250 BPS, 8-N-1  (roughly 3472k per second)
     public static enum TIMER_MODE {
 
-        continuous, singleShot, freqComparison, pulseComparison
+        CONTINUOUS, SINGLE_SHOT, FREQ_COMPARISON, PULSE_COMPARISON
     };
 
     public static class PTMTimer {
@@ -64,7 +64,7 @@ public class PassportMidiInterface extends Card {
         public boolean prescaledTimer = false; // Only available on Timer 3
         public boolean enableClock = false; // False == use CX clock input
         public boolean dual8BitMode = false;
-        public TIMER_MODE mode = TIMER_MODE.continuous;
+        public TIMER_MODE mode = TIMER_MODE.CONTINUOUS;
         public boolean irqEnabled = false;
         public boolean counterOutputEnable = false;
         // Set by data latches
@@ -102,12 +102,12 @@ public class PassportMidiInterface extends Card {
     public static final int PTM_SELECT_REG_1 = 1;
     public static final int PTM_SELECT_REG_3 = 0;
     // PTM select values (register 3 only)
-    public static final int TIMER_3_PRESCALED = 1;
-    public static final int TIMER_3_NOT_PRESCALED = 0;
+    public static final int TIMER3_PRESCALED = 1;
+    public static final int TIMER3_NOT_PRESCALED = 0;
     // PTM bit values
     public static final int PTM_CLOCK_SOURCE = 2;       // Bit 1
     // 0 = external, 2 = internal clock
-    public static final int PTM_LATCH_IS_16_BIT = 4;    // Bit 2
+    public static final int PTM_LATCH_IS_16BIT = 4;    // Bit 2
     // 0 = 16-bit, 4 = dual 8-bit
     // Bits 3-5
     // 5 4 3
@@ -150,24 +150,24 @@ public class PassportMidiInterface extends Card {
     // PTM configuration
     private boolean ptmTimer3Selected = false; // When true, reg 1 points at timer 3
     private boolean ptmTimersActive = false; // When true, timers run constantly
-    private PTMTimer[] ptmTimer = {
+    private final PTMTimer[] ptmTimer = {
         new PTMTimer(),
         new PTMTimer(),
         new PTMTimer()
     };
     private boolean ptmStatusReadSinceIRQ = false;
     // ---------------------- ACIA CONFIGURATION
-    private boolean aciaInterruptOnSend = false;
-    private boolean aciaInterruptOnReceive = false;
+    private final boolean aciaInterruptOnSend = false;
+    private final boolean aciaInterruptOnReceive = false;
     // ---------------------- ACIA STATUS BITS
     // True when MIDI IN receives a byte
-    private boolean receivedACIAByte = false;
+    private final boolean receivedACIAByte = false;
     // True when data is not transmitting (always true because we aren't really doing wire transmission);
-    private boolean transmitACIAEmpty = true;
+    private final boolean transmitACIAEmpty = true;
     // True if another byte is received before the previous byte was processed
-    private boolean receiverACIAOverrun = false;
+    private final boolean receiverACIAOverrun = false;
     // True if ACIA generated interrupt request
-    private boolean irqRequestedACIA = false;
+    private final boolean irqRequestedACIA = false;
     //--- the synth
     private Synthesizer synth;
 
@@ -187,7 +187,6 @@ public class PassportMidiInterface extends Card {
     @Override
     protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
         // No firmware, so do nothing
-        return;
     }
 
     @Override
@@ -266,7 +265,7 @@ public class PassportMidiInterface extends Card {
                     case TIMER_CONTROL_1:
                         if (ptmTimer3Selected) {
 //                            System.out.println("Configuring timer 3");
-                            ptmTimer[2].prescaledTimer = ((v & TIMER_3_PRESCALED) != 0);
+                            ptmTimer[2].prescaledTimer = ((v & TIMER3_PRESCALED) != 0);
                             processPTMConfiguration(ptmTimer[2], v);
                         } else {
 //                            System.out.println("Configuring timer 1");
@@ -325,7 +324,7 @@ public class PassportMidiInterface extends Card {
                         computer.getCpu().generateInterrupt();
                         ptmStatusReadSinceIRQ = false;
                     }
-                    if (t.mode == TIMER_MODE.continuous || t.mode == TIMER_MODE.freqComparison) {
+                    if (t.mode == TIMER_MODE.CONTINUOUS || t.mode == TIMER_MODE.FREQ_COMPARISON) {
                         t.value = t.duration;
                     }
                 }
@@ -341,23 +340,23 @@ public class PassportMidiInterface extends Card {
     //------------------------------------------------------ PTM
     private void processPTMConfiguration(PTMTimer timer, int val) {
         timer.enableClock = (val & PTM_CLOCK_SOURCE) != 0;
-        timer.dual8BitMode = (val & PTM_LATCH_IS_16_BIT) != 0;
+        timer.dual8BitMode = (val & PTM_LATCH_IS_16BIT) != 0;
         switch (val & 56) {
             // Evaluate bits 3, 4 and 5 to determine mode
             case PTM_CONTINUOUS:
-                timer.mode = TIMER_MODE.continuous;
+                timer.mode = TIMER_MODE.CONTINUOUS;
                 break;
             case PTM_PULSE_COMP:
-                timer.mode = TIMER_MODE.pulseComparison;
+                timer.mode = TIMER_MODE.PULSE_COMPARISON;
                 break;
             case PTM_FREQ_COMP:
-                timer.mode = TIMER_MODE.freqComparison;
+                timer.mode = TIMER_MODE.FREQ_COMPARISON;
                 break;
             case PTM_SINGLE_SHOT:
-                timer.mode = TIMER_MODE.singleShot;
+                timer.mode = TIMER_MODE.SINGLE_SHOT;
                 break;
             default:
-                timer.mode = TIMER_MODE.continuous;
+                timer.mode = TIMER_MODE.CONTINUOUS;
                 break;
         }
         timer.irqEnabled = (val & PTM_IRQ_ENABLED) != 0;
@@ -483,9 +482,7 @@ public class PassportMidiInterface extends Card {
 //                    System.out.println("Sending MIDI message "+currentMessageStatus+","+currentMessageData1+","+currentMessageData2);
                     currentMessage.setMessage(currentMessageStatus, currentMessageData1, currentMessageData2);
                     synth.getReceiver().send(currentMessage, -1L);
-                } catch (InvalidMidiDataException ex) {
-                    Logger.getLogger(PassportMidiInterface.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (MidiUnavailableException ex) {
+                } catch (InvalidMidiDataException | MidiUnavailableException ex) {
                     Logger.getLogger(PassportMidiInterface.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
@@ -540,7 +537,6 @@ public class PassportMidiInterface extends Card {
             }
         } catch (MidiUnavailableException ex) {
             System.out.println("Could not open MIDI synthesizer");
-            ex.printStackTrace();
             Logger.getLogger(PassportMidiInterface.class.getName()).log(Level.SEVERE, null, ex);
         }
     }

@@ -89,6 +89,7 @@ public abstract class Video extends Device {
 
     /**
      * Creates a new instance of Video
+     * @param computer
      */
     public Video(Computer computer) {
         super(computer);

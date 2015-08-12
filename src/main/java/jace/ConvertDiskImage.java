@@ -49,7 +49,7 @@ public class ConvertDiskImage {
             return;
         }
         String ext = args[1].substring(args[1].length() - 3);
-        boolean writeNibblized = false;
+        boolean writeNibblized;
         boolean writeProdosOrdered = false;
         if (ext.equalsIgnoreCase("NIB")) {
             System.out.println("Preparing to write NIB image");
@@ -69,7 +69,7 @@ public class ConvertDiskImage {
         }
 
         // First read in the disk image, this decodes the disk as necessary
-        FloppyDisk theDisk = null;
+        FloppyDisk theDisk;
         try {
             theDisk = new FloppyDisk(in, null);
         } catch (IOException ex) {
@@ -95,13 +95,13 @@ public class ConvertDiskImage {
                 fos.close();
             } catch (IOException ex) {
                 System.err.println("Error writing NIB image: " + ex.getMessage());
-                ex.printStackTrace();
             } finally {
                 try {
-                    fos.close();
+                    if (fos != null) {
+                        fos.close();
+                    }
                 } catch (IOException ex) {
                     System.err.println("Error closing NIB image: " + ex.getMessage());
-                    ex.printStackTrace();
                 }
             }
         }

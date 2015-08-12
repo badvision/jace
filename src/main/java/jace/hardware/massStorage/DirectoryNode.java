@@ -23,7 +23,6 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.logging.Level;
@@ -70,11 +69,7 @@ public class DirectoryNode extends DiskNode implements FileFilter {
         for (File f : files) {
             addFile(f);
         }
-        Collections.sort(children, new Comparator<DiskNode>() {
-            public int compare(DiskNode o1, DiskNode o2) {
-                return o1.getName().compareTo(o2.getName());
-            }
-        });
+        Collections.sort(children, (DiskNode o1, DiskNode o2) -> o1.getName().compareTo(o2.getName()));
     }
 
     @Override
@@ -90,7 +85,7 @@ public class DirectoryNode extends DiskNode implements FileFilter {
         if (!super.checkFile()) {
             return false;
         }
-        HashSet<String> realFiles = new HashSet<String>();
+        HashSet<String> realFiles = new HashSet<>();
         File[] realFileList = physicalFile.listFiles(this);
         for (File f : realFileList) {
             realFiles.add(f.getName());
@@ -112,9 +107,9 @@ public class DirectoryNode extends DiskNode implements FileFilter {
         if (!realFiles.isEmpty()) {
             success = false;
             // New files showed up -- deal with them!
-            for (String fileName : realFiles) {
+            realFiles.stream().forEach((fileName) -> {
                 addFile(new File(physicalFile, fileName));
-            }
+            });
         }
         return success;
     }
@@ -139,16 +134,14 @@ public class DirectoryNode extends DiskNode implements FileFilter {
         }
     }
 
+    @Override
     public boolean accept(File file) {
         if (file.getName().endsWith("~")) return false;
         char c = file.getName().charAt(0);
         if (c == '.' || c == '~') {
             return false;
         }
-        if (file.isHidden()) {
-            return false;
-        }
-        return true;
+        return !file.isHidden();
     }
 
     /**

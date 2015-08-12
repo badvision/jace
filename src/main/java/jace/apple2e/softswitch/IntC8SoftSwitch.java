@@ -19,7 +19,6 @@
 package jace.apple2e.softswitch;
 
 import jace.apple2e.SoftSwitches;
-import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.core.SoftSwitch;
@@ -58,6 +57,7 @@ public class IntC8SoftSwitch extends SoftSwitch {
         // INTCXRom shoud deactivate whenever CFFF is accessed
         addListener(
                 new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+            @Override
             protected void doConfig() {
                 setScopeStart(0x0CFFF);
             }

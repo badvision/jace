@@ -292,6 +292,7 @@ public class CardThunderclock extends Card {
      * Scan active memory for the Prodos clock driver and patch the internal
      * code to use a fixed value for the present year. This means Prodos will
      * always tell time correctly.
+     * @param computer
      */
     public static void performProdosPatch(Computer computer) {
         PagedMemory ram = computer.getMemory().activeRead;

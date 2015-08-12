@@ -30,6 +30,7 @@ public abstract class TimedDevice extends Device {
 
     /**
      * Creates a new instance of TimedDevice
+     * @param computer
      */
     public TimedDevice(Computer computer) {
         super(computer);

@@ -60,7 +60,7 @@ public class SoundGenerator extends TimedGenerator {
         if (((stateChanges & 1) == 1)) inverted = !inverted;
         if (amplitude == 0 && !useEnvGen) return 0;
         if (!active && !noiseActive) return 0;
-        boolean invert = false;
+        boolean invert;
         int vol = useEnvGen ? envGen.getAmplitude() : amplitude;
         if (active) {
             invert = noiseActive && noiseGen.isOn() ? false : inverted;

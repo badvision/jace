@@ -46,7 +46,7 @@ public class VideoNTSC extends VideoDHGR {
 
     @ConfigurableField(name = "Text palette", shortName = "textPalette", defaultValue = "false", description = "Use text-friendly color palette")
     public boolean useTextPalette = true;
-    int activePalette[][] = textPalette;
+    int activePalette[][] = TEXT_PALETTE;
     @ConfigurableField(name = "Video 7", shortName = "video7", defaultValue = "true", description = "Enable Video 7 RGB rendering support")
     public boolean enableVideo7 = true;
     // Scanline represents 560 bits, divided up into 28-bit words
@@ -183,7 +183,7 @@ public class VideoNTSC extends VideoDHGR {
                 add = (scanline[s + 1] & 7);
             }
             boolean isBW = false;
-            boolean mixed = enableVideo7 && dhgrMode && graphicsMode == rgbMode.mix;
+            boolean mixed = enableVideo7 && dhgrMode && graphicsMode == rgbMode.MIX;
             for (int i = 0; i < 28; i++) {
                 if (i % 7 == 0) {
                     isBW = !colorActive[byteCounter] || (mixed && !hiresMode && !useColor[byteCounter]);
@@ -217,9 +217,9 @@ public class VideoNTSC extends VideoDHGR {
     public static final double MAX_I = 0.5957;
     // q Range [-0.5226, 0.5226]
     public static final double MAX_Q = 0.5226;
-    static final int solidPalette[][] = new int[4][128];
-    static final int textPalette[][] = new int[4][128];
-    static final double[][] yiq = {
+    static final int SOLID_PALETTE[][] = new int[4][128];
+    static final int[][] TEXT_PALETTE = new int[4][128];
+    static final double[][] YIQ_VALUES = {
         {0.0, 0.0, 0.0}, //0000 0
         {0.25, 0.5, 0.5}, //0001 1
         {0.25, -0.5, 0.5}, //0010 2
@@ -253,10 +253,10 @@ public class VideoNTSC extends VideoDHGR {
                 for (int rot = 0; rot < offset; rot++) {
                     col = ((col & 8) >> 3) | ((col << 1) & 0x0f);
                 }
-                double y1 = yiq[col][0];
+                double y1 = YIQ_VALUES[col][0];
                 double y2 = ((double) level / (double) maxLevel);
-                solidPalette[offset][pattern] = yiqToRgb(y1, yiq[col][1] * MAX_I, yiq[col][2] * MAX_Q);
-                textPalette[offset][pattern] = yiqToRgb(y2, yiq[col][1] * MAX_I, yiq[col][2] * MAX_Q);
+                SOLID_PALETTE[offset][pattern] = yiqToRgb(y1, YIQ_VALUES[col][1] * MAX_I, YIQ_VALUES[col][2] * MAX_Q);
+                TEXT_PALETTE[offset][pattern] = yiqToRgb(y2, YIQ_VALUES[col][1] * MAX_I, YIQ_VALUES[col][2] * MAX_Q);
             }
         }
     }
@@ -280,7 +280,7 @@ public class VideoNTSC extends VideoDHGR {
 
     @Override
     public void reconfigure() {
-        activePalette = useTextPalette ? textPalette : solidPalette;
+        activePalette = useTextPalette ? TEXT_PALETTE : SOLID_PALETTE;
         super.reconfigure();
     }
     // The following section captures changes to the RGB mode
@@ -288,11 +288,11 @@ public class VideoNTSC extends VideoDHGR {
     // http://www.freepatentsonline.com/4631692.pdf    
     // as well as the AppleColor adapter card manual
     // http://apple2.info/download/Ext80ColumnAppleColorCardHR.pdf
-    rgbMode graphicsMode = rgbMode.mix;
+    rgbMode graphicsMode = rgbMode.MIX;
 
     public static enum rgbMode {
 
-        color(true), mix(true), bw(false), _160col(false);
+        COLOR(true), MIX(true), BW(false), COL_160(false);
         boolean colorMode = false;
 
         rgbMode(boolean c) {
@@ -333,7 +333,7 @@ public class VideoNTSC extends VideoDHGR {
 // 1) 160-column mode isn't implemented so it's not worth bothering to capture that state
 // 2) A lot of programs are clueless about RGB modes so it's good to default to normal color mode
 //        graphicsMode = f1 ? (f2 ? rgbMode.color : rgbMode.mix) : (f2 ? rgbMode._160col : rgbMode.bw);
-        graphicsMode = f1 ? (f2 ? rgbMode.color : rgbMode.mix) : (f2 ? rgbMode.color : rgbMode.bw);
+        graphicsMode = f1 ? (f2 ? rgbMode.COLOR : rgbMode.MIX) : (f2 ? rgbMode.COLOR : rgbMode.BW);
 //        System.out.println(state + ": "+ graphicsMode);
     }
     // These catch changes to the RGB mode to toggle between color, BW and mixed
@@ -384,7 +384,7 @@ public class VideoNTSC extends VideoDHGR {
                     ((VideoNTSC) v).f1 = true;
                     ((VideoNTSC) v).f2 = true;
                     ((VideoNTSC) v).an3 = false;
-                    ((VideoNTSC) v).graphicsMode = rgbMode.color;
+                    ((VideoNTSC) v).graphicsMode = rgbMode.COLOR;
                 }
             }
         });

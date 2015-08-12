@@ -35,6 +35,7 @@ public class KeyboardSoftSwitch extends SoftSwitch {
         super(name,offAddrs,onAddrs,queryAddrs,changeType,initalState);
     }
     
+    @Override
     public void stateChanged() {
         Keyboard.clearStrobe();
     }

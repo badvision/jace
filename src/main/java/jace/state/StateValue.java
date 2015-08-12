@@ -24,12 +24,14 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 
 /**
  * This represents a serializable value of an object
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
+ * @param <T>
  */
 public class StateValue<T> implements Serializable {
 
@@ -63,7 +65,7 @@ public class StateValue<T> implements Serializable {
         if (!type.isArray()) {
             try {
                 return (T) type.getMethod("clone").invoke(currentValue);
-            } catch (Exception ex) {
+            } catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
                 try {
                     // Use serialization to build a deep copy
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -73,9 +75,7 @@ public class StateValue<T> implements Serializable {
                     ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
                     ObjectInputStream ois = new ObjectInputStream(bais);
                     return (T) ois.readObject();
-                } catch (IOException e) {
-                    return null;
-                } catch (ClassNotFoundException e) {
+                } catch (IOException | ClassNotFoundException e) {
                     return null;
                 }
             }

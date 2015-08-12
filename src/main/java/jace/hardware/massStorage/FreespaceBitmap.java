@@ -31,7 +31,7 @@ public class FreespaceBitmap extends DiskNode {
         setOwnerFilesystem(fs);
 
         for (int i=1; i < size; i++) {
-            new SubNode(i, this, start+i);
+            SubNode subNode = new SubNode(i, this, start+i);
         }
     }
     @Override

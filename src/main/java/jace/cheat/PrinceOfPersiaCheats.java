@@ -18,7 +18,6 @@
  */
 package jace.cheat;
 
-import jace.Emulator;
 import jace.EmulatorUILogic;
 import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
@@ -98,7 +97,7 @@ public class PrinceOfPersiaCheats extends Cheats {
     public static int InEditor = 0x0202;
     public static int MinLeft = 0x0300;
     public static int hasSword = 0x030a;
-    public static final int mobtables = 0x0b600;
+    public static int mobtables = 0x0b600;
     public static final int trloc = mobtables;
     public static final int trscrn = trloc + 0x020;
     public static int trdirec = trscrn + 0x020;

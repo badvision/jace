@@ -48,9 +48,9 @@ public class CardExt80Col extends RAM128k {
     
     public CardExt80Col(Computer computer) {
         super(computer);
-        auxMemory = new PagedMemory(0xc000, PagedMemory.Type.ram, computer);
-        auxLanguageCard = new PagedMemory(0x3000, PagedMemory.Type.languageCard, computer);
-        auxLanguageCard2 = new PagedMemory(0x1000, PagedMemory.Type.languageCard, computer);
+        auxMemory = new PagedMemory(0xc000, PagedMemory.Type.RAM, computer);
+        auxLanguageCard = new PagedMemory(0x3000, PagedMemory.Type.LANGUAGE_CARD, computer);
+        auxLanguageCard2 = new PagedMemory(0x1000, PagedMemory.Type.LANGUAGE_CARD, computer);
         initMemoryPattern(auxMemory);
      }
     

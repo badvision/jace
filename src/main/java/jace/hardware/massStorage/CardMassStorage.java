@@ -31,7 +31,6 @@ import jace.hardware.SmartportDriver;
 import jace.library.MediaConsumer;
 import jace.library.MediaConsumerParent;
 import java.io.IOException;
-import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 

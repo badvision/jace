@@ -35,12 +35,12 @@ public class PagedMemory {
 
     public enum Type {
 
-        cardFirmware(0x0c800),
-        languageCard(0x0d000),
-        firmwareMain(0x0d000),
-        firmware80column(0x0c300),
-        slotRom(0x0c100),
-        ram(0x0000);
+        CARD_FIRMWARE(0x0c800),
+        LANGUAGE_CARD(0x0d000),
+        FIRMWARE_MAIN(0x0d000),
+        FIRMWARE_80COL(0x0c300),
+        SLOW_ROM(0x0c100),
+        RAM(0x0000);
         protected int baseAddress;
 
         private Type(int newBase) {

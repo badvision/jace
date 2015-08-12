@@ -23,7 +23,6 @@ import jace.apple2e.softswitch.KeyboardSoftSwitch;
 import jace.apple2e.softswitch.Memory2SoftSwitch;
 import jace.apple2e.softswitch.MemorySoftSwitch;
 import jace.apple2e.softswitch.VideoSoftSwitch;
-import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.SoftSwitch;
 

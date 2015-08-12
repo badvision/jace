@@ -18,7 +18,6 @@
  */
 package jace.state;
 
-import jace.Emulator;
 import java.io.Serializable;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -35,6 +34,7 @@ import java.util.logging.Logger;
  * traversed cleanly and correctly.
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
+ * @param <T>
  */
 public class ObjectGraphNode<T> implements Serializable {
 
@@ -55,7 +55,7 @@ public class ObjectGraphNode<T> implements Serializable {
     };
 
     public ObjectGraphNode(Class<T> clazz) {
-        children = new ArrayList<ObjectGraphNode>();
+        children = new ArrayList<>();
         type = clazz;
         dirty = DirtyFlag.UNKNOWN;
         forceCheck = true;
@@ -70,13 +70,7 @@ public class ObjectGraphNode<T> implements Serializable {
         if (isPrimitive || type.isPrimitive()) {
             try {
                 return (T) parent.type.getField(name).get(parent.getCurrentValue());
-            } catch (IllegalArgumentException ex) {
-                Logger.getLogger(ObjectGraphNode.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IllegalAccessException ex) {
-                Logger.getLogger(ObjectGraphNode.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (NoSuchFieldException ex) {
-                Logger.getLogger(ObjectGraphNode.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (SecurityException ex) {
+            } catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException ex) {
                 Logger.getLogger(ObjectGraphNode.class.getName()).log(Level.SEVERE, null, ex);
             }
             return null;
@@ -128,11 +122,7 @@ public class ObjectGraphNode<T> implements Serializable {
                 System.out.println("this Is Array: " + type.isArray());
                 System.out.println("parent Is Array: " + parent.type.isArray());
                 Logger.getLogger(ObjectGraphNode.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (SecurityException ex) {
-                Logger.getLogger(ObjectGraphNode.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IllegalArgumentException ex) {
-                Logger.getLogger(ObjectGraphNode.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IllegalAccessException ex) {
+            } catch (SecurityException | IllegalArgumentException | IllegalAccessException ex) {
                 Logger.getLogger(ObjectGraphNode.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -141,9 +131,9 @@ public class ObjectGraphNode<T> implements Serializable {
     public ObjectGraphNode find(String path) {
         String[] parts = path.split("\\.");
         ObjectGraphNode current = this;
-        for (int i = 0; i < parts.length; i++) {
+        for (String part : parts) {
             for (ObjectGraphNode child : (List<ObjectGraphNode>) current.children) {
-                if (child.name.equals(parts[i])) {
+                if (child.name.equals(part)) {
                     current = child;
                     break;
                 } else {

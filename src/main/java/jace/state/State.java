@@ -78,7 +78,7 @@ public class State extends HashMap<ObjectGraphNode, StateValue> implements Seria
     }
 
     public void apply() {
-        Set<ObjectGraphNode> applied = new HashSet<ObjectGraphNode>();
+        Set<ObjectGraphNode> applied = new HashSet<>();
         State current = this;
         while (current != null) {
             for (StateValue val : current.values()) {

@@ -55,7 +55,7 @@ public class CardSSC extends Card implements Reconfigurable {
     protected Thread listenThread;
     private int lastInputByte = 0;
     private boolean FULL_ECHO = true;
-    private boolean RECV_ACTIVE = true;
+    private final boolean RECV_ACTIVE = true;
     private boolean TRANS_ACTIVE = true;
 //    private boolean RECV_STRIP_LF = true;
 //    private boolean TRANS_ADD_LF = true;
@@ -85,7 +85,7 @@ public class CardSSC extends Card implements Reconfigurable {
     // 1 stop bit (SW2-1 on)
     // 8 data bits (SW2-2 on)
     // No parity (SW2-3 don't care, SW2-4 off)
-    private int SW2_SETTING = 0x04;
+    private final int SW2_SETTING = 0x04;
     public int ACIA_Data = 0x08;        // Read=Receive / Write=transmit
     public int ACIA_Status = 0x09;     // Read=Status / Write=Reset
     public int ACIA_Command = 0x0A;
@@ -343,7 +343,6 @@ public class CardSSC extends Card implements Reconfigurable {
             }
             if (newValue > -1) {
                 e.setNewValue(newValue);
-                value = newValue;
             }
         } catch (IOException ex) {
             Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);

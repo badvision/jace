@@ -35,10 +35,16 @@ public class MassStorageDrive implements MediaConsumer {
     IDisk disk = null;
     Label icon = null;
     
+    @Override
     public Label getIcon() {
         return icon;
     }
 
+    /**
+     *
+     * @param i
+     */
+    @Override
     public void setIcon(Label i) {
         icon = i;
     }
@@ -46,6 +52,13 @@ public class MassStorageDrive implements MediaConsumer {
     MediaEntry currentEntry;
     MediaFile currentFile;
     
+    /**
+     *
+     * @param e
+     * @param f
+     * @throws IOException
+     */
+    @Override
     public void insertMedia(MediaEntry e, MediaFile f) throws IOException {
         eject();
         currentEntry = e;
@@ -61,19 +74,39 @@ public class MassStorageDrive implements MediaConsumer {
         postInsertAction = r;
     }
     
+    /**
+     *
+     * @return
+     */
+    @Override
     public MediaEntry getMediaEntry() {
         return currentEntry;
     }
 
+    /**
+     *
+     * @return
+     */
+    @Override
     public MediaFile getMediaFile() {
         return currentFile;
     }
 
+    /**
+     *
+     * @param e
+     * @param f
+     * @return
+     */
+    @Override
     public boolean isAccepted(MediaEntry e, MediaFile f) {
         return e.type.isProdosOrdered;
     }
 
-    
+    /**
+     *
+     */
+    @Override
     public void eject() {
         if (disk != null) {
             disk.eject();

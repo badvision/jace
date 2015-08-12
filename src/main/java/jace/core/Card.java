@@ -35,8 +35,8 @@ import jace.apple2e.SoftSwitches;
  */
 public abstract class Card extends Device {
 
-    private PagedMemory cxRom;
-    private PagedMemory c8Rom;
+    private final PagedMemory cxRom;
+    private final PagedMemory c8Rom;
     private int slot;
     private RAMListener ioListener;
     private RAMListener firmwareListener;
@@ -44,11 +44,12 @@ public abstract class Card extends Device {
 
     /**
      * Creates a new instance of Card
+     * @param computer
      */
     public Card(Computer computer) {
         super(computer);
-        cxRom = new PagedMemory(0x0100, PagedMemory.Type.cardFirmware, computer);
-        c8Rom = new PagedMemory(0x0800, PagedMemory.Type.cardFirmware, computer);
+        cxRom = new PagedMemory(0x0100, PagedMemory.Type.CARD_FIRMWARE, computer);
+        c8Rom = new PagedMemory(0x0800, PagedMemory.Type.CARD_FIRMWARE, computer);
     }
 
     @Override

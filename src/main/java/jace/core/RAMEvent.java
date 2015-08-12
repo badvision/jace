@@ -72,6 +72,12 @@ public class RAMEvent {
 
     /**
      * Creates a new instance of RAMEvent
+     * @param t
+     * @param s
+     * @param v
+     * @param address
+     * @param oldValue
+     * @param newValue
      */
     public RAMEvent(TYPE t, SCOPE s, VALUE v, int address, int oldValue, int newValue) {
         setType(t);

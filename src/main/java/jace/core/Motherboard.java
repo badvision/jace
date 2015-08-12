@@ -25,6 +25,8 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Motherboard is the heart of the computer. It can have a list of cards
@@ -55,6 +57,7 @@ public class Motherboard extends TimedDevice {
 
     /**
      * Creates a new instance of Motherboard
+     * @param computer
      */
     public Motherboard(Computer computer) {
         super(computer);
@@ -91,7 +94,7 @@ public class Motherboard extends TimedDevice {
                 m.doTick();
             });
         } catch (Throwable t) {
-            t.printStackTrace();
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, null, t);
         }
     }
     // From the holy word of Sather 3:5 (Table 3.1) :-)

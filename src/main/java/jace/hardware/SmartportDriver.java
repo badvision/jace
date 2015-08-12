@@ -66,7 +66,7 @@ public abstract class SmartportDriver {
         cpu.setProgramCounter(callAddress + (extendedCall ? 5 : 3));
 
         // Calculate parameter address block
-        int parmAddr = 0;
+        int parmAddr;
         if (!extendedCall) {
             parmAddr = ram.readWordRaw(callAddress + 1);
         } else {

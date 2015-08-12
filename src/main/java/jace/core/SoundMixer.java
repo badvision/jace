@@ -231,7 +231,7 @@ public class SoundMixer extends Device {
     }
 
     private void initMixer() {
-        Info selected = null;
+        Info selected;
         Info[] mixerInfo = AudioSystem.getMixerInfo();
 
         if (mixerInfo == null || mixerInfo.length == 0) {

@@ -51,14 +51,14 @@ abstract public class RAM128k extends RAM {
 
     public RAM128k(Computer computer) {
         super(computer);
-        mainMemory = new PagedMemory(0xc000, PagedMemory.Type.ram, computer);
-        rom = new PagedMemory(0x3000, PagedMemory.Type.firmwareMain, computer);
-        cPageRom = new PagedMemory(0x1000, PagedMemory.Type.slotRom, computer);
-        languageCard = new PagedMemory(0x3000, PagedMemory.Type.languageCard, computer);
-        languageCard2 = new PagedMemory(0x1000, PagedMemory.Type.languageCard, computer);
-        activeRead = new PagedMemory(0x10000, PagedMemory.Type.ram, computer);
-        activeWrite = new PagedMemory(0x10000, PagedMemory.Type.ram, computer);
-        blank = new PagedMemory(0x100, PagedMemory.Type.ram, computer);
+        mainMemory = new PagedMemory(0xc000, PagedMemory.Type.RAM, computer);
+        rom = new PagedMemory(0x3000, PagedMemory.Type.FIRMWARE_MAIN, computer);
+        cPageRom = new PagedMemory(0x1000, PagedMemory.Type.SLOW_ROM, computer);
+        languageCard = new PagedMemory(0x3000, PagedMemory.Type.LANGUAGE_CARD, computer);
+        languageCard2 = new PagedMemory(0x1000, PagedMemory.Type.LANGUAGE_CARD, computer);
+        activeRead = new PagedMemory(0x10000, PagedMemory.Type.RAM, computer);
+        activeWrite = new PagedMemory(0x10000, PagedMemory.Type.RAM, computer);
+        blank = new PagedMemory(0x100, PagedMemory.Type.RAM, computer);
 
         // Format memory with FF FF 00 00 pattern
         for (int i = 0; i < 0x0100; i++) {

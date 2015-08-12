@@ -33,8 +33,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Representation of a 140kb floppy disk image. This also performs conversions as
- * needed. Internally, the emulator will always use a "nibblized" disk
+ * Representation of a 140kb floppy disk image. This also performs conversions
+ * as needed. Internally, the emulator will always use a "nibblized" disk
  * representation during active use. So if any sort of dsk/do/po image is loaded
  * it will be converted first. If changes are made to the disk then the tracks
  * will be converted back into de-nibblized form prior to saving. The
@@ -42,7 +42,7 @@ import java.util.logging.Logger;
  * load/save various disk formats and hold the active disk image while it is in
  * use.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Stateful
 public class FloppyDisk {
@@ -108,6 +108,7 @@ public class FloppyDisk {
     /**
      *
      * @param diskFile
+     * @param computer
      * @throws IOException
      */
     public FloppyDisk(File diskFile, Computer computer) throws IOException {
@@ -278,13 +279,12 @@ public class FloppyDisk {
     }
 
     void updateNibblizedTrack(Integer track) {
-        try {
-            RandomAccessFile disk = new RandomAccessFile(diskPath, "rws");
+        // Locate start of track
+        try (RandomAccessFile disk = new RandomAccessFile(diskPath, "rws")) {
             // Locate start of track
             disk.seek(headerLength + track * TRACK_NIBBLE_LENGTH);
             // Update that section of the disk image
             disk.write(nibbles, track * TRACK_NIBBLE_LENGTH, TRACK_NIBBLE_LENGTH);
-            disk.close();
         } catch (FileNotFoundException ex) {
             Logger.getLogger(FloppyDisk.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {

@@ -136,14 +136,14 @@ public class FileNode extends DiskNode {
     @Override
     public void doAllocate() throws IOException {
         int dataBlocks = (int) ((getPhysicalFile().length() / ProdosVirtualDisk.BLOCK_SIZE) + 1);
-        int treeBlocks = 0;
+        int treeBlocks;
         if (dataBlocks > 1 && dataBlocks < 257) {
             treeBlocks = 1;
         } else {
             treeBlocks = 1 + (dataBlocks / 256);
         }
         for (int i = 1; i < dataBlocks + treeBlocks; i++) {
-            new SubNode(i, this);
+            SubNode subNode = new SubNode(i, this);
         }
     }
 
@@ -183,10 +183,10 @@ public class FileNode extends DiskNode {
     }
 
     private void readFile(byte[] buffer, int start) throws IOException {
-        FileInputStream f = new FileInputStream(physicalFile);
-        f.skip(start * ProdosVirtualDisk.BLOCK_SIZE);
-        f.read(buffer, 0, ProdosVirtualDisk.BLOCK_SIZE);
-        f.close();
+        try (FileInputStream f = new FileInputStream(physicalFile)) {
+            f.skip(start * ProdosVirtualDisk.BLOCK_SIZE);
+            f.read(buffer, 0, ProdosVirtualDisk.BLOCK_SIZE);
+        }
     }
 
     private void generateIndex(byte[] buffer, int indexStart, int indexLimit) {
