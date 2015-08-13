@@ -87,7 +87,7 @@ public class Apple2e extends Computer {
     @ConfigurableField(name = "Aux Ram", shortName = "ram", description = "Aux ram card")
     public ClassSelection ramCard = new ClassSelection(RAM128k.class, CardExt80Col.class);
     @ConfigurableField(name = "Joystick 1 Enabled", shortName = "joy1", description = "If unchecked, then there is no joystick support.", enablesDevice = true)
-    public boolean joy1enabled = false;
+    public boolean joy1enabled = true;
     @ConfigurableField(name = "Joystick 2 Enabled", shortName = "joy2", description = "If unchecked, then there is no joystick support.", enablesDevice = true)
     public boolean joy2enabled = false;
     @ConfigurableField(name = "No-Slot Clock Enabled", shortName = "clock", description = "If checked, no-slot clock will be enabled", enablesDevice = true)

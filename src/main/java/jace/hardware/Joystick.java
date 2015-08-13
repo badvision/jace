@@ -47,11 +47,11 @@ import java.util.logging.Logger;
 @Stateful
 public class Joystick extends Device {
     @ConfigurableField(name = "Center Mouse", shortName = "center", description = "Moves mouse back to the center of the screen, can get annoying.")
-    public boolean centerMouse;
+    public boolean centerMouse = false;
     @ConfigurableField(name = "Use keyboard", shortName = "useKeys", description = "Arrow keys will control joystick instead of the mouse.")
-    public boolean useKeyboard;
+    public boolean useKeyboard = true;
     @ConfigurableField(name = "Hog keypresses", shortName = "hog", description = "Key presses will not be sent to emulator.")
-    public boolean hogKeyboard;
+    public boolean hogKeyboard = false;
     public int port;
     @Stateful
     public int x = 0;
