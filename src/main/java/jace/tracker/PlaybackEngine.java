@@ -69,7 +69,7 @@ public class PlaybackEngine extends Computer {
             throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         }
     };
-    Motherboard motherboard = new Motherboard(dummyComputer);
+    Motherboard motherboard = new Motherboard(dummyComputer, null);
     CardMockingboard mockingboard = new CardMockingboard(dummyComputer);
 
     public PlaybackEngine() {

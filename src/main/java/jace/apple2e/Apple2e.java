@@ -124,7 +124,8 @@ public class Apple2e extends Computer {
         if (motherboard != null && motherboard.isRunning()) {
             motherboard.suspend();
         }
-        motherboard = new Motherboard(this);
+        motherboard = new Motherboard(this, motherboard);
+        reconfigure();
         motherboard.reconfigure();
     }
 
@@ -132,7 +133,6 @@ public class Apple2e extends Computer {
     public void coldStart() {
         pause();
         reinitMotherboard();
-        //getMemory().dump();
         for (SoftSwitches s : SoftSwitches.values()) {
             s.getSwitch().reset();
         }
@@ -143,10 +143,6 @@ public class Apple2e extends Computer {
         }
         reboot();
         resume();
-        /*
-         getCpu().resume();
-         getVideo().resume();
-         */
     }
 
     public void reboot() {
@@ -476,5 +472,9 @@ public class Apple2e extends Computer {
     @Override
     public String getShortName() {
         return "computer";
+    }
+
+    private void attachMiscDevices() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }

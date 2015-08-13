@@ -110,6 +110,7 @@ public abstract class Device implements Reconfigurable {
 
     public void resume() {
         setRun(true);
+        waitCycles = 0;
     }
 
     public abstract void attach();

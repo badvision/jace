@@ -197,13 +197,13 @@ public class Joystick extends Device {
 
         @Override
         protected void doEvent(RAMEvent e) {
-            setRun(true);
             readJoystick();
             xSwitch.setState(true);
             x = 10 + joyX * 11;
             ySwitch.setState(true);
             y = 10 + joyY * 11;
             e.setNewValue(computer.getVideo().getFloatingBus());
+            resume();
         }
     };
 

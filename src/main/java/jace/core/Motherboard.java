@@ -58,9 +58,14 @@ public class Motherboard extends TimedDevice {
     /**
      * Creates a new instance of Motherboard
      * @param computer
+     * @param oldMotherboard
      */
-    public Motherboard(Computer computer) {
+    public Motherboard(Computer computer, Motherboard oldMotherboard) {
         super(computer);
+        if (oldMotherboard != null) {
+            miscDevices.addAll(oldMotherboard.miscDevices);
+            speaker = oldMotherboard.speaker;
+        }
     }
 
     @Override
