@@ -91,8 +91,8 @@ public class Joystick extends Device {
 
     private void readJoystick() {
         if (useKeyboard) {
-            joyX = leftPressed ? (rightPressed ? 128 : 0) : (rightPressed ? 255 : 128);
-            joyY = upPressed ? (downPressed ? 128 : 0) : (downPressed ? 255 : 128);
+            joyX = (leftPressed ? -128 : 0) + (rightPressed ? 255:128);
+            joyY = (upPressed ? -128 : 0) + (downPressed ? 255:128);
         } else {
             Point l = MouseInfo.getPointerInfo().getLocation();
             if (l.x < lastMouseLocation.x) {
@@ -209,6 +209,7 @@ public class Joystick extends Device {
 
     @InvokableAction(name = "Left", category = "joystick", defaultKeyMapping = "left", notifyOnRelease = true)
     public boolean joystickLeft(boolean pressed) {
+        if (!useKeyboard) return false;
         leftPressed = pressed;
         if (pressed) {
             rightPressed = false;
@@ -219,6 +220,7 @@ public class Joystick extends Device {
     ;
     @InvokableAction(name = "Right", category = "joystick", defaultKeyMapping = "right", notifyOnRelease = true)
     public boolean joystickRight(boolean pressed) {
+        if (!useKeyboard) return false;
         rightPressed = pressed;
         if (pressed) {
             leftPressed = false;
@@ -229,6 +231,7 @@ public class Joystick extends Device {
     ;
     @InvokableAction(name = "Up", category = "joystick", defaultKeyMapping = "up", notifyOnRelease = true)
     public boolean joystickUp(boolean pressed) {
+        if (!useKeyboard) return false;
         upPressed = pressed;
         if (pressed) {
             downPressed = false;
@@ -239,6 +242,7 @@ public class Joystick extends Device {
     ;
     @InvokableAction(name = "Down", category = "joystick", defaultKeyMapping = "down", notifyOnRelease = true)
     public boolean joystickDown(boolean pressed) {
+        if (!useKeyboard) return false;
         downPressed = pressed;
         if (pressed) {
             upPressed = false;
@@ -252,6 +256,6 @@ public class Joystick extends Device {
 
     private void removeListeners() {
         computer.getMemory().removeListener(listener);
-        Keyboard.unregisterAllHandlers(this);
+//        Keyboard.unregisterAllHandlers(this);
     }
 }
