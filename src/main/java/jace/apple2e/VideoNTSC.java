@@ -23,6 +23,7 @@ import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.core.Video;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import javafx.scene.image.PixelWriter;
@@ -69,6 +70,9 @@ public class VideoNTSC extends VideoDHGR {
     @Override
     protected void showBW(WritableImage screen, int x, int y, int dhgrWord) {
         int pos = divBy28[x];
+        if (rowStart < 0) {
+            rowStart = pos;
+        }
         colorActive[pos * 4] = colorActive[pos * 4 + 1] = colorActive[pos * 4 + 2] = colorActive[pos * 4 + 3] = false;
         scanline[pos] = dhgrWord;
     }
@@ -76,6 +80,9 @@ public class VideoNTSC extends VideoDHGR {
     @Override
     protected void showDhgr(WritableImage screen, int x, int y, int dhgrWord) {
         int pos = divBy28[x];
+        if (rowStart < 0) {
+            rowStart = pos;
+        }
         colorActive[pos * 4] = colorActive[pos * 4 + 1] = colorActive[pos * 4 + 2] = colorActive[pos * 4 + 3] = true;
         scanline[pos] = dhgrWord;
     }
@@ -83,6 +90,9 @@ public class VideoNTSC extends VideoDHGR {
     @Override
     protected void displayLores(WritableImage screen, int xOffset, int y, int rowAddress) {
         int pos = xOffset >> 1;
+        if (rowStart < 0) {
+            rowStart = pos;
+        }
         colorActive[xOffset * 2] = colorActive[xOffset * 2 + 1] = true;
         int data = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((xOffset & 1) == 0) {
@@ -108,6 +118,9 @@ public class VideoNTSC extends VideoDHGR {
     @Override
     protected void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
         int pos = xOffset >> 1;
+        if (rowStart < 0) {
+            rowStart = pos;
+        }
         colorActive[xOffset * 2] = colorActive[xOffset * 2 + 1] = true;
         int c1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
@@ -154,15 +167,15 @@ public class VideoNTSC extends VideoDHGR {
     }
 
     private void renderScanline(WritableImage screen, int y) {
-        PixelWriter writer = screen.getPixelWriter();
-            // This is equivilant to y*560 but is 5% faster
-        //int yOffset = ((y << 4) + (y << 5) + (y << 9))+xOffset;
-
-        // For some reason this jumps up to 40 in the wayout title screen (?)
         int p = 0;
-        if (rowStart > 0) {
-            getCurrentWriter().markDirty(y);
+        if (rowStart != 0) {
+//            getCurrentWriter().markDirty(y);
+            p = rowStart * 28;
+            if (rowStart < 0) {
+                return;
+            }
         }
+        PixelWriter writer = screen.getPixelWriter();
         // Reset scanline position
         int byteCounter = 0;
         for (int s = rowStart; s < 20; s++) {
@@ -209,6 +222,8 @@ public class VideoNTSC extends VideoDHGR {
 //                        }
 //                    }
         }
+        Arrays.fill(scanline, 0);
+        rowStart = -1;
     }
     // y Range [0,1]
     public static final double MIN_Y = 0;

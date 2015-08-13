@@ -130,15 +130,12 @@ public abstract class Video extends Device {
     @ConfigurableField(category = "video", name = "Min. Screen Refesh", defaultValue = "15", description = "Minimum number of miliseconds to wait before trying to redraw.")
     public static int MIN_SCREEN_REFRESH = 15;
 
+    Runnable redrawScreen = () -> {
+        visible.getPixelWriter().setPixels(0, 0, 560, 192, video.getPixelReader(), 0, 0);
+    };
     public void redraw() {
         screenDirty = false;
-        javafx.application.Platform.runLater(() -> {
-            visible.getPixelWriter().setPixels(0, 0, 560, 192, video.getPixelReader(), 0, 0);
-        });
-//        screen.drawImage(video, 0, 0, width, height, null);
-//        if (Emulator.getFrame() != null) {
-//            Emulator.getFrame().repaintIndicators();
-//        }
+        javafx.application.Platform.runLater(redrawScreen);
     }
 
     public void vblankStart() {
@@ -160,15 +157,15 @@ public abstract class Video extends Device {
         setFloatingBus(computer.getMemory().readRaw(scannerAddress + x));
         if (hPeriod > 0) {
             hPeriod--;
-            if (hPeriod == 0) {
+            if (hPeriod <= 1) {
                 x = -1;
                 setScannerLocation(currentWriter.getYOffset(y));
             }
         } else {
-            if (!isVblank && x < (APPLE_CYCLES_PER_LINE-1)) {
+            if (!isVblank && x < (APPLE_CYCLES_PER_LINE)) {
                 draw();
             }
-            if (x >= APPLE_CYCLES_PER_LINE - 1) {
+            if (x >= APPLE_CYCLES_PER_LINE) {
                 int yy = y + hblankOffsetY;
                 if (yy < 0) {
                     yy += APPLE_SCREEN_LINES;

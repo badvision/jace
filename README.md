@@ -14,7 +14,7 @@ Jace is a java-based Apple //e emulator with many compelling features:
 * MetaCheat also provides a live heat-map showing all RAM activity, color coded to indicate read, write or CPU execution -- Perfect for reverse engineers
 * Optional Debugging rom (][DB) can be enabled for a more powerful monitor
 * Super serial emulated as a tcp/ip port
-* Mockingboard support, partial Phasor support
+* Mockingboard and Phasor support
 * Highly flexible configuration allows any combination of cards and many extra options. You can even alter configuration while the emulation is running!
 
 ![Airheart](https://sites.google.com/site/brendanrobert/_/rsrc/1327073239228/projects/jace/airheart.png?height=250&width=400)
