@@ -324,8 +324,8 @@ public class Apple2e extends Computer {
                 }
                 if (startCheats) {
                     try {
-                        activeCheatEngine = (Cheats) cheatEngine.getValue().newInstance();
-                    } catch (InstantiationException | IllegalAccessException ex) {
+                        activeCheatEngine = (Cheats) cheatEngine.getValue().getConstructor(Computer.class).newInstance(this);
+                    } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException | IllegalArgumentException | InvocationTargetException ex) {
                         Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     activeCheatEngine.attach();
