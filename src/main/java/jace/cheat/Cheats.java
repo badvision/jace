@@ -19,7 +19,6 @@
 package jace.cheat;
 
 import jace.apple2e.MOS65C02;
-import jace.apple2e.SoftSwitches;
 import jace.core.Computer;
 import jace.core.Device;
 import jace.core.RAMEvent;
@@ -42,40 +41,32 @@ public abstract class Cheats extends Device {
     }
 
     public void bypassCode(int address, int addressEnd) {
-        addCheat(RAMEvent.TYPE.READ, address, addressEnd, (e) -> {
-            e.setNewValue(MOS65C02.COMMAND.NOP.ordinal());
-        });
+        int noOperation = MOS65C02.COMMAND.NOP.ordinal();
+        addCheat(RAMEvent.TYPE.READ, (e) -> {e.setNewValue(noOperation);}, address, addressEnd);
     }
 
-    public void forceValue(int address, int value) {
-        addCheat(RAMEvent.TYPE.READ, address, (e) -> {
-            e.setNewValue(value);
-        });
+    public void forceValue(int value, int... address) {
+        addCheat(RAMEvent.TYPE.READ, (e) -> {e.setNewValue(value);}, address);
     }
     
-    public void forceValue(int address, boolean auxFlag, int value) {
-        addCheat(RAMEvent.TYPE.READ, address, (e) -> {
-            if (address < 0x0100) {
-                if (SoftSwitches.AUXZP.getState() != auxFlag) {
-                    return;
-                }
-            } else {
-                if (SoftSwitches.RAMRD.getState() != auxFlag) {
-                    return;
-                }
-            }
-            e.setNewValue(value);
-        });
+    public void forceValue(int value, boolean auxFlag, int... address) {
+        addCheat(RAMEvent.TYPE.READ, auxFlag, (e) -> {e.setNewValue(value);}, address);
     }    
 
-    public void addCheat(RAMEvent.TYPE type, int address, RAMEvent.RAMEventHandler handler) {
-        RAMListener l = computer.getMemory().observe(type, address, handler);
-        listeners.add(l);
+    public void addCheat(RAMEvent.TYPE type, RAMEvent.RAMEventHandler handler, int... address) {
+        if (address.length == 1) {
+            listeners.add(computer.getMemory().observe(type, address[0], handler));
+        } else {
+            listeners.add(computer.getMemory().observe(type, address[0], address[1], handler));            
+        }
     }
-
-    public void addCheat(RAMEvent.TYPE type, int addressStart, int addressEnd, RAMEvent.RAMEventHandler handler) {
-        RAMListener l = computer.getMemory().observe(type, addressStart, addressEnd, handler);
-        listeners.add(l);
+    
+    public void addCheat(RAMEvent.TYPE type, boolean auxFlag, RAMEvent.RAMEventHandler handler, int... address) {
+        if (address.length == 1) {
+            listeners.add(computer.getMemory().observe(type, address[0], auxFlag, handler));
+        } else {
+            listeners.add(computer.getMemory().observe(type, address[0], address[1], auxFlag, handler));            
+        }
     }
 
     @Override

@@ -31,9 +31,10 @@ import java.util.Optional;
  * manages cards in the emulator because they are tied into the MMU memory
  * bankswitch logic.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public abstract class RAM implements Reconfigurable {
+
     public PagedMemory activeRead;
     public PagedMemory activeWrite;
     public List<RAMListener> listeners;
@@ -46,13 +47,14 @@ public abstract class RAM implements Reconfigurable {
 
     /**
      * Creates a new instance of RAM
+     *
      * @param computer
      */
     public RAM(Computer computer) {
         this.computer = computer;
         listeners = new ArrayList<>();
         cards = new Optional[8];
-        for (int i=0; i < 8; i ++) {
+        for (int i = 0; i < 8; i++) {
             cards[i] = Optional.empty();
         }
         refreshListenerMap();
@@ -202,36 +204,80 @@ public abstract class RAM implements Reconfigurable {
             addListenerRange(l);
         });
     }
-    
+
     public RAMListener observe(RAMEvent.TYPE type, int address, RAMEvent.RAMEventHandler handler) {
-        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {            
+        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
             @Override
             protected void doConfig() {
                 setScopeStart(address);
             }
-            
+
             @Override
             protected void doEvent(RAMEvent e) {
                 handler.handleEvent(e);
             }
         });
     }
-    
+
+    public RAMListener observe(RAMEvent.TYPE type, int address, boolean auxFlag, RAMEvent.RAMEventHandler handler) {
+        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+            @Override
+            protected void doConfig() {
+                setScopeStart(address);
+            }
+
+            @Override
+            protected void doEvent(RAMEvent e) {
+                if (isAuxFlagCorrect(e, auxFlag)) {
+                    handler.handleEvent(e);
+                }
+            }
+        });
+    }
+
     public RAMListener observe(RAMEvent.TYPE type, int addressStart, int addressEnd, RAMEvent.RAMEventHandler handler) {
-        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {            
+        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
             @Override
             protected void doConfig() {
                 setScopeStart(addressStart);
                 setScopeEnd(addressEnd);
             }
-            
+
             @Override
             protected void doEvent(RAMEvent e) {
                 handler.handleEvent(e);
             }
         });
-    }    
-        
+    }
+
+    public RAMListener observe(RAMEvent.TYPE type, int addressStart, int addressEnd, boolean auxFlag, RAMEvent.RAMEventHandler handler) {
+        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+            @Override
+            protected void doConfig() {
+                setScopeStart(addressStart);
+                setScopeEnd(addressEnd);
+            }
+
+            @Override
+            protected void doEvent(RAMEvent e) {
+                if (isAuxFlagCorrect(e, auxFlag)) {
+                    handler.handleEvent(e);
+                }
+            }
+        });
+    }
+
+    private boolean isAuxFlagCorrect(RAMEvent e, boolean auxFlag) {
+        if (e.getAddress() < 0x0100) {
+            if (SoftSwitches.AUXZP.getState() != auxFlag) {
+                return false;
+            }
+        } else if (SoftSwitches.RAMRD.getState() != auxFlag) {
+            return false;
+        }
+        return true;
+    }
+
     public RAMListener addListener(final RAMListener l) {
         boolean restart = computer.pause();
         if (listeners.contains(l)) {
@@ -321,7 +367,8 @@ public abstract class RAM implements Reconfigurable {
 //            System.out.println(Integer.toString(i, 16)+":"+part1+" -> "+part2);
         }
     }
-    
+
     abstract public void attach();
+
     abstract public void detach();
 }

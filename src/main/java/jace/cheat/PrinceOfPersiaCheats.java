@@ -173,19 +173,19 @@ public class PrinceOfPersiaCheats extends Cheats {
     @Override
     public void registerListeners() {
         if (velocityHack) {
-            addCheat(RAMEvent.TYPE.READ_DATA, CharYVel, this::velocityHackBehavior);
+            addCheat(RAMEvent.TYPE.READ_DATA, true, this::velocityHackBehavior, CharYVel);
         }
         if (invincibilityHack) {
-            forceValue(KidStrength, true, 3);
+            forceValue(3, true, KidStrength);
         }
         if (sleepHack) {
-            forceValue(EnemyAlert, true, 0);
+            forceValue(0, true, EnemyAlert);
         }
         if (swordHack) {
-            forceValue(hasSword, true, 1);
+            forceValue(1, true, hasSword);
         }
         if (timeHack) {
-            forceValue(MinLeft, true, 0x069);
+            forceValue(0x69, true, MinLeft);
         }
         if (mouseHack) {
             EmulatorUILogic.addMouseListener(listener);
@@ -201,15 +201,12 @@ public class PrinceOfPersiaCheats extends Cheats {
     }
     public static int BlueType = 0x0b700;
 
-    private void velocityHackBehavior(RAMEvent e) {
-        if (!SoftSwitches.AUXZP.getState()) {
-            return;
-        }
-        int newVel = e.getNewValue();
+    private void velocityHackBehavior(RAMEvent velocityChangeEvent) {
+        int newVel = velocityChangeEvent.getNewValue();
         if (newVel > 5) {
             newVel = 1;
         }
-        e.setNewValue(newVel & 0x0ff);
+        velocityChangeEvent.setNewValue(newVel & 0x0ff);
     }
 
     public void mouseClicked(MouseButton button) {

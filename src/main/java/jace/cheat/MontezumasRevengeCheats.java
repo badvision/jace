@@ -1,7 +1,6 @@
 package jace.cheat;
 
 import jace.EmulatorUILogic;
-import jace.apple2e.MOS65C02;
 import jace.config.ConfigurableField;
 import jace.core.Computer;
 import jace.core.RAMEvent;
@@ -65,17 +64,17 @@ public class MontezumasRevengeCheats extends Cheats {
     @Override
     void registerListeners() {
         if (repulsiveHack) {
-            addCheat(RAMEvent.TYPE.WRITE, 0x1508, 0x1518, this::repulsiveBehavior);
+            addCheat(RAMEvent.TYPE.WRITE, this::repulsiveBehavior, 0x1508, 0x1518);
         }
 
         if (featherFall) {
-            addCheat(RAMEvent.TYPE.WRITE, PLAYER_Y, this::featherFallBehavior);
+            addCheat(RAMEvent.TYPE.WRITE, this::featherFallBehavior, PLAYER_Y);
             // Bypass the part that realizes you should die when you hit the floor
             bypassCode(0x6bb3, 0x6bb4);
         }
 
         if (moonJump) {
-            addCheat(RAMEvent.TYPE.WRITE, Y_VELOCITY, this::moonJumpBehavior);
+            addCheat(RAMEvent.TYPE.WRITE, this::moonJumpBehavior, Y_VELOCITY);
         }
 
         if (infiniteLives) {
@@ -84,9 +83,9 @@ public class MontezumasRevengeCheats extends Cheats {
 
         if (scoreHack) {
             // Score: 900913
-            forceValue(SCORE, 0x90);
-            forceValue(SCORE + 1, 0x09);
-            forceValue(SCORE + 2, 0x13);
+            forceValue(0x90, SCORE);
+            forceValue(0x09, SCORE + 1);
+            forceValue(0x13, SCORE + 2);
         }
 
         if (snakeCharmer) {
