@@ -46,6 +46,7 @@ public abstract class RAM implements Reconfigurable {
 
     /**
      * Creates a new instance of RAM
+     * @param computer
      */
     public RAM(Computer computer) {
         this.computer = computer;
@@ -151,9 +152,6 @@ public abstract class RAM implements Reconfigurable {
         int lsb = 0x00ff & read(address, eventType, triggerEvent, requireSynchronization);
         int msb = (0x00ff & read(address + 1, eventType, triggerEvent, requireSynchronization)) << 8;
         int value = msb + lsb;
-//        if (generateEvent) {
-//            callListener(RAMEvent.TYPE.READ, address, value, value);
-//        }
         return value;
     }
 
@@ -204,17 +202,47 @@ public abstract class RAM implements Reconfigurable {
             addListenerRange(l);
         });
     }
-
-    public void addListener(final RAMListener l) {
+    
+    public RAMListener observe(RAMEvent.TYPE type, int address, RAMEvent.RAMEventHandler handler) {
+        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {            
+            @Override
+            protected void doConfig() {
+                setScopeStart(address);
+            }
+            
+            @Override
+            protected void doEvent(RAMEvent e) {
+                handler.handleEvent(e);
+            }
+        });
+    }
+    
+    public RAMListener observe(RAMEvent.TYPE type, int addressStart, int addressEnd, RAMEvent.RAMEventHandler handler) {
+        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {            
+            @Override
+            protected void doConfig() {
+                setScopeStart(addressStart);
+                setScopeEnd(addressEnd);
+            }
+            
+            @Override
+            protected void doEvent(RAMEvent e) {
+                handler.handleEvent(e);
+            }
+        });
+    }    
+        
+    public RAMListener addListener(final RAMListener l) {
         boolean restart = computer.pause();
         if (listeners.contains(l)) {
-            return;
+            return l;
         }
         listeners.add(l);
         addListenerRange(l);
         if (restart) {
             computer.resume();
         }
+        return l;
     }
 
     public void removeListener(final RAMListener l) {

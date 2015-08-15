@@ -25,20 +25,19 @@ import jace.config.ConfigurableField;
 import jace.core.Computer;
 import jace.core.PagedMemory;
 import jace.core.RAMEvent;
-import jace.core.RAMListener;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
 import javafx.scene.input.MouseButton;
 
 /**
- * Prince of Persia game cheats.  This would not have been possible without the
+ * Prince of Persia game cheats. This would not have been possible without the
  * source. I am eternally grateful to Jordan Mechner both for creating this
  * game, and for being so kind to release the source code to it so that we can
  * learn how it works. Where possible, I've indicated where I found the various
  * game variables in the original source so that it might help anyone else
  * trying to learn how this game works.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class PrinceOfPersiaCheats extends Cheats {
 
@@ -56,7 +55,6 @@ public class PrinceOfPersiaCheats extends Cheats {
     public static boolean swordHack;
     @ConfigurableField(category = "Hack", name = "Mouse", defaultValue = "false", description = "Left click kills/opens, Right click teleports")
     public static boolean mouseHack;
-    boolean mouseRegistered = false;
     public static int PREV = 0x02b;
     public static int SPREV = 0x02e;
     public static int CharPosn = 0x040;
@@ -166,7 +164,7 @@ public class PrinceOfPersiaCheats extends Cheats {
     protected String getDeviceName() {
         return ("Prince of Persia");
     }
-    
+
     @Override
     public void tick() {
         // Do nothing
@@ -175,94 +173,19 @@ public class PrinceOfPersiaCheats extends Cheats {
     @Override
     public void registerListeners() {
         if (velocityHack) {
-            addCheat(new RAMListener(RAMEvent.TYPE.READ_DATA, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-                @Override
-                protected void doConfig() {
-                    setScopeStart(CharYVel);
-                }
-
-                @Override
-                protected void doEvent(RAMEvent e) {
-                    registerMouse();
-                    if (!SoftSwitches.AUXZP.getState()) {
-                        return;
-                    }
-                    int newVel = e.getNewValue();
-                    if (newVel > 5) {
-                        newVel = 1;
-                    }
-                    e.setNewValue(newVel & 0x0ff);
-                }
-            });
+            addCheat(RAMEvent.TYPE.READ_DATA, CharYVel, this::velocityHackBehavior);
         }
-
         if (invincibilityHack) {
-            addCheat(new RAMListener(RAMEvent.TYPE.READ_DATA, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-                @Override
-                protected void doConfig() {
-                    setScopeStart(KidStrength);
-                }
-
-                @Override
-                protected void doEvent(RAMEvent e) {
-                    registerMouse();
-                    if (!SoftSwitches.AUXZP.getState()) {
-                        return;
-                    }
-                    e.setNewValue(3);
-                }
-            });
+            forceValue(KidStrength, true, 3);
         }
         if (sleepHack) {
-            addCheat(new RAMListener(RAMEvent.TYPE.READ_DATA, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-                @Override
-                protected void doConfig() {
-                    setScopeStart(EnemyAlert);
-                }
-
-                @Override
-                protected void doEvent(RAMEvent e) {
-                    registerMouse();
-                    if (!SoftSwitches.AUXZP.getState()) {
-                        return;
-                    }
-                    e.setNewValue(0);
-                }
-            });
+            forceValue(EnemyAlert, true, 0);
         }
         if (swordHack) {
-            addCheat(new RAMListener(RAMEvent.TYPE.READ_DATA, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-                @Override
-                protected void doConfig() {
-                    setScopeStart(hasSword);
-                }
-
-                @Override
-                protected void doEvent(RAMEvent e) {
-                    registerMouse();
-                    if (!SoftSwitches.AUXZP.getState()) {
-                        return;
-                    }
-                    e.setNewValue(1);
-                }
-            });
+            forceValue(hasSword, true, 1);
         }
         if (timeHack) {
-            addCheat(new RAMListener(RAMEvent.TYPE.READ_DATA, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-                @Override
-                protected void doConfig() {
-                    setScopeStart(MinLeft);
-                }
-
-                @Override
-                protected void doEvent(RAMEvent e) {
-                    registerMouse();
-                    if (!SoftSwitches.AUXZP.getState()) {
-                        return;
-                    }
-                    e.setNewValue(0x069);
-                }
-            });
+            forceValue(MinLeft, true, 0x069);
         }
         if (mouseHack) {
             EmulatorUILogic.addMouseListener(listener);
@@ -275,15 +198,18 @@ public class PrinceOfPersiaCheats extends Cheats {
     public void unregisterListeners() {
         super.unregisterListeners();
         EmulatorUILogic.removeMouseListener(listener);
-        mouseRegistered = false;
     }
     public static int BlueType = 0x0b700;
 
-    public void registerMouse() {
-        if (mouseRegistered) {
-            EmulatorUILogic.addMouseListener(listener);
-            mouseRegistered = false;
+    private void velocityHackBehavior(RAMEvent e) {
+        if (!SoftSwitches.AUXZP.getState()) {
+            return;
         }
+        int newVel = e.getNewValue();
+        if (newVel > 5) {
+            newVel = 1;
+        }
+        e.setNewValue(newVel & 0x0ff);
     }
 
     public void mouseClicked(MouseButton button) {
@@ -291,7 +217,7 @@ public class PrinceOfPersiaCheats extends Cheats {
         // Offset y by three pixels to account for tiles above
         Double y = mouseY - 0.015625;
         // Now we have the x and y coordinates ranging from 0 to 1.0, scale to POP values
-        
+
         int row = y < 0 ? -1 : (int) (y * 3);
         int col = (int) (x * 10);
 
@@ -310,7 +236,6 @@ public class PrinceOfPersiaCheats extends Cheats {
 
         // Note: POP uses a 255-pixel horizontal axis, Pixels 0-57 are offscreen to the left
         // and 198-255 offscreen to the right.
-
 //        System.out.println("Clicked on " + col + "," + row + " -- screen " + (x * 280) + "," + (y * 192));
         RAM128k mem = (RAM128k) computer.getMemory();
         PagedMemory auxMem = mem.getAuxMemory();

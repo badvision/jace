@@ -29,8 +29,8 @@ import jace.core.RAMEvent.TYPE;
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
  */
-public abstract class RAMListener {
-
+public abstract class RAMListener implements RAMEvent.RAMEventHandler {
+    
     private RAMEvent.TYPE type;
     private RAMEvent.SCOPE scope;
     private RAMEvent.VALUE value;
@@ -156,7 +156,8 @@ public abstract class RAMListener {
         // If we've made it this far then the event is valid.
         return true;
     }
-
+    
+    @Override
     public void handleEvent(RAMEvent e) {
         if (isRelevant(e)) {
             doEvent(e);

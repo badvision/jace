@@ -31,6 +31,10 @@ package jace.core;
  */
 public class RAMEvent {
 
+    static public interface RAMEventHandler {
+        public void handleEvent(RAMEvent e);
+    }
+
     public enum TYPE {
 
         READ(true),
