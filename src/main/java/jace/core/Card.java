@@ -31,7 +31,7 @@ import jace.apple2e.SoftSwitches;
  * synchronization.
  * Created on February 1, 2007, 5:35 PM
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public abstract class Card extends Device {
 
@@ -44,6 +44,7 @@ public abstract class Card extends Device {
 
     /**
      * Creates a new instance of Card
+     *
      * @param computer
      */
     public Card(Computer computer) {
@@ -117,72 +118,32 @@ public abstract class Card extends Device {
     }
 
     protected void registerListeners() {
-        ioListener = new RAMListener(
-                RAMEvent.TYPE.ANY,
-                RAMEvent.SCOPE.RANGE,
-                RAMEvent.VALUE.ANY) {
-            @Override
-            protected void doConfig() {
-                setScopeStart(slot * 16 + 0x00c080);
-                setScopeEnd(slot * 16 + 0x00c08F);
-            }
+        RAM memory = computer.getMemory();
+        int baseIO = 0x0c080 + slot * 16;
+        int baseRom = 0x0c000 + slot * 256;
+        ioListener = memory.observe(RAMEvent.TYPE.ANY, baseIO, baseIO + 15, (e) -> {
+            int address = e.getAddress() & 0x0f;
+            handleIOAccess(address, e.getType(), e.getNewValue(), e);
+        });
 
-            @Override
-            protected void doEvent(RAMEvent e) {
-                int address = e.getAddress() & 0x0f;
-                handleIOAccess(address, e.getType(), e.getNewValue(), e);
-            }
-        };
-
-        firmwareListener = new RAMListener(
-                RAMEvent.TYPE.ANY,
-                RAMEvent.SCOPE.RANGE,
-                RAMEvent.VALUE.ANY) {
-            @Override
-            protected void doConfig() {
-                setScopeStart(slot * 256 + 0x00c000);
-                setScopeEnd(slot * 256 + 0x00c0ff);
-            }
-
-            @Override
-            protected void doEvent(RAMEvent e) {
-                computer.getMemory().setActiveCard(slot);
-                if (SoftSwitches.CXROM.getState()) {
-                    return;
-                }
+        firmwareListener = memory.observe(RAMEvent.TYPE.ANY, baseRom, baseRom + 255, (e) -> {
+            computer.getMemory().setActiveCard(slot);
+            if (SoftSwitches.CXROM.isOff()) {
                 handleFirmwareAccess(e.getAddress() & 0x0ff, e.getType(), e.getNewValue(), e);
             }
-        };
+        });
 
-        c8firmwareListener = new RAMListener(
-                RAMEvent.TYPE.ANY,
-                RAMEvent.SCOPE.RANGE,
-                RAMEvent.VALUE.ANY) {
-            @Override
-            protected void doConfig() {
-                setScopeStart(slot * 256 + 0x00c800);
-                setScopeEnd(slot * 256 + 0x00cfff);
-            }
-
-            @Override
-            protected void doEvent(RAMEvent e) {
-                if (SoftSwitches.CXROM.getState()
-                        || computer.getMemory().getActiveSlot() != getSlot()
-                        || SoftSwitches.INTC8ROM.getState()) {
-                    return;
-                }
+        c8firmwareListener = memory.observe(RAMEvent.TYPE.ANY, 0xc800, 0xcfff, (e) -> {
+            if (SoftSwitches.CXROM.isOff() && SoftSwitches.INTC8ROM.isOff()
+                    && computer.getMemory().getActiveSlot() == slot) {
                 handleC8FirmwareAccess(e.getAddress() - 0x0c800, e.getType(), e.getNewValue(), e);
             }
-        };
-
-        computer.getMemory().addListener(ioListener);
-        computer.getMemory().addListener(firmwareListener);
-        computer.getMemory().addListener(c8firmwareListener);
+        });
     }
 
     protected void unregisterListeners() {
         computer.getMemory().removeListener(ioListener);
         computer.getMemory().removeListener(firmwareListener);
         computer.getMemory().removeListener(c8firmwareListener);
-   }    
+    }
 }

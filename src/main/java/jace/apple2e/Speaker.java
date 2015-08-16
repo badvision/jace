@@ -26,17 +26,17 @@ import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.core.SoundMixer;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.SourceDataLine;
-import java.io.FileNotFoundException;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.stage.FileChooser;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
 
 /**
  * Apple // Speaker Emulation Created on May 9, 2007, 9:55 PM
@@ -58,8 +58,8 @@ public class Speaker extends Device {
             out = null;
             fileOutputActive = false;
         } else {
-            FileChooser fileChooser = new FileChooser();           
-            File f =  fileChooser.showSaveDialog(null);
+            FileChooser fileChooser = new FileChooser();
+            File f = fileChooser.showSaveDialog(null);
             if (f == null) {
                 return;
             }
@@ -93,7 +93,7 @@ public class Speaker extends Device {
     /**
      * Number of samples in buffer
      */
-    static int BUFFER_SIZE = (int) (((float) SoundMixer.RATE) * 0.4);
+    static int BUFFER_SIZE = (int) (SoundMixer.RATE * 0.4);
     // Number of samples available in output stream before playback happens (avoid extra blocking)
 //    static int MIN_PLAYBACK_BUFFER = BUFFER_SIZE / 2;
     static int MIN_PLAYBACK_BUFFER = 64;
@@ -129,35 +129,13 @@ public class Speaker extends Device {
     byte[] secondaryBuffer;
     int bufferPos = 0;
     Timer playbackTimer;
-    private double TICKS_PER_SAMPLE = ((double) Motherboard.SPEED) / ((double) SoundMixer.RATE);
-    private double TICKS_PER_SAMPLE_FLOOR = Math.floor(TICKS_PER_SAMPLE);
-    private final RAMListener listener
-            = new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
-
-                @Override
-                public boolean isRelevant(RAMEvent e) {
-                    return true;
-                }
-
-                @Override
-                protected void doConfig() {
-                    setScopeStart(0x0C030);
-                    setScopeEnd(0x0C03F);
-                }
-
-                @Override
-                protected void doEvent(RAMEvent e) {
-                    if (e.getType() == RAMEvent.TYPE.WRITE) {
-                        level += 2;
-                    } else {
-                        speakerBit = !speakerBit;
-                    }
-                    resetIdle();
-                }
-            };
+    private final double TICKS_PER_SAMPLE = ((double) Motherboard.SPEED) / SoundMixer.RATE;
+    private final double TICKS_PER_SAMPLE_FLOOR = Math.floor(TICKS_PER_SAMPLE);
+    private RAMListener listener = null;
 
     /**
      * Creates a new instance of Speaker
+     *
      * @param computer
      */
     public Speaker(Computer computer) {
@@ -186,11 +164,12 @@ public class Speaker extends Device {
      */
     @Override
     public void resume() {
-        if (sdl != null && isRunning()) return;
-        System.out.println("Resuming speaker sound");
+        if (sdl != null && isRunning()) {
+            return;
+        }
         try {
             if (sdl == null || !sdl.isOpen()) {
-                sdl = computer.mixer.getLine(this);            
+                sdl = computer.mixer.getLine(this);
             }
             sdl.start();
             setRun(true);
@@ -199,14 +178,14 @@ public class Speaker extends Device {
             level = 0;
             bufferPos = 0;
             playbackTimer = new Timer();
-            playbackTimer.scheduleAtFixedRate(new TimerTask() {          
+            playbackTimer.scheduleAtFixedRate(new TimerTask() {
                 @Override
                 public void run() {
                     playCurrentBuffer();
                 }
             }, 10, 30);
         } catch (LineUnavailableException ex) {
-            System.out.println("ERROR: Could not output sound: " + ex.getMessage());
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, "ERROR: Could not output sound", ex);
         }
     }
 
@@ -275,11 +254,20 @@ public class Speaker extends Device {
         }
     }
 
+    private void toggleSpeaker(RAMEvent e) {
+        if (e.getType() == RAMEvent.TYPE.WRITE) {
+            level += 2;
+        } else {
+            speakerBit = !speakerBit;
+        }
+        resetIdle();
+    }
+
     /**
      * Add a memory event listener for C03x for capturing speaker events
      */
     private void configureListener() {
-        computer.getMemory().addListener(listener);
+        listener = computer.getMemory().observe(RAMEvent.TYPE.ANY, 0x0c030, 0x0c03f, this::toggleSpeaker);
     }
 
     private void removeListener() {

@@ -18,11 +18,12 @@
  */
 package jace.apple2e;
 
+import static jace.apple2e.VideoDHGR.BLACK;
 import jace.config.ConfigurableField;
 import jace.core.Computer;
+import jace.core.RAM;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
-import jace.core.Video;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -64,7 +65,7 @@ public class VideoNTSC extends VideoDHGR {
 
     public VideoNTSC(Computer computer) {
         super(computer);
-        createStateListeners();
+        registerStateListeners();
     }
 
     @Override
@@ -269,7 +270,7 @@ public class VideoNTSC extends VideoDHGR {
                     col = ((col & 8) >> 3) | ((col << 1) & 0x0f);
                 }
                 double y1 = YIQ_VALUES[col][0];
-                double y2 = ((double) level / (double) maxLevel);
+                double y2 = (level / (double) maxLevel);
                 SOLID_PALETTE[offset][pattern] = yiqToRgb(y1, YIQ_VALUES[col][1] * MAX_I, YIQ_VALUES[col][2] * MAX_Q);
                 TEXT_PALETTE[offset][pattern] = yiqToRgb(y2, YIQ_VALUES[col][1] * MAX_I, YIQ_VALUES[col][2] * MAX_Q);
             }
@@ -325,113 +326,61 @@ public class VideoNTSC extends VideoDHGR {
     }
     boolean f1 = true;
     boolean f2 = true;
-    boolean an3 = true;
+    boolean an3 = false;
 
-    public void rgbStateChange(ModeStateChanges state) {
-        switch (state) {
-            case CLEAR_80:
-                break;
-            case CLEAR_AN3:
-                an3 = false;
-                break;
-            case SET_80:
-                break;
-            case SET_AN3:
-                if (!an3) {
-                    f2 = f1;
-                    f1 = SoftSwitches._80COL.getState();
-                }
-                an3 = true;
-                break;
-        }
+    public void rgbStateChange() {
+
 // This is the more technically correct implementation except for two issues:
 // 1) 160-column mode isn't implemented so it's not worth bothering to capture that state
 // 2) A lot of programs are clueless about RGB modes so it's good to default to normal color mode
 //        graphicsMode = f1 ? (f2 ? rgbMode.color : rgbMode.mix) : (f2 ? rgbMode._160col : rgbMode.bw);
         graphicsMode = f1 ? (f2 ? rgbMode.COLOR : rgbMode.MIX) : (f2 ? rgbMode.COLOR : rgbMode.BW);
-//        System.out.println(state + ": "+ graphicsMode);
     }
     // These catch changes to the RGB mode to toggle between color, BW and mixed
     Set<RAMListener> rgbStateListeners = new HashSet<>();
 
-    private void createStateListeners() {
-        rgbStateListeners.add(new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-            @Override
-            protected void doConfig() {
-                setScopeStart(0x0c05e);
+    private void registerStateListeners() {
+        if (!rgbStateListeners.isEmpty() || computer.getVideo() != this) {
+            return;
+        }
+        RAM memory = computer.getMemory();
+        rgbStateListeners.add(memory.observe(RAMEvent.TYPE.ANY, 0x0c05e, (e) -> {
+            an3 = false;
+            rgbStateChange();
+        }));
+        rgbStateListeners.add(memory.observe(RAMEvent.TYPE.ANY, 0x0c05f, (e) -> {
+            if (!an3) {
+                f2 = f1;
+                f1 = SoftSwitches._80COL.getState();
             }
-
-            @Override
-            protected void doEvent(RAMEvent e) {
-                Video v = computer.getVideo();
-                if (v instanceof VideoNTSC) {
-                    ((VideoNTSC) v).rgbStateChange(ModeStateChanges.CLEAR_AN3);
-                }
-            }
-        });
-        rgbStateListeners.add(new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-            @Override
-            protected void doConfig() {
-                setScopeStart(0x0c05f);
-            }
-
-            @Override
-            protected void doEvent(RAMEvent e) {
-                Video v = computer.getVideo();
-                if (v instanceof VideoNTSC) {
-                    ((VideoNTSC) v).rgbStateChange(ModeStateChanges.SET_AN3);
-                }
-            }
-        });
-        rgbStateListeners.add(new RAMListener(RAMEvent.TYPE.EXECUTE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-            @Override
-            protected void doConfig() {
-                setScopeStart(0x0fa62);
-            }
-
-            @Override
-            protected void doEvent(RAMEvent e) {
-                Video v = computer.getVideo();
-                if (v instanceof VideoNTSC) {
-                    // When reset hook is called, reset the graphics mode
-                    // This is useful in case a program is running that 
-                    // is totally clueless how to set the RGB state correctly.
-                    ((VideoNTSC) v).f1 = true;
-                    ((VideoNTSC) v).f2 = true;
-                    ((VideoNTSC) v).an3 = false;
-                    ((VideoNTSC) v).graphicsMode = rgbMode.COLOR;
-                }
-            }
-        });
-        rgbStateListeners.add(new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-            @Override
-            protected void doConfig() {
-                setScopeStart(0x0c00d);
-            }
-
-            @Override
-            protected void doEvent(RAMEvent e) {
-                Video v = computer.getVideo();
-                if (v instanceof VideoNTSC) {
-                    ((VideoNTSC) v).rgbStateChange(ModeStateChanges.SET_80);
-                }
-            }
-        });
+            an3 = true;
+            rgbStateChange();
+        }));
+        rgbStateListeners.add(memory.observe(RAMEvent.TYPE.EXECUTE, 0x0fa62, (e) -> {
+            // When reset hook is called, reset the graphics mode
+            // This is useful in case a program is running that 
+            // is totally clueless how to set the RGB state correctly.
+            f1 = true;
+            f2 = true;
+            an3 = false;
+            graphicsMode = rgbMode.COLOR;
+            rgbStateChange();
+        }));
     }
 
     @Override
+
     public void detach() {
         rgbStateListeners.stream().forEach((l) -> {
             computer.getMemory().removeListener(l);
         });
+        rgbStateListeners.clear();
         super.detach();
     }
 
     @Override
     public void attach() {
         super.attach();
-        rgbStateListeners.stream().forEach((l) -> {
-            computer.getMemory().addListener(l);
-        });
+        registerStateListeners();
     }
 }

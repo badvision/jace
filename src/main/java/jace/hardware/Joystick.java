@@ -46,6 +46,7 @@ import java.util.logging.Logger;
  */
 @Stateful
 public class Joystick extends Device {
+
     @ConfigurableField(name = "Center Mouse", shortName = "center", description = "Moves mouse back to the center of the screen, can get annoying.")
     public boolean centerMouse = false;
     @ConfigurableField(name = "Use keyboard", shortName = "useKeys", description = "Arrow keys will control joystick instead of the mouse.")
@@ -91,8 +92,8 @@ public class Joystick extends Device {
 
     private void readJoystick() {
         if (useKeyboard) {
-            joyX = (leftPressed ? -128 : 0) + (rightPressed ? 255:128);
-            joyY = (upPressed ? -128 : 0) + (downPressed ? 255:128);
+            joyX = (leftPressed ? -128 : 0) + (rightPressed ? 255 : 128);
+            joyY = (upPressed ? -128 : 0) + (downPressed ? 255 : 128);
         } else {
             Point l = MouseInfo.getPointerInfo().getLocation();
             if (l.x < lastMouseLocation.x) {
@@ -187,29 +188,12 @@ public class Joystick extends Device {
         y = 0;
         registerListeners();
     }
-    
-    RAMListener listener = new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
-        @Override
-        protected void doConfig() {
-            setScopeStart(0x0C070);
-            setScopeEnd(0x0C07f);
-        }
-
-        @Override
-        protected void doEvent(RAMEvent e) {
-            readJoystick();
-            xSwitch.setState(true);
-            x = 10 + joyX * 11;
-            ySwitch.setState(true);
-            y = 10 + joyY * 11;
-            e.setNewValue(computer.getVideo().getFloatingBus());
-            resume();
-        }
-    };
 
     @InvokableAction(name = "Left", category = "joystick", defaultKeyMapping = "left", notifyOnRelease = true)
     public boolean joystickLeft(boolean pressed) {
-        if (!useKeyboard) return false;
+        if (!useKeyboard) {
+            return false;
+        }
         leftPressed = pressed;
         if (pressed) {
             rightPressed = false;
@@ -220,7 +204,9 @@ public class Joystick extends Device {
     ;
     @InvokableAction(name = "Right", category = "joystick", defaultKeyMapping = "right", notifyOnRelease = true)
     public boolean joystickRight(boolean pressed) {
-        if (!useKeyboard) return false;
+        if (!useKeyboard) {
+            return false;
+        }
         rightPressed = pressed;
         if (pressed) {
             leftPressed = false;
@@ -231,7 +217,9 @@ public class Joystick extends Device {
     ;
     @InvokableAction(name = "Up", category = "joystick", defaultKeyMapping = "up", notifyOnRelease = true)
     public boolean joystickUp(boolean pressed) {
-        if (!useKeyboard) return false;
+        if (!useKeyboard) {
+            return false;
+        }
         upPressed = pressed;
         if (pressed) {
             downPressed = false;
@@ -242,7 +230,9 @@ public class Joystick extends Device {
     ;
     @InvokableAction(name = "Down", category = "joystick", defaultKeyMapping = "down", notifyOnRelease = true)
     public boolean joystickDown(boolean pressed) {
-        if (!useKeyboard) return false;
+        if (!useKeyboard) {
+            return false;
+        }
         downPressed = pressed;
         if (pressed) {
             upPressed = false;
@@ -250,12 +240,23 @@ public class Joystick extends Device {
         return hogKeyboard;
     }
 
+    public void initJoystickRead(RAMEvent e) {
+        readJoystick();
+        xSwitch.setState(true);
+        x = 10 + joyX * 11;
+        ySwitch.setState(true);
+        y = 10 + joyY * 11;
+        e.setNewValue(computer.getVideo().getFloatingBus());
+        resume();
+    }
+
+    RAMListener listener;
+
     private void registerListeners() {
-        computer.getMemory().addListener(listener);
+        listener = computer.getMemory().observe(RAMEvent.TYPE.ANY, 0x0c070, 0x0c07f, this::initJoystickRead);
     }
 
     private void removeListeners() {
         computer.getMemory().removeListener(listener);
-//        Keyboard.unregisterAllHandlers(this);
     }
 }

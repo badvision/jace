@@ -117,8 +117,11 @@ public class CardRamworks extends RAM128k {
     public void reconfigure() {
         boolean resume = computer.pause();
         maxBank = memorySize / 64;
-        if (maxBank < 1) maxBank = 1;
-        if (maxBank > 128) maxBank = 128;
+        if (maxBank < 1) {
+            maxBank = 1;
+        } else if (maxBank > 128) {
+            maxBank = 128;
+        }
         for (int i = memory.size(); i < maxBank; i++) {
             memory.add(null);
         }
@@ -127,23 +130,14 @@ public class CardRamworks extends RAM128k {
             computer.resume();
         }
     }
-    RAMListener bankSelectListener = new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-        @Override
-        protected void doConfig() {
-            setScopeStart(BANK_SELECT);
-            setScopeEnd(BANK_SELECT);
-        }
 
-        @Override
-        protected void doEvent(RAMEvent e) {
-            currentBank = e.getNewValue();
-            configureActiveMemory();
-        }
-    };
-
+    private RAMListener bankSelectListener;
     @Override
     public void attach() {
-        addListener(bankSelectListener);
+        bankSelectListener = computer.getMemory().observe(RAMEvent.TYPE.WRITE, BANK_SELECT, (e) -> {
+            currentBank = e.getNewValue();
+            configureActiveMemory();            
+        });
     }
 
     @Override

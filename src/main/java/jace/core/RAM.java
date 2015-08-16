@@ -105,30 +105,28 @@ public abstract class RAM implements Reconfigurable {
 
     abstract public void configureActiveMemory();
 
-    public byte write(int address, byte b, boolean generateEvent, boolean requireSynchronization) {
+    public void write(int address, byte b, boolean generateEvent, boolean requireSynchronization) {
         byte[] page = activeWrite.getMemoryPage(address);
-        byte old = 0;
         if (page == null) {
             if (generateEvent) {
-                callListener(RAMEvent.TYPE.WRITE, address, old, b, requireSynchronization);
+                callListener(RAMEvent.TYPE.WRITE, address, 0, b, requireSynchronization);
             }
         } else {
             int offset = address & 0x0FF;
-            old = page[offset];
+            byte old = page[offset];
             if (generateEvent) {
-                b = callListener(RAMEvent.TYPE.WRITE, address, old, b, requireSynchronization);
+                page[offset] = callListener(RAMEvent.TYPE.WRITE, address, old, b, requireSynchronization);
+            } else {
+                page[offset] = b;
             }
-            page[offset] = b;
         }
-        return old;
     }
 
     public void writeWord(int address, int w, boolean generateEvent, boolean requireSynchronization) {
-        int lsb = write(address, (byte) (w & 0x0ff), generateEvent, requireSynchronization);
-        int msb = write(address + 1, (byte) (w >> 8), generateEvent, requireSynchronization);
-//        int oldValue = msb << 8 + lsb;
+        write(address, (byte) (w & 0x0ff), generateEvent, requireSynchronization);
+        write(address + 1, (byte) (w >> 8), generateEvent, requireSynchronization);
     }
-
+    
     public byte readRaw(int address) {
         //    if (address >= 65536) return 0;
         return activeRead.getMemoryPage(address)[address & 0x0FF];
@@ -236,7 +234,7 @@ public abstract class RAM implements Reconfigurable {
     }
 
     public RAMListener observe(RAMEvent.TYPE type, int addressStart, int addressEnd, RAMEvent.RAMEventHandler handler) {
-        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+        return addListener(new RAMListener(type, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
             @Override
             protected void doConfig() {
                 setScopeStart(addressStart);
@@ -251,7 +249,7 @@ public abstract class RAM implements Reconfigurable {
     }
 
     public RAMListener observe(RAMEvent.TYPE type, int addressStart, int addressEnd, boolean auxFlag, RAMEvent.RAMEventHandler handler) {
-        return addListener(new RAMListener(type, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+        return addListener(new RAMListener(type, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
             @Override
             protected void doConfig() {
                 setScopeStart(addressStart);
@@ -333,40 +331,6 @@ public abstract class RAM implements Reconfigurable {
     }
 
     abstract protected void loadRom(String path) throws IOException;
-
-    public void dump() {
-        for (int i = 0; i < 0x0FFFF; i += 16) {
-            System.out.print(Integer.toString(i, 16));
-            System.out.print(":");
-            String part1 = "";
-            String part2 = "";
-            for (int j = 0; j < 16; j++) {
-                int a = i + j;
-                int br = 0x0FF & activeRead.getMemory()[i >> 8][i & 0x0ff];
-                String s1 = Integer.toString(br, 16);
-                System.out.print(' ');
-                if (s1.length() == 1) {
-                    System.out.print('0');
-                }
-                System.out.print(s1);
-
-                /*
-                 try {
-                 int bw = 0;
-                 bw = 0x0FF & activeWrite.getMemory().get(a/256)[a%256];
-                 String s2 = (br == bw) ? "**" : Integer.toString(bw,16);
-                 System.out.print(' ');
-                 if (s2.length()==1) System.out.print('0');
-                 System.out.print(s2);
-                 } catch (NullPointerException ex) {
-                 System.out.print(" --");
-                 }
-                 */
-            }
-            System.out.println();
-//            System.out.println(Integer.toString(i, 16)+":"+part1+" -> "+part2);
-        }
-    }
 
     abstract public void attach();
 

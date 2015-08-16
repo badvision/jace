@@ -29,22 +29,6 @@ public class JaceApplication extends Application {
     JaceUIController controller;
 
     static boolean romStarted = false;
-    static RAMListener startListener = new RAMListener(RAMEvent.TYPE.EXECUTE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-        @Override
-        protected void doConfig() {
-            setScopeStart(0x0FA62);
-        }
-
-        @Override
-        protected void doEvent(RAMEvent e) {
-            romStarted = true;
-        }
-
-        @Override
-        public boolean isRelevant(RAMEvent e) {
-            return super.isRelevant(e);
-        }
-    };
     
     @Override
     public void start(Stage stage) throws Exception {
@@ -95,12 +79,16 @@ public class JaceApplication extends Application {
      * Start the computer and make sure it runs through the expected rom routine for cold boot
      */
     private void bootWatchdog() {
-        Emulator.computer.getMemory().addListener(startListener);
+        romStarted = false;
+        RAMListener startListener = Emulator.computer.getMemory().
+                observe(RAMEvent.TYPE.EXECUTE, 0x0FA62, (e)-> {
+            romStarted = true;
+        });
         Emulator.computer.coldStart();
         try {
             Thread.sleep(250);
             if (!romStarted) {
-                System.out.println("Boot not detected, performing a cold start");
+                Logger.getLogger(getClass().getName()).log(Level.WARNING,"Boot not detected, performing a cold start");
                 Emulator.computer.coldStart();
             }
         } catch (InterruptedException ex) {

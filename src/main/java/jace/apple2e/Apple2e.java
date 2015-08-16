@@ -425,19 +425,11 @@ public class Apple2e extends Computer {
 
     private void enableHints() {
         if (hints.isEmpty()) {
-            hints.add(new RAMListener(RAMEvent.TYPE.EXECUTE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
-                @Override
-                protected void doConfig() {
-                    setScopeStart(0x0FB63);
-                }
-
-                @Override
-                protected void doEvent(RAMEvent e) {
-                    animationTimer.schedule(drawHints, 1, TimeUnit.SECONDS);                    
-                    animationSchedule = 
+            hints.add(getMemory().observe(RAMEvent.TYPE.EXECUTE, 0x0FB63, (e)->{
+                animationTimer.schedule(drawHints, 1, TimeUnit.SECONDS);                    
+                animationSchedule = 
                             animationTimer.scheduleAtFixedRate(doAnimation, 1250, 100, TimeUnit.MILLISECONDS);
-                }
-            });
+            }));
             // Latch to the PRODOS SYNTAX CHECK parser
             /*
              hints.add(new RAMListener(RAMEvent.TYPE.EXECUTE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
@@ -458,9 +450,6 @@ public class Apple2e extends Computer {
              });
              */
         }
-        hints.stream().forEach((hint) -> {
-            getMemory().addListener(hint);
-        });
     }
 
     private void disableHints() {
@@ -472,9 +461,5 @@ public class Apple2e extends Computer {
     @Override
     public String getShortName() {
         return "computer";
-    }
-
-    private void attachMiscDevices() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }

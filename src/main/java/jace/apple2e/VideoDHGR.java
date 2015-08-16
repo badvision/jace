@@ -22,8 +22,10 @@ import jace.core.Computer;
 import jace.core.Font;
 import jace.core.Palette;
 import jace.core.RAMEvent;
-import jace.core.RAMListener;
 import jace.core.Video;
+import static jace.core.Video.hiresOffset;
+import static jace.core.Video.hiresRowLookup;
+import static jace.core.Video.textRowLookup;
 import jace.core.VideoWriter;
 import java.util.logging.Logger;
 import javafx.scene.image.PixelWriter;
@@ -69,6 +71,7 @@ public class VideoDHGR extends Video {
 
     /**
      * Creates a new instance of VideoDHGR
+     *
      * @param computer
      */
     public VideoDHGR(Computer computer) {
@@ -681,47 +684,31 @@ public class VideoDHGR extends Video {
         }
     }
 
+    private void registerTextDirtyFlag(RAMEvent e) {
+        int row = textRowLookup[e.getAddress() & 0x03ff];
+        if (row > 23) {
+            return;
+        }
+        VideoWriter tmark = (e.getAddress() < 0x0800) ? textPage1 : textPage2;
+        row <<= 3;
+        int yy = row + 8;
+        for (int y = row; y < yy; y++) {
+            tmark.markDirty(y);
+        }
+    }
+
+    private void registerHiresDirtyFlag(RAMEvent e) {
+        int row = hiresRowLookup[e.getAddress() & 0x01fff];
+        if (row < 0 || row >= 192) {
+            return;
+        }
+        VideoWriter mark = (e.getAddress() < 0x04000) ? hiresPage1 : hiresPage2;
+        mark.markDirty(row);
+    }
+
     private void registerDirtyFlagChecks() {
-        ((RAM128k) computer.getMemory()).addListener(new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
-            @Override
-            protected void doConfig() {
-                setScopeStart(0x0400);
-                setScopeEnd(0x0bff);
-            }
-
-            @Override
-            protected void doEvent(RAMEvent e) {
-                int row = textRowLookup[e.getAddress() & 0x03ff];
-//                int row = identifyTextRow(e.getAddress() & 0x03ff);
-                if (row > 23) {
-                    return;
-                }
-                VideoWriter tmark = (e.getAddress() < 0x0800) ? textPage1 : textPage2;
-                row <<= 3;
-                int yy = row + 8;
-                for (int y = row; y < yy; y++) {
-                    tmark.markDirty(y);
-                }
-            }
-        });
-        ((RAM128k) computer.getMemory()).addListener(new RAMListener(RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
-            @Override
-            protected void doConfig() {
-                setScopeStart(0x2000);
-                setScopeEnd(0x5fff);
-            }
-
-            @Override
-            protected void doEvent(RAMEvent e) {
-                int row = hiresRowLookup[e.getAddress() & 0x01fff];
-//                int row = identifyHiresRow(e.getAddress() & 0x03fff);
-                if (row < 0 || row >= 192) {
-                    return;
-                }
-                VideoWriter mark = (e.getAddress() < 0x04000) ? hiresPage1 : hiresPage2;
-                mark.markDirty(row);
-            }
-        });
+        computer.getMemory().observe(RAMEvent.TYPE.WRITE, 0x0400, 0x0bff, this::registerTextDirtyFlag);
+        computer.getMemory().observe(RAMEvent.TYPE.WRITE, 0x02000, 0x05fff, this::registerHiresDirtyFlag);
     }
 
     @Override
