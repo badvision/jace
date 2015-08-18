@@ -7,6 +7,7 @@
 package jace;
 
 import com.sun.glass.ui.Application;
+import jace.cheat.MetaCheat;
 import jace.core.Card;
 import jace.core.Computer;
 import jace.library.MediaCache;
@@ -48,6 +49,7 @@ import javafx.scene.paint.Color;
  * @author blurry
  */
 public class JaceUIController {
+
     @FXML
     private URL location;
 

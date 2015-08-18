@@ -24,6 +24,7 @@ import jace.core.Computer;
 import jace.core.RAM;
 import jace.core.RAMEvent.TYPE;
 import jace.state.Stateful;
+import java.util.logging.Logger;
 
 /**
  * This is a full implementation of a MOS-65c02 processor, including the BBR,
@@ -1036,29 +1037,27 @@ public class MOS65C02 extends CPU {
         }
         int pc = getProgramCounter();
 
-//        RAM ram = cpu.getMemory();
-//        int op = 0x00ff & cpu.getMemory().read(pc, false);
+        String traceEntry = null;
+        if (isTraceEnabled() || isLogEnabled() || warnAboutExtendedOpcodes) {
+            traceEntry = getState().toUpperCase() + "  " + Integer.toString(pc, 16) + " : " + disassemble();
+            if (isTraceEnabled()) {
+                Logger.getLogger(getClass().getName()).info(traceEntry);
+            }
+            if (isLogEnabled()) {
+                log(traceEntry);
+            }
+        }
         // This makes it possible to trap the memory read of an opcode, when PC == Address, you know it is executing that opcode.
         int op = 0x00ff & getMemory().read(pc, TYPE.EXECUTE, true, false);
         OPCODE opcode = opcodes[op];
-        if (isTraceEnabled() || isLogEnabled() || (warnAboutExtendedOpcodes && opcode != null && opcode.isExtendedOpcode)) {
-            String t = getState().toUpperCase() + "  " + Integer.toString(pc, 16) + " : " + disassemble();
-            if (warnAboutExtendedOpcodes && opcode != null && opcode.isExtendedOpcode) {
-                System.out.println(">>EXTENDED OPCODE DETECTED " + Integer.toHexString(opcode.code) + "<<");
-                System.out.println(t);
-                if (isLogEnabled()) {
-                    log(">>EXTENDED OPCODE DETECTED " + Integer.toHexString(opcode.code) + "<<");
-                    log(t);
-                }
-            } else {
-                if (isTraceEnabled()) {
-                    System.out.println(t);
-                }
-                if (isLogEnabled()) {
-                    log(t);
-                }
+        if (traceEntry != null && warnAboutExtendedOpcodes && opcode != null && opcode.isExtendedOpcode) {
+            System.out.println(">>EXTENDED OPCODE DETECTED " + Integer.toHexString(opcode.code) + "<<");
+            System.out.println(traceEntry);
+            if (isLogEnabled()) {
+                log(">>EXTENDED OPCODE DETECTED " + Integer.toHexString(opcode.code) + "<<");
+                log(traceEntry);
             }
-        }
+        }        
         if (opcode == null) {
             // handle bad opcode as a NOP
             int wait = 0;

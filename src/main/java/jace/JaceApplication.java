@@ -8,6 +8,7 @@ package jace;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.core.Utility;
+import jace.ui.MetacheatUI;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,7 +17,9 @@ import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 /**
  *
@@ -25,11 +28,12 @@ import javafx.stage.Stage;
 public class JaceApplication extends Application {
 
     static JaceApplication singleton;
+
     Stage primaryStage;
     JaceUIController controller;
 
     static boolean romStarted = false;
-    
+
     @Override
     public void start(Stage stage) throws Exception {
         singleton = this;
@@ -68,6 +72,30 @@ public class JaceApplication extends Application {
         return singleton;
     }
 
+    Stage cheatStage;
+    private MetacheatUI cheatController;
+
+    public MetacheatUI showMetacheat() {
+        if (cheatController == null) {
+            cheatStage = new Stage(StageStyle.DECORATED);
+            FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/Metacheat.fxml"));
+            fxmlLoader.setResources(null);
+            try {
+                VBox node = fxmlLoader.load();
+                cheatController = fxmlLoader.getController();
+                Scene s = new Scene(node);
+                cheatStage.setScene(s);
+                cheatStage.setTitle("Jace: MetaCheat");
+                cheatStage.getIcons().add(Utility.loadIcon("woz_figure.gif"));
+            } catch (IOException exception) {
+                throw new RuntimeException(exception);
+            }
+
+        }
+        cheatStage.show();
+        return cheatController;
+    }
+
     /**
      * @param args the command line arguments
      */
@@ -76,19 +104,20 @@ public class JaceApplication extends Application {
     }
 
     /**
-     * Start the computer and make sure it runs through the expected rom routine for cold boot
+     * Start the computer and make sure it runs through the expected rom routine
+     * for cold boot
      */
     private void bootWatchdog() {
         romStarted = false;
         RAMListener startListener = Emulator.computer.getMemory().
-                observe(RAMEvent.TYPE.EXECUTE, 0x0FA62, (e)-> {
-            romStarted = true;
-        });
+                observe(RAMEvent.TYPE.EXECUTE, 0x0FA62, (e) -> {
+                    romStarted = true;
+                });
         Emulator.computer.coldStart();
         try {
             Thread.sleep(250);
             if (!romStarted) {
-                Logger.getLogger(getClass().getName()).log(Level.WARNING,"Boot not detected, performing a cold start");
+                Logger.getLogger(getClass().getName()).log(Level.WARNING, "Boot not detected, performing a cold start");
                 Emulator.computer.coldStart();
             }
         } catch (InterruptedException ex) {

@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.text.*?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import java.lang.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="492.0" prefWidth="702.0" xmlns="http://javafx.com/javafx/8.0.40" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.ui.MetacheatUI">
+   <children>
+      <ToolBar prefHeight="40.0" prefWidth="200.0" VBox.vgrow="NEVER">
+         <items>
+            <Button fx:id="pauseButton" mnemonicParsing="false" onAction="#pauseClicked" text="Pause" />
+            <Button mnemonicParsing="false" onAction="#zoomIn" text="Zoom in" />
+            <Button mnemonicParsing="false" onAction="#zoomOut" text="Zoom out" />
+            <Label text="Start:" />
+            <TextField fx:id="searchStartAddressField" prefHeight="26.0" prefWidth="50.0" text="0000" />
+            <Label text="End:" />
+            <TextField fx:id="searchEndAddressField" prefHeight="26.0" prefWidth="48.0" text="FFFF" />
+         </items>
+      </ToolBar>
+      <SplitPane dividerPositions="0.6304347826086957" prefHeight="363.0" prefWidth="600.0" VBox.vgrow="ALWAYS">
+        <items>
+            <ScrollPane fx:id="memoryViewPane" prefHeight="450.0" prefWidth="391.0" />
+            <Accordion>
+              <panes>
+                  <TitledPane prefHeight="200.0" prefWidth="200.0" text="Search">
+                     <content>
+                        <VBox prefHeight="200.0" prefWidth="100.0">
+                           <children>
+                              <TabPane fx:id="searchTypesTabPane" prefHeight="147.0" prefWidth="233.0" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="NEVER">
+                                <tabs>
+                                  <Tab text="Value">
+                                       <content>
+                                          <VBox prefHeight="200.0" prefWidth="100.0">
+                                             <children>
+                                                <FlowPane prefHeight="43.0" prefWidth="233.0">
+                                                   <children>
+                                                      <Label text="Search for value:">
+                                                         <padding>
+                                                            <Insets right="3.0" />
+                                                         </padding>
+                                                      </Label>
+                                                      <TextField fx:id="searchValueField" prefHeight="26.0" prefWidth="75.0" />
+                                                   </children>
+                                                   <padding>
+                                                      <Insets top="3.0" />
+                                                   </padding>
+                                                   <VBox.margin>
+                                                      <Insets bottom="4.0" />
+                                                   </VBox.margin>
+                                                </FlowPane>
+                                                <Separator prefWidth="200.0" />
+                                                <Label text="These affect Change searches also.">
+                                                   <font>
+                                                      <Font name="System Italic" size="13.0" />
+                                                   </font>
+                                                </Label>
+                                                <HBox prefHeight="100.0" prefWidth="200.0">
+                                                   <children>
+                                                      <RadioButton fx:id="searchTypeByte" mnemonicParsing="false" selected="true" text="Byte">
+                                                         <HBox.margin>
+                                                            <Insets left="2.0" />
+                                                         </HBox.margin>
+                                                         <toggleGroup>
+                                                            <ToggleGroup fx:id="searchSize" />
+                                                         </toggleGroup>
+                                                      </RadioButton>
+                                                      <RadioButton fx:id="searchTypeWord" mnemonicParsing="false" text="Word" toggleGroup="$searchSize">
+                                                         <HBox.margin>
+                                                            <Insets />
+                                                         </HBox.margin>
+                                                         <padding>
+                                                            <Insets left="2.0" right="2.0" />
+                                                         </padding>
+                                                      </RadioButton>
+                                                      <CheckBox fx:id="searchTypeSigned" mnemonicParsing="false" text="Signed" />
+                                                   </children>
+                                                   <opaqueInsets>
+                                                      <Insets />
+                                                   </opaqueInsets>
+                                                   <padding>
+                                                      <Insets bottom="3.0" top="3.0" />
+                                                   </padding>
+                                                </HBox>
+                                             </children>
+                                             <padding>
+                                                <Insets left="5.0" />
+                                             </padding>
+                                          </VBox>
+                                       </content>
+                                    </Tab>
+                                    <Tab text="Change">
+                                       <content>
+                                          <VBox nodeOrientation="LEFT_TO_RIGHT" prefHeight="200.0" prefWidth="100.0">
+                                             <children>
+                                                <RadioButton fx:id="searchChangeNoneOption" mnemonicParsing="false" text="No changes since last search">
+                                                   <opaqueInsets>
+                                                      <Insets />
+                                                   </opaqueInsets>
+                                                   <padding>
+                                                      <Insets bottom="3.0" top="2.0" />
+                                                   </padding>
+                                                   <toggleGroup>
+                                                      <ToggleGroup fx:id="changeSearchType" />
+                                                   </toggleGroup>
+                                                </RadioButton>
+                                                <RadioButton fx:id="searchChangeAnyOption" mnemonicParsing="false" text="Any changes since last search" toggleGroup="$changeSearchType">
+                                                   <padding>
+                                                      <Insets bottom="3.0" />
+                                                   </padding>
+                                                </RadioButton>
+                                                <RadioButton fx:id="searchChangeLessOption" mnemonicParsing="false" text="Less than last search" toggleGroup="$changeSearchType">
+                                                   <padding>
+                                                      <Insets bottom="3.0" />
+                                                   </padding>
+                                                </RadioButton>
+                                                <RadioButton fx:id="searchChangeGreaterOption" mnemonicParsing="false" text="Greater than last search" toggleGroup="$changeSearchType" />
+                                                <FlowPane prefHeight="200.0" prefWidth="200.0">
+                                                   <children>
+                                                      <RadioButton fx:id="searchChangeByOption" mnemonicParsing="false" text="Change by: " toggleGroup="$changeSearchType" />
+                                                      <TextField fx:id="searchChangeByField" prefHeight="26.0" prefWidth="76.0" />
+                                                   </children>
+                                                </FlowPane>
+                                             </children>
+                                             <opaqueInsets>
+                                                <Insets />
+                                             </opaqueInsets>
+                                             <padding>
+                                                <Insets left="2.0" />
+                                             </padding>
+                                          </VBox>
+                                       </content>
+                                    </Tab>
+                                  <Tab text="Text" />
+                                </tabs>
+                              </TabPane>
+                              <ToolBar prefHeight="40.0" prefWidth="200.0" VBox.vgrow="NEVER">
+                                <items>
+                                  <Button mnemonicParsing="false" onAction="#newSearch" text="New Search" />
+                                    <Button mnemonicParsing="false" onAction="#search" text="Search" />
+                                </items>
+                              </ToolBar>
+                              <HBox prefHeight="19.0" prefWidth="235.0">
+                                 <children>
+                                    <Label text="Results:" HBox.hgrow="NEVER" />
+                                    <Label fx:id="searchStatusLabel" prefHeight="16.0" prefWidth="181.0" textAlignment="RIGHT" wrapText="true" HBox.hgrow="ALWAYS" />
+                                 </children>
+                              </HBox>
+                              <ListView fx:id="searchResultsListView" prefHeight="125.0" prefWidth="233.0" VBox.vgrow="ALWAYS" />
+                           </children>
+                        </VBox>
+                     </content>
+                  </TitledPane>
+                <TitledPane animated="false" text="Watches">
+                     <content>
+                        <TilePane fx:id="watchesPane" prefHeight="200.0" prefWidth="200.0" />
+                     </content>
+                </TitledPane>
+                <TitledPane animated="false" text="Snapshots">
+                     <content>
+                        <BorderPane minWidth="-Infinity">
+                           <bottom>
+                              <ToolBar prefHeight="40.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+                                <items>
+                                  <Button mnemonicParsing="false" onAction="#createSnapshot" text="Create" />
+                                    <Button mnemonicParsing="false" onAction="#deleteSnapshot" text="Delete" />
+                                    <Button mnemonicParsing="false" onAction="#diffSnapshots" text="Diff" />
+                                </items>
+                              </ToolBar>
+                           </bottom>
+                           <center>
+                              <ListView fx:id="snapshotsListView" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+                           </center>
+                        </BorderPane>
+                     </content>
+                </TitledPane>
+                <TitledPane animated="false" text="Cheats">
+                     <content>
+                        <BorderPane prefHeight="200.0" prefWidth="200.0">
+                           <bottom>
+                              <ToolBar prefHeight="40.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+                                <items>
+                                  <Button mnemonicParsing="false" onAction="#addCheat" text="Add" />
+                                    <Button mnemonicParsing="false" onAction="#deleteCheat" text="Delete" />
+                                    <Button mnemonicParsing="false" onAction="#loadCheats" text="Load" />
+                                    <Button mnemonicParsing="false" onAction="#saveCheats" text="Save" />
+                                </items>
+                              </ToolBar>
+                           </bottom>
+                           <center>
+                              <TableView fx:id="cheatsTableView" prefHeight="321.0" prefWidth="207.0" BorderPane.alignment="CENTER">
+                                <columns>
+                                    <TableColumn prefWidth="35.0" text="On" />
+                                  <TableColumn prefWidth="63.0" text="Address" />
+                                  <TableColumn prefWidth="127.0" text="Effect" />
+                                </columns>
+                              </TableView>
+                           </center>
+                        </BorderPane>
+                     </content>
+                </TitledPane>
+              </panes>
+            </Accordion>
+        </items>
+      </SplitPane>
+   </children>
+</VBox>

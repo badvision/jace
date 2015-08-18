@@ -45,11 +45,6 @@ public class PlaybackEngine extends Computer {
         }
 
         @Override
-        protected boolean isRunning() {
-            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        }
-
-        @Override
         protected void doPause() {
             throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         }
@@ -93,7 +88,7 @@ public class PlaybackEngine extends Computer {
     }
 
     @Override
-    protected boolean isRunning() {
+    public boolean isRunning() {
         return motherboard.isRunning();
     }
 

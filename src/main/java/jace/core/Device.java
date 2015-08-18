@@ -20,6 +20,8 @@ package jace.core;
 
 import jace.state.Stateful;
 import jace.config.Reconfigurable;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 
 /**
  * Device is a very simple abstraction of any emulation component. A device
@@ -37,6 +39,8 @@ import jace.config.Reconfigurable;
 @Stateful
 public abstract class Device implements Reconfigurable {
     protected Computer computer;
+    private Device() {        
+    }
     public Device(Computer computer) {
         this.computer = computer;
     }
@@ -45,10 +49,14 @@ public abstract class Device implements Reconfigurable {
     @Stateful
     private int waitCycles = 0;
     @Stateful
-    private boolean run = true;
+    private final BooleanProperty run = new SimpleBooleanProperty(true);
     @Stateful
     public boolean isPaused = false;
 
+    public BooleanProperty getRunningProperty() {
+        return run;
+    }
+    
     public void addWaitCycles(int wait) {
         waitCycles += wait;
     }
@@ -65,7 +73,7 @@ public abstract class Device implements Reconfigurable {
          waitCycles--;
          */
 
-        if (!run) {
+        if (!run.get()) {
 //            System.out.println("Device stopped: " + getName());
             isPaused = true;
             return;
@@ -82,13 +90,13 @@ public abstract class Device implements Reconfigurable {
     }
 
     public boolean isRunning() {
-        return run;
+        return run.get();
     }
 
     public synchronized void setRun(boolean run) {
 //        System.out.println(Thread.currentThread().getName() + (run ? " resuming " : " suspending ")+ getDeviceName());
         isPaused = false;
-        this.run = run;
+        this.run.set(run);
     }
 
     protected abstract String getDeviceName();

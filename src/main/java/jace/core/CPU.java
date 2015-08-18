@@ -33,6 +33,7 @@ import java.util.logging.Logger;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
  */
 public abstract class CPU extends Device {
+    private static final Logger LOG = Logger.getLogger(CPU.class.getName());
 
     public CPU(Computer computer) {
         super(computer);
@@ -74,14 +75,12 @@ public abstract class CPU extends Device {
     public void dumpTrace() {
         computer.pause();
         ArrayList<String> newLog = new ArrayList<>();
-        ArrayList<String> log = traceLog;
+        ArrayList<String> oldLog = traceLog;
         traceLog = newLog;
         computer.resume();
-        System.out.println("Most recent " + traceLength + " instructions:");
-        log.stream().forEach((s) -> {
-            System.out.println(s);
-        });
-        traceLog.clear();
+        LOG.log(Level.INFO, "Most recent {0} instructions:", traceLength);
+        oldLog.stream().forEach(LOG::info);
+        oldLog.clear();
     }
 
     public void setDebug(Debugger d) {

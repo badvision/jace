@@ -124,7 +124,7 @@ public class Apple2e extends Computer {
         if (motherboard != null && motherboard.isRunning()) {
             motherboard.suspend();
         }
-        motherboard = new Motherboard(this, motherboard);
+        setMotherboard(new Motherboard(this, motherboard));
         reconfigure();
         motherboard.reconfigure();
     }
@@ -167,6 +167,10 @@ public class Apple2e extends Computer {
         }
         getCpu().resume();
         resume();
+    }
+
+    public Cheats getActiveCheatEngine() {
+        return activeCheatEngine;
     }
 
     private void insertCard(Class<? extends Card> type, int slot) throws NoSuchMethodException, IllegalArgumentException, InvocationTargetException {
@@ -355,13 +359,12 @@ public class Apple2e extends Computer {
         motherboard.resume();
     }
 
-    @Override
-    protected boolean isRunning() {
-        if (motherboard == null) {
-            return false;
-        }
-        return motherboard.isRunning() && !motherboard.isPaused;
-    }
+//    public boolean isRunning() {
+//        if (motherboard == null) {
+//            return false;
+//        }
+//        return motherboard.isRunning() && !motherboard.isPaused;
+//    }
     private List<RAMListener> hints = new ArrayList<>();
 
     ScheduledExecutorService animationTimer = new ScheduledThreadPoolExecutor(1);
@@ -462,4 +465,4 @@ public class Apple2e extends Computer {
     public String getShortName() {
         return "computer";
     }
-}
+} 

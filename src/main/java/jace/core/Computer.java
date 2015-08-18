@@ -24,6 +24,9 @@ import jace.config.Reconfigurable;
 import jace.state.StateManager;
 import java.io.IOException;
 import java.util.Optional;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.value.ChangeListener;
 
 /**
  * This is a very generic stub of a Computer and provides a generic set of
@@ -45,6 +48,7 @@ public abstract class Computer implements Reconfigurable {
     @ConfigurableField(category = "advanced", name = "State management", shortName = "rewind", description = "This enables rewind support, but consumes a lot of memory when active.")
     public boolean enableStateManager;
     public final SoundMixer mixer;
+    final private BooleanProperty runningProperty = new SimpleBooleanProperty(false);
 
     /**
      * Creates a new instance of Computer
@@ -63,6 +67,22 @@ public abstract class Computer implements Reconfigurable {
         return motherboard;
     }
 
+    ChangeListener<Boolean> runningPropertyListener = (prop, oldVal, newVal) -> runningProperty.set(newVal);
+    public void setMotherboard(Motherboard m) {
+        if (motherboard != null && motherboard.isRunning()) {
+            motherboard.suspend();
+        }
+        motherboard = m;
+    }
+
+    public BooleanProperty getRunningProperty() {
+        return runningProperty;
+    }
+    
+    public boolean isRunning() {
+        return getRunningProperty().get();
+    }
+    
     public void notifyVBLStateChanged(boolean state) {
         for (Optional<Card> c : getMemory().cards) {
             c.ifPresent(card -> card.notifyVBLStateChanged(state));
@@ -113,17 +133,16 @@ public abstract class Computer implements Reconfigurable {
         video.suspend();
         mixer.detach();
     }
-    
+
     @InvokableAction(
             name = "Cold boot",
             description = "Process startup sequence from power-up",
             category = "general",
             alternatives = "Full reset;reset emulator",
             consumeKeyEvent = true,
-            defaultKeyMapping = {"Ctrl+Shift+Backspace","Ctrl+Shift+Delete"})
+            defaultKeyMapping = {"Ctrl+Shift+Backspace", "Ctrl+Shift+Delete"})
     public void invokeColdStart() {
         if (!romLoaded) {
-            System.out.println("Computer booted before rom was loaded");
             Thread delayedStart = new Thread(() -> {
                 while (!romLoaded) {
                     Thread.yield();
@@ -135,6 +154,7 @@ public abstract class Computer implements Reconfigurable {
             coldStart();
         }
     }
+
     public abstract void coldStart();
 
     @InvokableAction(
@@ -142,32 +162,33 @@ public abstract class Computer implements Reconfigurable {
             description = "Process user-initatiated reboot (ctrl+apple+reset)",
             category = "general",
             alternatives = "reboot;reset;three-finger-salute",
-            defaultKeyMapping = {"Ctrl+Ignore Alt+Ignore Meta+Backspace","Ctrl+Ignore Alt+Ignore Meta+Delete"})
+            defaultKeyMapping = {"Ctrl+Ignore Alt+Ignore Meta+Backspace", "Ctrl+Ignore Alt+Ignore Meta+Delete"})
     public void invokeWarmStart() {
         warmStart();
     }
+
     public abstract void warmStart();
 
     public Keyboard getKeyboard() {
         return this.keyboard;
     }
 
-    protected abstract boolean isRunning();
-
     protected abstract void doPause();
 
     protected abstract void doResume();
 
-    @InvokableAction(name = "Pause", description = "Stops the computer, allowing reconfiguration of core elements", alternatives = "freeze;halt", defaultKeyMapping = {"meta+pause","alt+pause"})
+    @InvokableAction(name = "Pause", description = "Stops the computer, allowing reconfiguration of core elements", alternatives = "freeze;halt", defaultKeyMapping = {"meta+pause", "alt+pause"})
     public boolean pause() {
-        boolean result = isRunning();
+        boolean result = getRunningProperty().get();
         doPause();
+        getRunningProperty().set(false);
         return result;
     }
 
-    @InvokableAction(name = "Resume", description = "Resumes the computer if it was previously paused", alternatives = "unpause;unfreeze;resume", defaultKeyMapping = {"meta+shift+pause","alt+shift+pause"})
+    @InvokableAction(name = "Resume", description = "Resumes the computer if it was previously paused", alternatives = "unpause;unfreeze;resume", defaultKeyMapping = {"meta+shift+pause", "alt+shift+pause"})
     public void resume() {
         doResume();
+        getRunningProperty().set(true);
     }
 
     @Override
