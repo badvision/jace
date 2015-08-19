@@ -314,6 +314,7 @@ public class Apple2e extends Computer {
             if (cheatEngine.getValue() == null) {
                 if (activeCheatEngine != null) {
                     activeCheatEngine.detach();
+                    motherboard.miscDevices.remove(activeCheatEngine);
                 }
                 activeCheatEngine = null;
             } else {
@@ -324,6 +325,7 @@ public class Apple2e extends Computer {
                     } else {
                         activeCheatEngine.detach();
                         activeCheatEngine = null;
+                        motherboard.miscDevices.remove(activeCheatEngine);
                     }
                 }
                 if (startCheats) {
@@ -333,6 +335,7 @@ public class Apple2e extends Computer {
                         Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     activeCheatEngine.attach();
+                    motherboard.miscDevices.add(activeCheatEngine);
                 }
             }
         } catch (IOException ex) {

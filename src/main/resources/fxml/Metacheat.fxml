@@ -14,9 +14,10 @@
             <Button mnemonicParsing="false" onAction="#zoomIn" text="Zoom in" />
             <Button mnemonicParsing="false" onAction="#zoomOut" text="Zoom out" />
             <Label text="Start:" />
-            <TextField fx:id="searchStartAddressField" prefHeight="26.0" prefWidth="50.0" text="0000" />
+            <TextField fx:id="searchStartAddressField" prefHeight="26.0" prefWidth="60.0" text="0000" />
             <Label text="End:" />
-            <TextField fx:id="searchEndAddressField" prefHeight="26.0" prefWidth="48.0" text="FFFF" />
+            <TextField fx:id="searchEndAddressField" prefHeight="26.0" prefWidth="60.0" text="FFFF" />
+            <CheckBox fx:id="showValuesCheckbox" mnemonicParsing="false" text="Show Values" />
          </items>
       </ToolBar>
       <SplitPane dividerPositions="0.6304347826086957" prefHeight="363.0" prefWidth="600.0" VBox.vgrow="ALWAYS">

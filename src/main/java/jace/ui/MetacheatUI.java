@@ -5,28 +5,38 @@ import jace.Emulator;
 import jace.cheat.MetaCheat;
 import jace.cheat.MetaCheat.SearchChangeType;
 import jace.cheat.MetaCheat.SearchType;
-import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.state.State;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.SingleSelectionModel;
-import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
+import javafx.scene.paint.Color;
 
 public class MetacheatUI {
 
@@ -86,6 +96,9 @@ public class MetacheatUI {
 
     @FXML
     private ListView<MetaCheat.SearchResult> searchResultsListView;
+
+    @FXML
+    private CheckBox showValuesCheckbox;
 
     @FXML
     private TilePane watchesPane;
@@ -199,7 +212,6 @@ public class MetacheatUI {
         searchTypesTabPane.getTabs().get(1).setUserData(SearchType.CHANGE);
         searchTypesTabPane.getTabs().get(2).setUserData(SearchType.TEXT);
         searchTypesTabPane.getSelectionModel().selectedItemProperty().addListener((prop, oldVal, newVal) -> {
-            System.out.println("Tab selected: " + newVal.getText());
             if (cheatEngine != null) {
                 cheatEngine.setSearchType((SearchType) newVal.getUserData());
             }
@@ -222,7 +234,7 @@ public class MetacheatUI {
             if (cheatEngine != null) {
                 cheatEngine.setByteSized((boolean) newVal.getUserData());
             }
-        });
+        });        
     }
 
     MetaCheat cheatEngine = null;
@@ -239,21 +251,91 @@ public class MetacheatUI {
         searchValueField.textProperty().bindBidirectional(cheatEngine.searchValueProperty());
         searchChangeByField.textProperty().bindBidirectional(cheatEngine.searchChangeByProperty());
 
-        engine.addCheat(RAMEvent.TYPE.ANY, this::processMemoryEvent, 0, 0x0ffff);
+        searchStartAddressField.textProperty().addListener(addressRangeListener);
+        searchEndAddressField.textProperty().addListener(addressRangeListener);
+
+        memoryViewPane.boundsInParentProperty().addListener((prop, oldVal, newVal) -> redrawMemoryView());
+        Application.invokeLater(this::redrawMemoryView);
+    }
+
+    ChangeListener<String> addressRangeListener = (prop, oldVal, newVal) -> Application.invokeLater(this::redrawMemoryView);
+
+    Canvas memoryView = null;
+    public static final int MEMORY_BOX_SIZE = 4;
+    public static final int MEMORY_BOX_GAP = 2;
+    public static final int MEMORY_BOX_TOTAL_SIZE = (MEMORY_BOX_SIZE + MEMORY_BOX_GAP);
+
+    public static Set<MetaCheat.MemoryCell> redrawNodes = new ConcurrentSkipListSet<>();
+    ScheduledExecutorService animationTimer = new ScheduledThreadPoolExecutor(1);
+    ScheduledFuture animationFuture = null;
+
+    private void processMemoryViewUpdates() {
+        Application.invokeLater(() -> {
+            GraphicsContext context = memoryView.getGraphicsContext2D();
+            Set<MetaCheat.MemoryCell> draw = new HashSet<>(redrawNodes);
+            redrawNodes.clear();
+            draw.stream().forEach((cell) -> {
+                if (showValuesCheckbox.isSelected()) {
+                    int val = cell.value.get() & 0x0ff;
+                    context.setFill(Color.rgb(val, val, val));
+                } else {
+                    context.setFill(Color.rgb(
+                            cell.writeCount.get(),
+                            cell.readCount.get(),
+                            cell.execCount.get()));
+                }
+                context.fillRect(cell.getX(), cell.getY(), cell.getWidth(), cell.getHeight());
+            });
+        });
+    }
+
+    public void redrawMemoryView() {
+        boolean resume = Emulator.computer.pause();
+        if (memoryViewPane.getContent() != null && memoryView != null) {
+            memoryViewPane.setContent(null);
+        }
+
+        if (animationFuture != null) {
+            animationFuture.cancel(false);
+        }
+
+        animationFuture = animationTimer.scheduleAtFixedRate(this::processMemoryViewUpdates, 1000 / 60, 1000 / 60, TimeUnit.MILLISECONDS);
+
+        cheatEngine.initMemoryView();
+        int pixelsPerBlock = 16 * MEMORY_BOX_TOTAL_SIZE;
+        int cols = ((int) memoryViewPane.getWidth()) / pixelsPerBlock * 16;
+        int rows = ((cheatEngine.getEndAddress() - cheatEngine.getStartAddress()) / cols) + 1;
+        memoryView = new Canvas(memoryViewPane.getWidth(), rows * MEMORY_BOX_TOTAL_SIZE);
+        StackPane pane = new StackPane(memoryView);
+        memoryViewPane.setContent(pane);
+        GraphicsContext context = memoryView.getGraphicsContext2D();
+        context.setFill(Color.rgb(40, 40, 40));
+        context.fillRect(0, 0, memoryView.getWidth(), memoryView.getHeight());
+        for (int addr = cheatEngine.getStartAddress(); addr <= cheatEngine.getEndAddress(); addr++) {
+            int col = (addr - cheatEngine.getStartAddress()) % cols;
+            int row = (addr - cheatEngine.getStartAddress()) / cols;
+            MetaCheat.MemoryCell cell = cheatEngine.getMemoryCell(addr);
+            cell.setRect(col * MEMORY_BOX_TOTAL_SIZE, row * MEMORY_BOX_TOTAL_SIZE, MEMORY_BOX_SIZE, MEMORY_BOX_SIZE);
+            redrawNodes.add(cell);
+        }
+        MetaCheat.MemoryCell.setListener((prop, oldCell, newCell) -> {
+            redrawNodes.add(newCell);
+        });
+        
+        if (resume) {
+            Emulator.computer.resume();
+        }
     }
 
     private void changeZoom(double amount) {
-        double zoom = memoryViewPane.getScaleX();
-        zoom += amount;
-        memoryViewPane.setScaleX(zoom);
-        memoryViewPane.setScaleY(zoom);
-    }
-
-    private void processMemoryEvent(RAMEvent e) {
-        if (e.getAddress() < cheatEngine.getStartAddress() || e.getAddress() > cheatEngine.getEndAddress()) {
-            return;
+        if (memoryView != null) {
+            double zoom = memoryView.getScaleX();
+            zoom += amount;
+            memoryView.setScaleX(zoom);
+            memoryView.setScaleY(zoom);
+            StackPane scrollArea = (StackPane) memoryView.getParent();
+            scrollArea.setPrefSize(memoryView.getWidth() * zoom, memoryView.getHeight() * zoom);
         }
-
     }
 
     public void detach() {

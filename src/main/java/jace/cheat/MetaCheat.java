@@ -4,14 +4,21 @@ import jace.Emulator;
 import jace.JaceApplication;
 import jace.core.Computer;
 import jace.core.RAM;
+import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.state.State;
 import jace.ui.MetacheatUI;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.Property;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -24,6 +31,60 @@ public class MetaCheat extends Cheats {
 
     public static enum SearchChangeType {
         NO_CHANGE, ANY_CHANGE, LESS, GREATER, AMOUNT
+    }
+
+    public static class MemoryCell  implements Comparable<MemoryCell>{
+
+        public static ChangeListener<MemoryCell> listener;
+        public int address;
+        public IntegerProperty value = new SimpleIntegerProperty();
+        public IntegerProperty readCount = new SimpleIntegerProperty();
+        public IntegerProperty execCount = new SimpleIntegerProperty();
+        public IntegerProperty writeCount = new SimpleIntegerProperty();
+        public ObservableList<Integer> readInstructions = FXCollections.observableList(new ArrayList<>());
+        public ObservableList<Integer> writeInstructions = FXCollections.observableList(new ArrayList<>());
+        private int x;
+        private int y;
+        private int width;
+        private int height;
+
+        public static void setListener(ChangeListener<MemoryCell> l) {
+            listener = l;
+        }
+
+        public MemoryCell() {
+            ChangeListener<Number> changeListener = (ObservableValue<? extends Number> val, Number oldVal, Number newVal) -> {
+                if (listener != null) {
+                    listener.changed(null, this, this);
+                }
+            };
+            value.addListener(changeListener);
+        }
+
+        public void setRect(int x, int y, int w, int h) {
+            this.x = x;
+            this.y = y;
+            this.width = w;
+            this.height = h;
+        }
+        
+        public int getX() {
+            return x;
+        }
+        public int getY() {
+            return y;            
+        }
+        public int getWidth() {
+            return width;
+        }
+        public int getHeight() {
+            return height;
+        }
+
+        @Override
+        public int compareTo(MemoryCell o) {
+            return address - o.address;
+        }
     }
 
     public static class SearchResult {
@@ -43,11 +104,16 @@ public class MetaCheat extends Cheats {
     }
 
     MetacheatUI ui;
+
+    public int fadeRate = 2;
+    public int lightRate = 20;
+    public int historyLength = 10;
+
     private int startAddress = 0;
     private int endAddress = 0x0ffff;
-    private final StringProperty startAddressProperty = new SimpleStringProperty("0");
-    private final StringProperty endAddressProperty = new SimpleStringProperty("FFFF");
-    private boolean byteSized = false;
+    private final StringProperty startAddressProperty = new SimpleStringProperty(Integer.toHexString(startAddress));
+    private final StringProperty endAddressProperty = new SimpleStringProperty(Integer.toHexString(endAddress));
+    private boolean byteSized = true;
     private SearchType searchType = SearchType.VALUE;
     private SearchChangeType searchChangeType = SearchChangeType.NO_CHANGE;
     private final BooleanProperty signedProperty = new SimpleBooleanProperty(false);
@@ -64,10 +130,10 @@ public class MetaCheat extends Cheats {
         addNumericValidator(searchValueProperty);
         addNumericValidator(changeByProperty);
         startAddressProperty.addListener((prop, oldVal, newVal) -> {
-            startAddress = parseInt(newVal);
+            startAddress = Math.max(0, Math.min(65535, parseInt(newVal)));
         });
         endAddressProperty.addListener((prop, oldVal, newVal) -> {
-            endAddress = parseInt(newVal);
+            endAddress = Math.max(0, Math.min(65535, parseInt(newVal)));
         });
     }
 
@@ -83,6 +149,9 @@ public class MetaCheat extends Cheats {
     }
 
     public int parseInt(String s) throws NumberFormatException {
+        if (s == null || s.isEmpty()) {
+            return 0;
+        }
         if (s.matches("(\\+|-)?[0-9]+")) {
             return Integer.parseInt(s);
         } else if (s.matches("(\\+|-)?[0-9a-fA-F]+")) {
@@ -114,10 +183,6 @@ public class MetaCheat extends Cheats {
     @Override
     protected String getDeviceName() {
         return "MetaCheat";
-    }
-
-    @Override
-    public void tick() {
     }
 
     @Override
@@ -210,7 +275,7 @@ public class MetaCheat extends Cheats {
                     ? signed ? memory.readRaw(result.address) : memory.readRaw(result.address) & 0x0ff
                     : signed ? memory.readWordRaw(result.address) : memory.readWordRaw(result.address) & 0x0ffff;
             int last = result.lastObservedValue;
-            result.lastObservedValue = val; 
+            result.lastObservedValue = val;
             switch (searchType) {
                 case VALUE:
                     int compare = parseInt(searchValueProperty.get());
@@ -237,4 +302,81 @@ public class MetaCheat extends Cheats {
         });
     }
 
+    RAMListener memoryViewListener = null;
+    private final Map<Integer, MemoryCell> memoryCells = new ConcurrentHashMap<>();
+
+    public MemoryCell getMemoryCell(int address) {
+        return memoryCells.get(address);
+    }
+
+    public void initMemoryView() {
+        RAM memory = Emulator.computer.getMemory();
+        for (int addr = getStartAddress(); addr <= getEndAddress(); addr++) {
+            if (getMemoryCell(addr) == null) {
+                MemoryCell cell = new MemoryCell();
+                cell.address = addr;
+                cell.value.set(memory.readRaw(addr));
+                memoryCells.put(addr, cell);
+            }
+        }
+        if (memoryViewListener == null) {
+            memoryViewListener = memory.observe(RAMEvent.TYPE.ANY, startAddress, endAddress, this::processMemoryEvent);
+            listeners.add(memoryViewListener);
+        }
+    }
+
+    int fadeCounter = 0;
+    int FADE_TIMER_VALUE = (int) (Emulator.computer.getMotherboard().cyclesPerSecond / 60);
+
+    @Override
+    public void tick() {
+        if (fadeCounter-- <= 0) {
+            fadeCounter = FADE_TIMER_VALUE;
+            memoryCells.values().stream().forEach((cell) -> {
+                boolean change = false;
+                if (cell.execCount.get() > 0) {
+                    cell.execCount.set(Math.max(0, cell.execCount.get() - fadeRate));
+                    change = true;
+                }
+                if (cell.readCount.get() > 0) {
+                    cell.readCount.set(Math.max(0, cell.readCount.get() - fadeRate));
+                    change = true;
+                }
+                if (cell.writeCount.get() > 0) {
+                    cell.writeCount.set(Math.max(0, cell.writeCount.get() - fadeRate));
+                    change = true;
+                }
+                if (change) {
+                    cell.listener.changed(null, cell, cell);
+                }
+            });
+        }
+    }
+
+    private void processMemoryEvent(RAMEvent e) {
+        MemoryCell cell = getMemoryCell(e.getAddress());
+        if (cell != null) {
+            int programCounter = Emulator.computer.getCpu().getProgramCounter();
+            switch (e.getType()) {
+                case EXECUTE:
+                case READ_OPERAND:
+                    cell.execCount.set(Math.min(255, cell.execCount.get() + lightRate));
+                    break;
+                case WRITE:
+                    cell.writeCount.set(Math.min(255, cell.writeCount.get() + lightRate));
+                    cell.writeInstructions.add(programCounter);
+                    if (cell.writeInstructions.size() > historyLength) {
+                        cell.writeInstructions.remove(0);
+                    }
+                    break;
+                default:
+                    cell.readCount.set(Math.min(255, cell.readCount.get() + lightRate));
+                    cell.readInstructions.add(programCounter);
+                    if (cell.readInstructions.size() > historyLength) {
+                        cell.readInstructions.remove(0);
+                    }
+            }
+            cell.value.set(e.getNewValue());
+        }
+    }
 }

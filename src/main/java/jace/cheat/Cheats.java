@@ -89,6 +89,11 @@ public abstract class Cheats extends Device {
         listeners.clear();
     }
 
+    public void removeListener(RAMListener l) {
+        computer.getMemory().removeListener(l);
+        listeners.remove(l);
+    }
+    
     @Override
     public void reconfigure() {
         unregisterListeners();
