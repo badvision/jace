@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.scene.canvas.*?>
 <?import javafx.scene.text.*?>
 <?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
@@ -22,7 +23,14 @@
       </ToolBar>
       <SplitPane dividerPositions="0.6304347826086957" prefHeight="363.0" prefWidth="600.0" VBox.vgrow="ALWAYS">
         <items>
-            <ScrollPane fx:id="memoryViewPane" prefHeight="450.0" prefWidth="391.0" />
+            <ScrollPane fx:id="memoryViewPane" prefHeight="450.0" prefWidth="391.0">
+               <content>
+                  <StackPane fx:id="memoryViewContents" prefHeight="150.0" prefWidth="200.0">
+                     <children>
+                        <Canvas fx:id="memoryViewCanvas" height="200.0" width="200.0" />
+                     </children>
+                  </StackPane>
+               </content></ScrollPane>
             <Accordion>
               <panes>
                   <TitledPane prefHeight="200.0" prefWidth="200.0" text="Search">

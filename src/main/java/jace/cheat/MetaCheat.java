@@ -346,8 +346,8 @@ public class MetaCheat extends Cheats {
                     cell.writeCount.set(Math.max(0, cell.writeCount.get() - fadeRate));
                     change = true;
                 }
-                if (change) {
-                    cell.listener.changed(null, cell, cell);
+                if (change && MemoryCell.listener != null) {
+                    MemoryCell.listener.changed(null, cell, cell);
                 }
             });
         }
