@@ -1,8 +1,10 @@
 package jace.cheat;
 
+import jace.Emulator;
 import jace.EmulatorUILogic;
 import jace.config.ConfigurableField;
 import jace.core.Computer;
+import jace.core.RAM;
 import jace.core.RAMEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
@@ -31,6 +33,9 @@ public class MontezumasRevengeCheats extends Cheats {
     @ConfigurableField(category = "Hack", name = "Teleport", defaultValue = "false", description = "Click to teleport!")
     public static boolean mouseHack = false;
 
+    @ConfigurableField(category = "Hack", name = "Safe Passage", defaultValue = "false", description = "Deadly floors and doors disabled!")
+    public static boolean safePassage = false;
+
     public static int X_MAX = 80;
     public static int Y_MAX = 160;
     public static int MAX_VEL = 4;
@@ -39,6 +44,9 @@ public class MontezumasRevengeCheats extends Cheats {
     public static int LIVES = 0x0e0;
     public static int SCORE = 0x0e8;
     public static int SCORE_END = 0x0ea;
+    public static int FLOOR_TIMER = 0x030a;
+    public static int HAZARD_TIMER = 0x030b;
+    public static int HAZARD_FLAG = 0x030f;
     public static int PLAYER_X = 0x01508;
     public static int PLAYER_Y = 0x01510;
     public static int Y_VELOCITY = 0x01550;
@@ -63,6 +71,7 @@ public class MontezumasRevengeCheats extends Cheats {
 
     @Override
     void registerListeners() {
+        RAM memory = Emulator.computer.memory;
         if (repulsiveHack) {
             addCheat(RAMEvent.TYPE.WRITE, this::repulsiveBehavior, 0x1508, 0x1518);
         }
@@ -78,7 +87,27 @@ public class MontezumasRevengeCheats extends Cheats {
         }
 
         if (infiniteLives) {
-            forceValue(LIVES, 11);
+            forceValue(11, LIVES);
+        }
+
+        if (safePassage) {
+            //blank out pattern for floors/doors
+            for (int addr = 0x0b54; addr <= 0xb5f; addr++) {
+                memory.write(addr, (byte) 0, false, false);
+                memory.write(addr + 0x0400, (byte) 0, false, false);
+            }
+            memory.write(0x0b50, (byte) 0b11010111, false, false);
+            memory.write(0x0b51, (byte) 0b00010000, false, false);
+            memory.write(0x0b52, (byte) 0b10001000, false, false);
+            memory.write(0x0b53, (byte) 0b10101010, false, false);
+            memory.write(0x0f50, (byte) 0b10101110, false, false);
+            memory.write(0x0f51, (byte) 0b00001000, false, false);
+            memory.write(0x0f52, (byte) 0b10000100, false, false);
+            memory.write(0x0f53, (byte) 0b11010101, false, false);            
+            forceValue(32, FLOOR_TIMER);
+            forceValue(32, HAZARD_TIMER);
+            forceValue(1, HAZARD_FLAG);
+            
         }
 
         if (scoreHack) {
