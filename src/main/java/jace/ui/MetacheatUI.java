@@ -298,8 +298,14 @@ public class MetacheatUI {
     StackPane pane = new StackPane();
 
     Tooltip memoryWatchTooltip = new Tooltip();
+
     private void memoryViewClicked(MouseEvent e) {
         if (cheatEngine != null) {
+            Watch currentWatch = (Watch) memoryWatchTooltip.getGraphic();
+            if (currentWatch != null) {
+                currentWatch.disconnect();
+            }
+
             double x = e.getX();
             double y = e.getY();
             int col = (int) (x / MEMORY_BOX_TOTAL_SIZE);
@@ -307,12 +313,7 @@ public class MetacheatUI {
             int addr = cheatEngine.getStartAddress() + row * memoryViewColumns + col;
             Watch watch = new Watch(addr);
             memoryWatchTooltip.setStyle("-fx-background-color:NAVY");
-
             memoryWatchTooltip.onHidingProperty().addListener((prop, oldVal, newVal) -> {
-                Watch currentWatch = (Watch) memoryWatchTooltip.getGraphic();
-                if (currentWatch != null) {
-                    currentWatch.disconnect();
-                }
                 watch.disconnect();
                 memoryWatchTooltip.setGraphic(null);
             });
@@ -352,7 +353,7 @@ public class MetacheatUI {
         if (animationTimer == null) {
             animationTimer = new ScheduledThreadPoolExecutor(10);
         }
-        
+
         if (animationFuture != null) {
             animationFuture.cancel(false);
         }
@@ -440,6 +441,10 @@ public class MetacheatUI {
             graph = new Canvas(GRAPH_WIDTH, GRAPH_HEIGHT);
             getChildren().add(addrLabel);
             getChildren().add(graph);
+
+            CheckBox hold = new CheckBox("Hold");
+            hold.selectedProperty().addListener((prop, oldVal, newVal) -> this.hold(newVal));
+            getChildren().add(hold);
         }
 
         public void redraw() {
@@ -470,7 +475,22 @@ public class MetacheatUI {
             g.strokeText(String.valueOf(val), GRAPH_WIDTH - 25, GRAPH_HEIGHT - 5);
         }
 
+        RAMListener holdListener;
+
+        private void hold(boolean state) {
+            if (!state) {
+                cheatEngine.removeListener(holdListener);
+                holdListener = null;
+            } else {
+                int val = cheatEngine.getMemoryCell(address).value.get() & 0x0ff;
+                holdListener = cheatEngine.forceValue(val, address);
+            }
+        }
+
         public void disconnect() {
+            if (holdListener != null) {
+                cheatEngine.removeListener(holdListener);
+            }
             redraw.cancel(false);
         }
     }
