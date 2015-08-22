@@ -107,7 +107,6 @@ public class MontezumasRevengeCheats extends Cheats {
             forceValue(32, FLOOR_TIMER);
             forceValue(32, HAZARD_TIMER);
             forceValue(1, HAZARD_FLAG);
-            
         }
 
         if (scoreHack) {
@@ -123,11 +122,15 @@ public class MontezumasRevengeCheats extends Cheats {
         }
         if (mouseHack) {
             EmulatorUILogic.addMouseListener(listener);
-        } else {
-            EmulatorUILogic.removeMouseListener(listener);
         }
     }
 
+    @Override
+    protected void unregisterListeners() {
+        super.unregisterListeners();
+        EmulatorUILogic.removeMouseListener(listener);
+    }
+        
     private void repulsiveBehavior(RAMEvent e) {
         int playerX = computer.getMemory().readRaw(PLAYER_X);
         int playerY = computer.getMemory().readRaw(PLAYER_Y);

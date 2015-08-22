@@ -105,8 +105,8 @@ public class MetaCheat extends Cheats {
 
     MetacheatUI ui;
 
-    public int fadeRate = 2;
-    public int lightRate = 20;
+    public int fadeRate = 1;
+    public int lightRate = 30;
     public int historyLength = 10;
 
     private int startAddress = 0;

@@ -19,6 +19,7 @@
 package jace.cheat;
 
 import jace.apple2e.MOS65C02;
+import jace.config.InvokableAction;
 import jace.core.Computer;
 import jace.core.Device;
 import jace.core.RAMEvent;
@@ -33,11 +34,21 @@ import java.util.Set;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public abstract class Cheats extends Device {
-
+    boolean cheatsActive = true;
     Set<RAMListener> listeners = new HashSet<>();
 
     public Cheats(Computer computer) {
         super(computer);
+    }
+    
+    @InvokableAction(name = "Toggle Cheats", alternatives = "cheat", defaultKeyMapping = "ctrl+shift+m")
+    public void toggleCheats() {
+        cheatsActive = !cheatsActive;
+        if (cheatsActive) {
+            attach();
+        } else {
+            detach();
+        }
     }
 
     public RAMListener bypassCode(int address, int addressEnd) {
@@ -103,7 +114,9 @@ public abstract class Cheats extends Device {
     @Override
     public void reconfigure() {
         unregisterListeners();
-        registerListeners();
+        if (cheatsActive) {
+            registerListeners();
+        }
     }
 
     @Override

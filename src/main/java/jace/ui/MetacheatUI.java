@@ -18,6 +18,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -262,6 +263,9 @@ public class MetacheatUI {
         });
         memoryViewPane.boundsInParentProperty().addListener((prop, oldVal, newVal) -> redrawMemoryView());
         memoryViewCanvas.widthProperty().bind(memoryViewPane.widthProperty());
+
+        watchesPane.setHgap(5);
+        watchesPane.setVgap(5);
     }
 
     MetaCheat cheatEngine = null;
@@ -312,6 +316,23 @@ public class MetacheatUI {
             int row = (int) (y / MEMORY_BOX_TOTAL_SIZE);
             int addr = cheatEngine.getStartAddress() + row * memoryViewColumns + col;
             Watch watch = new Watch(addr);
+
+            Label addWatch = new Label("Watch >>");
+            addWatch.setOnMouseClicked((mouseEvent) -> {
+                Watch newWatch = addWatch(addr);
+                if (watch.holdingProperty().get()) {
+                    newWatch.holdingProperty().set(true);
+                }
+                memoryWatchTooltip.hide();
+            });
+            watch.getChildren().add(addWatch);
+
+            Label addCheat = new Label("Cheat >>");
+            addCheat.setOnMouseClicked((mouseEvent) -> {
+                addCheat(addr, watch.getValue());
+            });
+            watch.getChildren().add(addCheat);
+
             memoryWatchTooltip.setStyle("-fx-background-color:NAVY");
             memoryWatchTooltip.onHidingProperty().addListener((prop, oldVal, newVal) -> {
                 watch.disconnect();
@@ -417,8 +438,36 @@ public class MetacheatUI {
         searchStatusLabel.setText(size + (size == 1 ? " result" : " results") + " found.");
     }
 
-    private static int GRAPH_WIDTH = 50;
-    private static double GRAPH_HEIGHT = 50;
+    private Watch addWatch(int addr) {
+        Watch watch = new Watch(addr);
+        watch.setPadding(new Insets(5));
+        watch.setOpaqueInsets(new Insets(10));
+
+        Label addCheat = new Label("Cheat >>");
+        addCheat.setOnMouseClicked((mouseEvent) -> {
+            addCheat(addr, watch.getValue());
+        });
+        addCheat.setTextFill(Color.WHITE);
+        watch.getChildren().add(addCheat);
+
+        Label close = new Label("Close  X");
+        close.setOnMouseClicked((mouseEvent) -> {
+            watch.disconnect();
+            watchesPane.getChildren().remove(watch);
+        });
+        close.setTextFill(Color.WHITE);
+        watch.getChildren().add(close);
+
+        watchesPane.getChildren().add(watch);
+        return watch;
+    }
+
+    private void addCheat(int addr, int val) {
+
+    }
+
+    private static final int GRAPH_WIDTH = 50;
+    private static final double GRAPH_HEIGHT = 50;
 
     private class Watch extends VBox {
 
@@ -426,6 +475,8 @@ public class MetacheatUI {
         ScheduledFuture redraw;
         Canvas graph;
         List<Integer> samples = Collections.synchronizedList(new ArrayList<>());
+        int value = 0;
+        BooleanProperty holding = null;
 
         public Watch(int address) {
             super();
@@ -443,54 +494,68 @@ public class MetacheatUI {
             getChildren().add(graph);
 
             CheckBox hold = new CheckBox("Hold");
-            hold.selectedProperty().addListener((prop, oldVal, newVal) -> this.hold(newVal));
+            holding = hold.selectedProperty();
+            holding.addListener((prop, oldVal, newVal) -> this.updateHold());
+
             getChildren().add(hold);
+            hold.setTextFill(Color.WHITE);
+        }
+
+        public int getValue() {
+            return value;
         }
 
         public void redraw() {
             int val = cheatEngine.getMemoryCell(address).value.get() & 0x0ff;
+            if (!holding.get()) {
+                value = val;
+            }
             if (samples.size() >= GRAPH_WIDTH) {
                 samples.remove(0);
             }
             samples.add(val);
 
-            GraphicsContext g = graph.getGraphicsContext2D();
-            g.setFill(Color.BLACK);
-            g.fillRect(0, 0, GRAPH_WIDTH, GRAPH_HEIGHT);
+            Platform.runLater(() -> {
+                GraphicsContext g = graph.getGraphicsContext2D();
+                g.setFill(Color.BLACK);
+                g.fillRect(0, 0, GRAPH_WIDTH, GRAPH_HEIGHT);
 
-            if (samples.size() > 1) {
-                g.setLineWidth(1);
-                g.setStroke(Color.LAWNGREEN);
-                int y = (int) (GRAPH_HEIGHT - ((samples.get(0) / 255.0) * GRAPH_HEIGHT));
-                g.beginPath();
-                g.moveTo(0, y);
-                for (int i = 1; i < samples.size(); i++) {
-                    y = (int) (GRAPH_HEIGHT - ((samples.get(i) / 255.0) * GRAPH_HEIGHT));
-                    g.lineTo(i, y);
+                if (samples.size() > 1) {
+                    g.setLineWidth(1);
+                    g.setStroke(Color.LAWNGREEN);
+                    int y = (int) (GRAPH_HEIGHT - ((samples.get(0) / 255.0) * GRAPH_HEIGHT));
+                    g.beginPath();
+                    g.moveTo(0, y);
+                    for (int i = 1; i < samples.size(); i++) {
+                        y = (int) (GRAPH_HEIGHT - ((samples.get(i) / 255.0) * GRAPH_HEIGHT));
+                        g.lineTo(i, y);
+                    }
+                    g.stroke();
                 }
-                g.stroke();
-            }
-            g.beginPath();
-            g.setStroke(Color.WHITE);
-            g.strokeText(String.valueOf(val), GRAPH_WIDTH - 25, GRAPH_HEIGHT - 5);
+                g.beginPath();
+                g.setStroke(Color.WHITE);
+                g.strokeText(String.valueOf(val), GRAPH_WIDTH - 25, GRAPH_HEIGHT - 5);
+            });
         }
 
         RAMListener holdListener;
 
-        private void hold(boolean state) {
-            if (!state) {
+        public BooleanProperty holdingProperty() {
+            return holding;
+        }
+
+        private void updateHold() {
+            if (!holding.get()) {
                 cheatEngine.removeListener(holdListener);
                 holdListener = null;
             } else {
-                int val = cheatEngine.getMemoryCell(address).value.get() & 0x0ff;
-                holdListener = cheatEngine.forceValue(val, address);
+                value = Emulator.computer.memory.readRaw(address) & 0x0ff;
+                holdListener = cheatEngine.forceValue(value, address);
             }
         }
 
         public void disconnect() {
-            if (holdListener != null) {
-                cheatEngine.removeListener(holdListener);
-            }
+            holding.set(false);
             redraw.cancel(false);
         }
     }
