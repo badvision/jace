@@ -31,7 +31,7 @@
                      </children>
                   </StackPane>
                </content></ScrollPane>
-            <Accordion>
+            <Accordion centerShape="false" scaleShape="false">
               <panes>
                   <TitledPane prefHeight="200.0" prefWidth="200.0" text="Search">
                      <content>
@@ -198,12 +198,16 @@
                               </ToolBar>
                            </bottom>
                            <center>
-                              <TableView fx:id="cheatsTableView" prefHeight="321.0" prefWidth="207.0" BorderPane.alignment="CENTER">
+                              <TableView fx:id="cheatsTableView" editable="true" prefHeight="321.0" prefWidth="207.0" BorderPane.alignment="CENTER">
                                 <columns>
-                                    <TableColumn prefWidth="35.0" text="On" />
-                                  <TableColumn prefWidth="63.0" text="Address" />
-                                  <TableColumn prefWidth="127.0" text="Effect" />
+                                    <TableColumn prefWidth="26.0" sortable="false" text="On" />
+                                    <TableColumn prefWidth="74.0" text="Name" />
+                                  <TableColumn prefWidth="50.0" text="Addr" />
+                                  <TableColumn prefWidth="84.0" text="Effect" />
                                 </columns>
+                                 <columnResizePolicy>
+                                    <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                                 </columnResizePolicy>
                               </TableView>
                            </center>
                         </BorderPane>

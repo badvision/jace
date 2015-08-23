@@ -2,16 +2,14 @@ package jace.ui;
 
 import com.sun.glass.ui.Application;
 import jace.Emulator;
+import jace.cheat.DynamicCheat;
+import jace.cheat.MemoryCell;
 import jace.cheat.MetaCheat;
-import jace.cheat.MetaCheat.Cheat;
 import jace.cheat.MetaCheat.SearchChangeType;
 import jace.cheat.MetaCheat.SearchType;
 import jace.core.RAMListener;
 import jace.state.State;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ScheduledExecutorService;
@@ -19,7 +17,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
-import javafx.beans.property.BooleanProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -35,22 +32,21 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
-import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
-import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.TextAlignment;
+import javafx.util.converter.DefaultStringConverter;
+import javafx.util.converter.IntegerStringConverter;
 
 public class MetacheatUI {
 
@@ -127,7 +123,7 @@ public class MetacheatUI {
     private ListView<State> snapshotsListView;
 
     @FXML
-    private TableView<Cheat> cheatsTableView;
+    private TableView<DynamicCheat> cheatsTableView;
 
     @FXML
     void addCheat(ActionEvent event) {
@@ -271,12 +267,36 @@ public class MetacheatUI {
 
         searchStartAddressField.textProperty().addListener(addressRangeListener);
         searchEndAddressField.textProperty().addListener(addressRangeListener);
-        
+
         RAMListener l;
-        
-        cheatsTableView.getColumns().get(0).setCellValueFactory(new PropertyValueFactory<>("active"));
-        cheatsTableView.getColumns().get(1).setCellValueFactory(new PropertyValueFactory<>("address"));
-        cheatsTableView.getColumns().get(2).setCellValueFactory(new PropertyValueFactory<>("value"));
+
+        TableColumn<DynamicCheat, Boolean> activeColumn = (TableColumn<DynamicCheat, Boolean>) cheatsTableView.getColumns().get(0);
+        activeColumn.setCellValueFactory(new PropertyValueFactory<>("active"));
+        activeColumn.setCellFactory((TableColumn<DynamicCheat, Boolean> param) -> new CheckBoxTableCell<>());
+
+        TableColumn<DynamicCheat, String> nameColumn = (TableColumn<DynamicCheat, String>) cheatsTableView.getColumns().get(1);
+        nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+        nameColumn.setCellFactory((TableColumn<DynamicCheat, String> param) -> new TextFieldTableCell<>(new DefaultStringConverter()));
+
+        TableColumn<DynamicCheat, Integer> addrColumn = (TableColumn<DynamicCheat, Integer>) cheatsTableView.getColumns().get(2);
+        addrColumn.setCellValueFactory(new PropertyValueFactory<>("address"));
+        addrColumn.setCellFactory((TableColumn<DynamicCheat, Integer> param) -> {
+            return new TextFieldTableCell<>(new IntegerStringConverter(){
+                @Override
+                public String toString(Integer value) {
+                    return "$"+Integer.toHexString(value);
+                }
+                
+                @Override
+                public Integer fromString(String value) {
+                    return cheatEngine.parseInt(value);
+                }
+            });
+        });
+
+        TableColumn<DynamicCheat, String> exprColumn = (TableColumn<DynamicCheat, String>) cheatsTableView.getColumns().get(3);
+        exprColumn.setCellValueFactory(new PropertyValueFactory<>("expression"));
+        exprColumn.setCellFactory((TableColumn<DynamicCheat, String> param) -> new TextFieldTableCell<>(new DefaultStringConverter()));
     }
     MetaCheat cheatEngine = null;
 
@@ -303,7 +323,7 @@ public class MetacheatUI {
     public int memoryViewColumns;
     public int memoryViewRows;
 
-    public static Set<MetaCheat.MemoryCell> redrawNodes = new ConcurrentSkipListSet<>();
+    public static Set<MemoryCell> redrawNodes = new ConcurrentSkipListSet<>();
     ScheduledExecutorService animationTimer = null;
     ScheduledFuture animationFuture = null;
     StackPane pane = new StackPane();
@@ -322,7 +342,7 @@ public class MetacheatUI {
             int col = (int) (x / MEMORY_BOX_TOTAL_SIZE);
             int row = (int) (y / MEMORY_BOX_TOTAL_SIZE);
             int addr = cheatEngine.getStartAddress() + row * memoryViewColumns + col;
-            Watch watch = new Watch(addr);
+            Watch watch = new Watch(addr, this);
 
             Label addWatch = new Label("Watch >>");
             addWatch.setOnMouseClicked((mouseEvent) -> {
@@ -353,9 +373,9 @@ public class MetacheatUI {
     private void processMemoryViewUpdates() {
         Application.invokeLater(() -> {
             GraphicsContext context = memoryViewCanvas.getGraphicsContext2D();
-            Set<MetaCheat.MemoryCell> draw = new HashSet<>(redrawNodes);
+            Set<MemoryCell> draw = new HashSet<>(redrawNodes);
             redrawNodes.clear();
-            draw.stream().forEach((cell) -> {
+            draw.stream().forEach((jace.cheat.MemoryCell cell) -> {
                 if (showValuesCheckbox.isSelected()) {
                     int val = cell.value.get() & 0x0ff;
                     context.setFill(Color.rgb(val, val, val));
@@ -401,11 +421,11 @@ public class MetacheatUI {
         for (int addr = cheatEngine.getStartAddress(); addr <= cheatEngine.getEndAddress(); addr++) {
             int col = (addr - cheatEngine.getStartAddress()) % memoryViewColumns;
             int row = (addr - cheatEngine.getStartAddress()) / memoryViewColumns;
-            MetaCheat.MemoryCell cell = cheatEngine.getMemoryCell(addr);
+            MemoryCell cell = cheatEngine.getMemoryCell(addr);
             cell.setRect(col * MEMORY_BOX_TOTAL_SIZE, row * MEMORY_BOX_TOTAL_SIZE, MEMORY_BOX_SIZE, MEMORY_BOX_SIZE);
             redrawNodes.add(cell);
         }
-        MetaCheat.MemoryCell.setListener((prop, oldCell, newCell) -> {
+        MemoryCell.setListener((javafx.beans.value.ObservableValue<? extends jace.cheat.MemoryCell> prop, jace.cheat.MemoryCell oldCell, jace.cheat.MemoryCell newCell) -> {
             redrawNodes.add(newCell);
         });
 
@@ -446,7 +466,7 @@ public class MetacheatUI {
     }
 
     private Watch addWatch(int addr) {
-        Watch watch = new Watch(addr);
+        Watch watch = new Watch(addr, this);
         watch.setPadding(new Insets(5));
         watch.setOpaqueInsets(new Insets(10));
 
@@ -470,100 +490,7 @@ public class MetacheatUI {
     }
 
     private void addCheat(int addr, int val) {
-        cheatEngine.addCheat(new Cheat(addr, val));
+        cheatEngine.addCheat(new DynamicCheat(addr, String.valueOf(val)));
     }
 
-    private static final int GRAPH_WIDTH = 50;
-    private static final double GRAPH_HEIGHT = 50;
-
-    private class Watch extends VBox {
-
-        int address;
-        ScheduledFuture redraw;
-        Canvas graph;
-        List<Integer> samples = Collections.synchronizedList(new ArrayList<>());
-        int value = 0;
-        BooleanProperty holding = null;
-
-        public Watch(int address) {
-            super();
-            this.address = address;
-            redraw = animationTimer.scheduleAtFixedRate(this::redraw, FRAME_RATE, FRAME_RATE, TimeUnit.MILLISECONDS);
-
-            setBackground(new Background(new BackgroundFill(Color.NAVY, CornerRadii.EMPTY, Insets.EMPTY)));
-            Label addrLabel = new Label("$" + Integer.toHexString(address));
-            addrLabel.setTextAlignment(TextAlignment.CENTER);
-            addrLabel.setMinWidth(GRAPH_WIDTH);
-            addrLabel.setFont(new Font(Font.getDefault().getFamily(), 14));
-            addrLabel.setTextFill(Color.WHITE);
-            graph = new Canvas(GRAPH_WIDTH, GRAPH_HEIGHT);
-            getChildren().add(addrLabel);
-            getChildren().add(graph);
-
-            CheckBox hold = new CheckBox("Hold");
-            holding = hold.selectedProperty();
-            holding.addListener((prop, oldVal, newVal) -> this.updateHold());
-
-            getChildren().add(hold);
-            hold.setTextFill(Color.WHITE);
-        }
-
-        public int getValue() {
-            return value;
-        }
-
-        public void redraw() {
-            int val = cheatEngine.getMemoryCell(address).value.get() & 0x0ff;
-            if (!holding.get()) {
-                value = val;
-            }
-            if (samples.size() >= GRAPH_WIDTH) {
-                samples.remove(0);
-            }
-            samples.add(val);
-
-            Platform.runLater(() -> {
-                GraphicsContext g = graph.getGraphicsContext2D();
-                g.setFill(Color.BLACK);
-                g.fillRect(0, 0, GRAPH_WIDTH, GRAPH_HEIGHT);
-
-                if (samples.size() > 1) {
-                    g.setLineWidth(1);
-                    g.setStroke(Color.LAWNGREEN);
-                    int y = (int) (GRAPH_HEIGHT - ((samples.get(0) / 255.0) * GRAPH_HEIGHT));
-                    g.beginPath();
-                    g.moveTo(0, y);
-                    for (int i = 1; i < samples.size(); i++) {
-                        y = (int) (GRAPH_HEIGHT - ((samples.get(i) / 255.0) * GRAPH_HEIGHT));
-                        g.lineTo(i, y);
-                    }
-                    g.stroke();
-                }
-                g.beginPath();
-                g.setStroke(Color.WHITE);
-                g.strokeText(String.valueOf(val), GRAPH_WIDTH - 25, GRAPH_HEIGHT - 5);
-            });
-        }
-
-        RAMListener holdListener;
-
-        public BooleanProperty holdingProperty() {
-            return holding;
-        }
-
-        private void updateHold() {
-            if (!holding.get()) {
-                cheatEngine.removeListener(holdListener);
-                holdListener = null;
-            } else {
-                value = Emulator.computer.memory.readRaw(address) & 0x0ff;
-                holdListener = cheatEngine.forceValue(value, address);
-            }
-        }
-
-        public void disconnect() {
-            holding.set(false);
-            redraw.cancel(false);
-        }
-    }
 }

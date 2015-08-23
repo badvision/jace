@@ -8,22 +8,24 @@ import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.state.State;
 import jace.ui.MetacheatUI;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javafx.beans.property.BooleanProperty;
-import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.Property;
 import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
-import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javax.script.Invocable;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
 
 public class MetaCheat extends Cheats {
+
+    static final ScriptEngine NASHORN_ENGINE = new ScriptEngineManager().getEngineByName("nashorn");
+    static Invocable NASHORN_INVOCABLE = (Invocable) NASHORN_ENGINE;
 
     public static enum SearchType {
         VALUE, TEXT, CHANGE
@@ -33,62 +35,6 @@ public class MetaCheat extends Cheats {
         NO_CHANGE, ANY_CHANGE, LESS, GREATER, AMOUNT
     }
 
-    public static class MemoryCell implements Comparable<MemoryCell> {
-
-        public static ChangeListener<MemoryCell> listener;
-        public int address;
-        public IntegerProperty value = new SimpleIntegerProperty();
-        public IntegerProperty readCount = new SimpleIntegerProperty();
-        public IntegerProperty execCount = new SimpleIntegerProperty();
-        public IntegerProperty writeCount = new SimpleIntegerProperty();
-        public ObservableList<Integer> readInstructions = FXCollections.observableList(new ArrayList<>());
-        public ObservableList<Integer> writeInstructions = FXCollections.observableList(new ArrayList<>());
-        private int x;
-        private int y;
-        private int width;
-        private int height;
-
-        public static void setListener(ChangeListener<MemoryCell> l) {
-            listener = l;
-        }
-
-        public MemoryCell() {
-            ChangeListener<Number> changeListener = (ObservableValue<? extends Number> val, Number oldVal, Number newVal) -> {
-                if (listener != null) {
-                    listener.changed(null, this, this);
-                }
-            };
-            value.addListener(changeListener);
-        }
-
-        public void setRect(int x, int y, int w, int h) {
-            this.x = x;
-            this.y = y;
-            this.width = w;
-            this.height = h;
-        }
-
-        public int getX() {
-            return x;
-        }
-
-        public int getY() {
-            return y;
-        }
-
-        public int getWidth() {
-            return width;
-        }
-
-        public int getHeight() {
-            return height;
-        }
-
-        @Override
-        public int compareTo(MemoryCell o) {
-            return address - o.address;
-        }
-    }
 
     public static class SearchResult {
 
@@ -106,42 +52,6 @@ public class MetaCheat extends Cheats {
         }
     }
 
-    public static class Cheat extends RAMListener {
-        IntegerProperty addr;
-        IntegerProperty val;
-        BooleanProperty active;
-
-        public Cheat(int address, int value) {
-            super(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY);
-            addr = new SimpleIntegerProperty(address);
-            val = new SimpleIntegerProperty(value);
-            active = new SimpleBooleanProperty(true);
-            setScopeStart(address);
-        }
-
-        @Override
-        protected void doConfig() {
-        }
-
-        @Override
-        protected void doEvent(RAMEvent e) {
-            if (active.get()) {
-                e.setNewValue(val.get());
-            }
-        }
-
-        public BooleanProperty activeProperty() {
-            return active;
-        }
-        
-        public IntegerProperty addressProperty() {
-            return addr;
-        }
-        
-        public IntegerProperty valueProperty() {
-            return val;
-        }
-    }
 
     MetacheatUI ui;
 
@@ -159,7 +69,7 @@ public class MetaCheat extends Cheats {
     private final BooleanProperty signedProperty = new SimpleBooleanProperty(false);
     private final StringProperty searchValueProperty = new SimpleStringProperty("0");
     private final StringProperty changeByProperty = new SimpleStringProperty("0");
-    private final ObservableList<Cheat> cheatList = FXCollections.observableArrayList();
+    private final ObservableList<DynamicCheat> cheatList = FXCollections.observableArrayList();
     private final ObservableList<SearchResult> resultList = FXCollections.observableArrayList();
     private final ObservableList<State> snapshotList = FXCollections.observableArrayList();
 
@@ -194,14 +104,14 @@ public class MetaCheat extends Cheats {
         }
         if (s.matches("(\\+|-)?[0-9]+")) {
             return Integer.parseInt(s);
-        } else if (s.matches("(\\+|-)?[0-9a-fA-F]+")) {
-            return Integer.parseInt(s.toUpperCase(), 16);
-        } else if (s.matches("(\\+|-)?(x|$)[0-9a-fA-F]+")) {
+        } else {
             String upper = s.toUpperCase();
             boolean positive = true;
             if (upper.startsWith("-")) {
                 positive = false;
+                upper = upper.substring(1);
             }
+            
             for (int i = 0; i < upper.length(); i++) {
                 char c = upper.charAt(i);
                 if ((c >= '0' && c <= '9') || (c >= 'A' & c <= 'F')) {
@@ -220,10 +130,15 @@ public class MetaCheat extends Cheats {
     void registerListeners() {
     }
 
-    public void addCheat(Cheat cheat) {
+    public void addCheat(DynamicCheat cheat) {
         cheat.activeProperty().set(true);
         cheatList.add(cheat);
         computer.getMemory().addListener(cheat);
+        cheat.addressProperty().addListener((prop, oldVal, newVal)->{
+            computer.getMemory().removeListener(cheat);
+            cheat.doConfig();
+            computer.getMemory().addListener(cheat);
+        });
     }
 
     @Override
@@ -282,7 +197,7 @@ public class MetaCheat extends Cheats {
         return changeByProperty;
     }
 
-    public ObservableList<Cheat> getCheats() {
+    public ObservableList<DynamicCheat> getCheats() {
         return cheatList;
     }
 
@@ -384,7 +299,7 @@ public class MetaCheat extends Cheats {
     public void tick() {
         if (fadeCounter-- <= 0) {
             fadeCounter = FADE_TIMER_VALUE;
-            memoryCells.values().stream().forEach((cell) -> {
+            memoryCells.values().stream().forEach((jace.cheat.MemoryCell cell) -> {
                 boolean change = false;
                 if (cell.execCount.get() > 0) {
                     cell.execCount.set(Math.max(0, cell.execCount.get() - fadeRate));
