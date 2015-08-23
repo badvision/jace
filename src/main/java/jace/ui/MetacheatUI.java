@@ -3,6 +3,7 @@ package jace.ui;
 import com.sun.glass.ui.Application;
 import jace.Emulator;
 import jace.cheat.MetaCheat;
+import jace.cheat.MetaCheat.Cheat;
 import jace.cheat.MetaCheat.SearchChangeType;
 import jace.cheat.MetaCheat.SearchType;
 import jace.core.RAMListener;
@@ -39,6 +40,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
@@ -125,7 +127,7 @@ public class MetacheatUI {
     private ListView<State> snapshotsListView;
 
     @FXML
-    private TableView<RAMListener> cheatsTableView;
+    private TableView<Cheat> cheatsTableView;
 
     @FXML
     void addCheat(ActionEvent event) {
@@ -266,8 +268,16 @@ public class MetacheatUI {
 
         watchesPane.setHgap(5);
         watchesPane.setVgap(5);
-    }
 
+        searchStartAddressField.textProperty().addListener(addressRangeListener);
+        searchEndAddressField.textProperty().addListener(addressRangeListener);
+        
+        RAMListener l;
+        
+        cheatsTableView.getColumns().get(0).setCellValueFactory(new PropertyValueFactory<>("active"));
+        cheatsTableView.getColumns().get(1).setCellValueFactory(new PropertyValueFactory<>("address"));
+        cheatsTableView.getColumns().get(2).setCellValueFactory(new PropertyValueFactory<>("value"));
+    }
     MetaCheat cheatEngine = null;
 
     public void registerMetacheatEngine(MetaCheat engine) {
@@ -281,9 +291,6 @@ public class MetacheatUI {
         searchEndAddressField.textProperty().bindBidirectional(cheatEngine.endAddressProperty());
         searchValueField.textProperty().bindBidirectional(cheatEngine.searchValueProperty());
         searchChangeByField.textProperty().bindBidirectional(cheatEngine.searchChangeByProperty());
-
-        searchStartAddressField.textProperty().addListener(addressRangeListener);
-        searchEndAddressField.textProperty().addListener(addressRangeListener);
 
         Application.invokeLater(this::redrawMemoryView);
     }
@@ -463,7 +470,7 @@ public class MetacheatUI {
     }
 
     private void addCheat(int addr, int val) {
-
+        cheatEngine.addCheat(new Cheat(addr, val));
     }
 
     private static final int GRAPH_WIDTH = 50;

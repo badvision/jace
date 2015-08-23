@@ -33,7 +33,7 @@ public class MetaCheat extends Cheats {
         NO_CHANGE, ANY_CHANGE, LESS, GREATER, AMOUNT
     }
 
-    public static class MemoryCell  implements Comparable<MemoryCell>{
+    public static class MemoryCell implements Comparable<MemoryCell> {
 
         public static ChangeListener<MemoryCell> listener;
         public int address;
@@ -67,16 +67,19 @@ public class MetaCheat extends Cheats {
             this.width = w;
             this.height = h;
         }
-        
+
         public int getX() {
             return x;
         }
+
         public int getY() {
-            return y;            
+            return y;
         }
+
         public int getWidth() {
             return width;
         }
+
         public int getHeight() {
             return height;
         }
@@ -103,6 +106,43 @@ public class MetaCheat extends Cheats {
         }
     }
 
+    public static class Cheat extends RAMListener {
+        IntegerProperty addr;
+        IntegerProperty val;
+        BooleanProperty active;
+
+        public Cheat(int address, int value) {
+            super(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY);
+            addr = new SimpleIntegerProperty(address);
+            val = new SimpleIntegerProperty(value);
+            active = new SimpleBooleanProperty(true);
+            setScopeStart(address);
+        }
+
+        @Override
+        protected void doConfig() {
+        }
+
+        @Override
+        protected void doEvent(RAMEvent e) {
+            if (active.get()) {
+                e.setNewValue(val.get());
+            }
+        }
+
+        public BooleanProperty activeProperty() {
+            return active;
+        }
+        
+        public IntegerProperty addressProperty() {
+            return addr;
+        }
+        
+        public IntegerProperty valueProperty() {
+            return val;
+        }
+    }
+
     MetacheatUI ui;
 
     public int fadeRate = 1;
@@ -119,7 +159,7 @@ public class MetaCheat extends Cheats {
     private final BooleanProperty signedProperty = new SimpleBooleanProperty(false);
     private final StringProperty searchValueProperty = new SimpleStringProperty("0");
     private final StringProperty changeByProperty = new SimpleStringProperty("0");
-    private final ObservableList<RAMListener> cheatList = FXCollections.observableArrayList();
+    private final ObservableList<Cheat> cheatList = FXCollections.observableArrayList();
     private final ObservableList<SearchResult> resultList = FXCollections.observableArrayList();
     private final ObservableList<State> snapshotList = FXCollections.observableArrayList();
 
@@ -180,6 +220,18 @@ public class MetaCheat extends Cheats {
     void registerListeners() {
     }
 
+    public void addCheat(Cheat cheat) {
+        cheat.activeProperty().set(true);
+        cheatList.add(cheat);
+        computer.getMemory().addListener(cheat);
+    }
+
+    @Override
+    protected void unregisterListeners() {
+        super.unregisterListeners();
+        cheatList.stream().forEach(computer.getMemory()::removeListener);
+    }
+
     @Override
     protected String getDeviceName() {
         return "MetaCheat";
@@ -230,7 +282,7 @@ public class MetaCheat extends Cheats {
         return changeByProperty;
     }
 
-    public ObservableList<RAMListener> getCheats() {
+    public ObservableList<Cheat> getCheats() {
         return cheatList;
     }
 
