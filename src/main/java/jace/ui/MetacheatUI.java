@@ -6,6 +6,7 @@ import jace.cheat.DynamicCheat;
 import jace.cheat.MemoryCell;
 import jace.cheat.MetaCheat;
 import jace.cheat.MetaCheat.SearchChangeType;
+import jace.cheat.MetaCheat.SearchResult;
 import jace.cheat.MetaCheat.SearchType;
 import jace.core.RAMListener;
 import jace.state.State;
@@ -126,18 +127,8 @@ public class MetacheatUI {
     private TableView<DynamicCheat> cheatsTableView;
 
     @FXML
-    void addCheat(ActionEvent event) {
-        cheatEngine.addCheat(new DynamicCheat(0, "?"));
-    }
-
-    @FXML
     void createSnapshot(ActionEvent event) {
 
-    }
-
-    @FXML
-    void deleteCheat(ActionEvent event) {
-        cheatsTableView.getSelectionModel().getSelectedItems().forEach(cheatEngine::removeCheat);
     }
 
     @FXML
@@ -151,7 +142,22 @@ public class MetacheatUI {
     }
 
     @FXML
+    void addCheat(ActionEvent event) {
+        cheatEngine.addCheat(new DynamicCheat(0, "?"));
+    }
+
+    @FXML
+    void deleteCheat(ActionEvent event) {
+        cheatsTableView.getSelectionModel().getSelectedItems().forEach(cheatEngine::removeCheat);
+    }
+
+    @FXML
     void loadCheats(ActionEvent event) {
+
+    }
+
+    @FXML
+    void saveCheats(ActionEvent event) {
 
     }
 
@@ -172,11 +178,6 @@ public class MetacheatUI {
                 Emulator.computer.resume();
             }
         });
-    }
-
-    @FXML
-    void saveCheats(ActionEvent event) {
-
     }
 
     @FXML
@@ -252,6 +253,13 @@ public class MetacheatUI {
             }
         });
 
+        searchResultsListView.setEditable(true);
+        searchResultsListView.setOnEditStart((editEvent) -> {
+            editEvent.consume();
+            SearchResult result = cheatEngine.getSearchResults().get(editEvent.getIndex());
+            addWatch(result.getAddress());
+        });
+
         memoryViewCanvas.setMouseTransparent(false);
         memoryViewCanvas.addEventFilter(MouseEvent.MOUSE_CLICKED, this::memoryViewClicked);
         showValuesCheckbox.selectedProperty().addListener((prop, oldVal, newVal) -> {
@@ -267,8 +275,6 @@ public class MetacheatUI {
 
         searchStartAddressField.textProperty().addListener(addressRangeListener);
         searchEndAddressField.textProperty().addListener(addressRangeListener);
-
-        RAMListener l;
 
         TableColumn<DynamicCheat, Boolean> activeColumn = (TableColumn<DynamicCheat, Boolean>) cheatsTableView.getColumns().get(0);
         activeColumn.setCellValueFactory(new PropertyValueFactory<>("active"));
@@ -326,8 +332,6 @@ public class MetacheatUI {
     public static Set<MemoryCell> redrawNodes = new ConcurrentSkipListSet<>();
     ScheduledExecutorService animationTimer = null;
     ScheduledFuture animationFuture = null;
-    StackPane pane = new StackPane();
-
     Tooltip memoryWatchTooltip = new Tooltip();
 
     private void memoryViewClicked(MouseEvent e) {
@@ -356,7 +360,7 @@ public class MetacheatUI {
 
             Label addCheat = new Label("Cheat >>");
             addCheat.setOnMouseClicked((mouseEvent) -> {
-                addCheat(addr, watch.getValue());
+                Platform.runLater(() -> addCheat(addr, watch.getValue()));
             });
             watch.getChildren().add(addCheat);
 
@@ -406,7 +410,7 @@ public class MetacheatUI {
             animationFuture.cancel(false);
         }
 
-        animationFuture = animationTimer.scheduleAtFixedRate(this::processMemoryViewUpdates, FRAME_RATE, 1000 / 60, TimeUnit.MILLISECONDS);
+        animationFuture = animationTimer.scheduleAtFixedRate(this::processMemoryViewUpdates, FRAME_RATE, FRAME_RATE, TimeUnit.MILLISECONDS);
 
         cheatEngine.initMemoryView();
         int pixelsPerBlock = 16 * MEMORY_BOX_TOTAL_SIZE;
@@ -492,5 +496,4 @@ public class MetacheatUI {
     private void addCheat(int addr, int val) {
         cheatEngine.addCheat(new DynamicCheat(addr, String.valueOf(val)));
     }
-
 }

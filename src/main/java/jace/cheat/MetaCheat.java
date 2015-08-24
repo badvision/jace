@@ -49,6 +49,10 @@ public class MetaCheat extends Cheats {
         public String toString() {
             return Integer.toHexString(address) + ": " + lastObservedValue + " (" + Integer.toHexString(lastObservedValue) + ")";
         }
+
+        public int getAddress() {
+            return address;
+        }
     }
 
     MetacheatUI ui;
