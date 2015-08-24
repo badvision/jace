@@ -6,6 +6,7 @@
 package jace.cheat;
 
 import java.util.ArrayList;
+import javafx.beans.binding.BooleanBinding;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.value.ChangeListener;
@@ -24,6 +25,7 @@ public class MemoryCell implements Comparable<MemoryCell> {
     public IntegerProperty readCount = new SimpleIntegerProperty();
     public IntegerProperty execCount = new SimpleIntegerProperty();
     public IntegerProperty writeCount = new SimpleIntegerProperty();
+    public BooleanBinding hasCount = readCount.add(execCount).add(writeCount).greaterThan(0);
     public ObservableList<Integer> readInstructions = FXCollections.observableList(new ArrayList<>());
     public ObservableList<Integer> writeInstructions = FXCollections.observableList(new ArrayList<>());
     private int x;
@@ -70,6 +72,10 @@ public class MemoryCell implements Comparable<MemoryCell> {
     @Override
     public int compareTo(MemoryCell o) {
         return address - o.address;
+    }
+    
+    public boolean hasCounts() {
+        return hasCount.get();
     }
     
 }

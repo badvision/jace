@@ -35,7 +35,6 @@ public class MetaCheat extends Cheats {
         NO_CHANGE, ANY_CHANGE, LESS, GREATER, AMOUNT
     }
 
-
     public static class SearchResult {
 
         int address;
@@ -51,7 +50,6 @@ public class MetaCheat extends Cheats {
             return Integer.toHexString(address) + ": " + lastObservedValue + " (" + Integer.toHexString(lastObservedValue) + ")";
         }
     }
-
 
     MetacheatUI ui;
 
@@ -106,12 +104,7 @@ public class MetaCheat extends Cheats {
             return Integer.parseInt(s);
         } else {
             String upper = s.toUpperCase();
-            boolean positive = true;
-            if (upper.startsWith("-")) {
-                positive = false;
-                upper = upper.substring(1);
-            }
-            
+            boolean positive = !upper.startsWith("-");
             for (int i = 0; i < upper.length(); i++) {
                 char c = upper.charAt(i);
                 if ((c >= '0' && c <= '9') || (c >= 'A' & c <= 'F')) {
@@ -134,11 +127,17 @@ public class MetaCheat extends Cheats {
         cheat.activeProperty().set(true);
         cheatList.add(cheat);
         computer.getMemory().addListener(cheat);
-        cheat.addressProperty().addListener((prop, oldVal, newVal)->{
+        cheat.addressProperty().addListener((prop, oldVal, newVal) -> {
             computer.getMemory().removeListener(cheat);
             cheat.doConfig();
             computer.getMemory().addListener(cheat);
         });
+    }
+    
+    public void removeCheat(DynamicCheat cheat) {
+        cheat.active.set(false);
+        computer.getMemory().removeListener(cheat);
+        cheatList.remove(cheat);
     }
 
     @Override
@@ -299,24 +298,22 @@ public class MetaCheat extends Cheats {
     public void tick() {
         if (fadeCounter-- <= 0) {
             fadeCounter = FADE_TIMER_VALUE;
-            memoryCells.values().stream().forEach((jace.cheat.MemoryCell cell) -> {
-                boolean change = false;
-                if (cell.execCount.get() > 0) {
-                    cell.execCount.set(Math.max(0, cell.execCount.get() - fadeRate));
-                    change = true;
-                }
-                if (cell.readCount.get() > 0) {
-                    cell.readCount.set(Math.max(0, cell.readCount.get() - fadeRate));
-                    change = true;
-                }
-                if (cell.writeCount.get() > 0) {
-                    cell.writeCount.set(Math.max(0, cell.writeCount.get() - fadeRate));
-                    change = true;
-                }
-                if (change && MemoryCell.listener != null) {
-                    MemoryCell.listener.changed(null, cell, cell);
-                }
-            });
+            memoryCells.values().stream()
+                    .filter((cell) -> cell.hasCounts())
+                    .forEach((cell) -> {
+                        if (cell.execCount.get() > 0) {
+                            cell.execCount.set(Math.max(0, cell.execCount.get() - fadeRate));
+                        }
+                        if (cell.readCount.get() > 0) {
+                            cell.readCount.set(Math.max(0, cell.readCount.get() - fadeRate));
+                        }
+                        if (cell.writeCount.get() > 0) {
+                            cell.writeCount.set(Math.max(0, cell.writeCount.get() - fadeRate));
+                        }
+                        if (MemoryCell.listener != null) {
+                            MemoryCell.listener.changed(null, cell, cell);
+                        }
+                    });
         }
     }
 

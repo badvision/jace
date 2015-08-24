@@ -127,7 +127,7 @@ public class MetacheatUI {
 
     @FXML
     void addCheat(ActionEvent event) {
-
+        cheatEngine.addCheat(new DynamicCheat(0, "?"));
     }
 
     @FXML
@@ -137,7 +137,7 @@ public class MetacheatUI {
 
     @FXML
     void deleteCheat(ActionEvent event) {
-
+        cheatsTableView.getSelectionModel().getSelectedItems().forEach(cheatEngine::removeCheat);
     }
 
     @FXML
@@ -281,12 +281,12 @@ public class MetacheatUI {
         TableColumn<DynamicCheat, Integer> addrColumn = (TableColumn<DynamicCheat, Integer>) cheatsTableView.getColumns().get(2);
         addrColumn.setCellValueFactory(new PropertyValueFactory<>("address"));
         addrColumn.setCellFactory((TableColumn<DynamicCheat, Integer> param) -> {
-            return new TextFieldTableCell<>(new IntegerStringConverter(){
+            return new TextFieldTableCell<>(new IntegerStringConverter() {
                 @Override
                 public String toString(Integer value) {
-                    return "$"+Integer.toHexString(value);
+                    return "$" + Integer.toHexString(value);
                 }
-                
+
                 @Override
                 public Integer fromString(String value) {
                     return cheatEngine.parseInt(value);
