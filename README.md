@@ -1,7 +1,7 @@
 Java Apple Computer Emulator
 ====
 
-[Download current version with built-in IDE](https://github.com/badvision/jace/releases/download/v2.0b/jace-2.0-SNAPSHOT-jfx.jar)
+[Download current version with built-in IDE](https://github.com/badvision/jace/releases/download/v2.0b/jace-2.0-SNAPSHOT.zip)
 
 Jace is a java-based Apple //e emulator with many compelling features:
 * NEW: Built-in IDE for writing basic and assembly programs, using ACME to compile and execute directly without leaving the emulator.
