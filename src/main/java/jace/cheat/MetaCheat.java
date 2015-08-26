@@ -8,8 +8,15 @@ import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.state.State;
 import jace.ui.MetacheatUI;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.Property;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -128,7 +135,6 @@ public class MetaCheat extends Cheats {
     }
 
     public void addCheat(DynamicCheat cheat) {
-        cheat.activeProperty().set(true);
         cheatList.add(cheat);
         computer.getMemory().addListener(cheat);
         cheat.addressProperty().addListener((prop, oldVal, newVal) -> {
@@ -137,7 +143,7 @@ public class MetaCheat extends Cheats {
             computer.getMemory().addListener(cheat);
         });
     }
-    
+
     public void removeCheat(DynamicCheat cheat) {
         cheat.active.set(false);
         computer.getMemory().removeListener(cheat);
@@ -345,6 +351,48 @@ public class MetaCheat extends Cheats {
                     }
             }
             cell.value.set(e.getNewValue());
+        }
+    }
+
+    public void saveCheats(File saveFile) {
+        FileWriter writer = null;
+        try {
+            writer = new FileWriter(saveFile);
+            for (DynamicCheat cheat : cheatList) {
+                writer.write(cheat.serialize());
+                writer.write("\n");
+            }
+            writer.close();
+        } catch (IOException ex) {
+            Logger.getLogger(MetaCheat.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                writer.close();
+            } catch (IOException ex) {
+                Logger.getLogger(MetaCheat.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public void loadCheats(File saveFile) {
+        BufferedReader in = null;
+        try {
+            in = new BufferedReader(new FileReader(saveFile));
+            StringBuilder guts = new StringBuilder();
+            String line;
+            while ((line=in.readLine()) != null) {
+                DynamicCheat cheat = DynamicCheat.deserialize(line);
+                addCheat(cheat);
+            }
+            in.close();
+        } catch (IOException ex) {
+            Logger.getLogger(MetaCheat.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                in.close();
+            } catch (IOException ex) {
+                Logger.getLogger(MetaCheat.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
     }
 }

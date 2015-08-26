@@ -28,7 +28,7 @@ public class DynamicCheat extends RAMListener {
         id = (int) (Math.random() * 10000000);
         addr = new SimpleIntegerProperty(address);
         expression = new SimpleStringProperty(expr);
-        active = new SimpleBooleanProperty(true);
+        active = new SimpleBooleanProperty(false);
         name = new SimpleStringProperty("Untitled");
         expression.addListener((param, oldValue, newValue) -> {
             expressionCallback = parseExpression(newValue);
@@ -95,5 +95,30 @@ public class DynamicCheat extends RAMListener {
             return null;
         }
     }
+
+    public static String escape(String in) {
+        return in.replaceAll(";", "~~").replaceAll("\n","\\n");
+    }
     
+    public static String unescape(String in) {
+        return in.replaceAll("~~", ";").replaceAll("\\n", "\n");
+    }
+    
+    public static final String DELIMITER = ";";
+    public String serialize() {
+        return escape(name.get()) + DELIMITER 
+                + escape("$"+Integer.toHexString(addr.get())) + DELIMITER
+                + escape(expression.get());
+    }
+
+    static public DynamicCheat deserialize(String in) {
+        String[] parts = in.split(DELIMITER);
+        String name = unescape(parts[0]);
+        Integer addr = Integer.parseInt(parts[1].substring(1), 16);
+        String expr = unescape(parts[2]);
+        
+        DynamicCheat out = new DynamicCheat(addr, expr);
+        out.name.set(name);
+        return out;
+    }
 }

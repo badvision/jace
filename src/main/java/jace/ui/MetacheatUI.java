@@ -8,8 +8,8 @@ import jace.cheat.MetaCheat;
 import jace.cheat.MetaCheat.SearchChangeType;
 import jace.cheat.MetaCheat.SearchResult;
 import jace.cheat.MetaCheat.SearchType;
-import jace.core.RAMListener;
 import jace.state.State;
+import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -46,6 +46,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
 import javafx.scene.paint.Color;
+import javafx.stage.FileChooser;
 import javafx.util.converter.DefaultStringConverter;
 import javafx.util.converter.IntegerStringConverter;
 
@@ -153,12 +154,24 @@ public class MetacheatUI {
 
     @FXML
     void loadCheats(ActionEvent event) {
-
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Load cheats");
+        chooser.setInitialFileName("cheat.txt");
+        File saveFile = chooser.showOpenDialog(null);
+        if (saveFile != null) {
+            cheatEngine.loadCheats(saveFile);
+        }        
     }
 
     @FXML
     void saveCheats(ActionEvent event) {
-
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save current cheats");
+        chooser.setInitialFileName("cheat.txt");
+        File saveFile = chooser.showSaveDialog(null);
+        if (saveFile != null) {
+            cheatEngine.saveCheats(saveFile);
+        }
     }
 
     @FXML
