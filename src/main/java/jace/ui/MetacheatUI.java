@@ -2,6 +2,7 @@ package jace.ui;
 
 import com.sun.glass.ui.Application;
 import jace.Emulator;
+import jace.JaceApplication;
 import jace.cheat.DynamicCheat;
 import jace.cheat.MemoryCell;
 import jace.cheat.MetaCheat;
@@ -47,11 +48,14 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
+import javafx.stage.Screen;
 import javafx.util.converter.DefaultStringConverter;
 import javafx.util.converter.IntegerStringConverter;
 
 public class MetacheatUI {
-
+    boolean isRetina;
+    double drawScale;
+    
     @FXML
     private Button pauseButton;
 
@@ -128,6 +132,15 @@ public class MetacheatUI {
     private TableView<DynamicCheat> cheatsTableView;
 
     @FXML
+    private TextField codeInspectorAddress;
+
+    @FXML
+    private ListView<String> codeInspectorWriteList;
+
+    @FXML
+    private ListView<String> codeInspectorReadList;
+
+    @FXML
     void createSnapshot(ActionEvent event) {
 
     }
@@ -154,23 +167,31 @@ public class MetacheatUI {
 
     @FXML
     void loadCheats(ActionEvent event) {
+        boolean resume = Emulator.computer.pause();
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Load cheats");
         chooser.setInitialFileName("cheat.txt");
-        File saveFile = chooser.showOpenDialog(null);
+        File saveFile = chooser.showOpenDialog(JaceApplication.getApplication().primaryStage);
         if (saveFile != null) {
             cheatEngine.loadCheats(saveFile);
-        }        
+        }
+        if (resume) {
+            Emulator.computer.resume();
+        }
     }
 
     @FXML
     void saveCheats(ActionEvent event) {
+        boolean resume = Emulator.computer.pause();
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Save current cheats");
         chooser.setInitialFileName("cheat.txt");
-        File saveFile = chooser.showSaveDialog(null);
+        File saveFile = chooser.showSaveDialog(JaceApplication.getApplication().primaryStage);
         if (saveFile != null) {
             cheatEngine.saveCheats(saveFile);
+        }
+        if (resume) {
+            Emulator.computer.resume();
         }
     }
 
@@ -234,9 +255,16 @@ public class MetacheatUI {
         assert searchResultsListView != null : "fx:id=\"searchResultsListView\" was not injected: check your FXML file 'Metacheat.fxml'.";
         assert watchesPane != null : "fx:id=\"watchesPane\" was not injected: check your FXML file 'Metacheat.fxml'.";
         assert snapshotsListView != null : "fx:id=\"snapshotsListView\" was not injected: check your FXML file 'Metacheat.fxml'.";
+        assert codeInspectorAddress != null : "fx:id=\"codeInspectorAddress\" was not injected: check your FXML file 'Metacheat.fxml'.";
+        assert codeInspectorWriteList != null : "fx:id=\"codeInspectorWriteList\" was not injected: check your FXML file 'Metacheat.fxml'.";
+        assert codeInspectorReadList != null : "fx:id=\"codeInspectorReadList\" was not injected: check your FXML file 'Metacheat.fxml'.";
         assert cheatsTableView != null : "fx:id=\"cheatsTableView\" was not injected: check your FXML file 'Metacheat.fxml'.";
 
-        Emulator.computer.getRunningProperty().addListener((val, oldVal, newVal) -> pauseButton.setText(newVal ? "Pause" : "Resume"));
+        isRetina = Screen.getPrimary().getDpi() >= 110;
+        
+        Emulator.computer.getRunningProperty().addListener((val, oldVal, newVal) -> {
+            Platform.runLater(() -> pauseButton.setText(newVal ? "Pause" : "Resume"));
+        });
 
         searchTypesTabPane.getTabs().get(0).setUserData(SearchType.VALUE);
         searchTypesTabPane.getTabs().get(1).setUserData(SearchType.CHANGE);
@@ -281,7 +309,9 @@ public class MetacheatUI {
             }
         });
         memoryViewPane.boundsInParentProperty().addListener((prop, oldVal, newVal) -> redrawMemoryView());
-        memoryViewCanvas.widthProperty().bind(memoryViewPane.widthProperty());
+        drawScale = isRetina ? 0.5 : 1.0;
+        memoryViewCanvas.widthProperty().bind(memoryViewPane.widthProperty().multiply(drawScale));
+        setZoom(1/drawScale);
 
         watchesPane.setHgap(5);
         watchesPane.setVgap(5);
@@ -316,6 +346,18 @@ public class MetacheatUI {
         TableColumn<DynamicCheat, String> exprColumn = (TableColumn<DynamicCheat, String>) cheatsTableView.getColumns().get(3);
         exprColumn.setCellValueFactory(new PropertyValueFactory<>("expression"));
         exprColumn.setCellFactory((TableColumn<DynamicCheat, String> param) -> new TextFieldTableCell<>(new DefaultStringConverter()));
+
+        codeInspectorAddress.textProperty().addListener((prop, oldValue, newValue) -> {
+            try {
+                int address = cheatEngine.parseInt(newValue);
+                MemoryCell cell = cheatEngine.getMemoryCell(address);
+                currentlyInspecting = address;
+                cheatEngine.onInspectorChanged();
+                codeInspectorReadList.setItems(cell.readInstructionsDisassembly);
+                codeInspectorWriteList.setItems(cell.writeInstructionsDisassembly);
+            } catch (NumberFormatException ex) {
+            }
+        });
     }
     MetaCheat cheatEngine = null;
 
@@ -354,8 +396,8 @@ public class MetacheatUI {
                 currentWatch.disconnect();
             }
 
-            double x = e.getX();
-            double y = e.getY();
+            double x = e.getX() / drawScale;
+            double y = e.getY() / drawScale;
             int col = (int) (x / MEMORY_BOX_TOTAL_SIZE);
             int row = (int) (y / MEMORY_BOX_TOTAL_SIZE);
             int addr = cheatEngine.getStartAddress() + row * memoryViewColumns + col;
@@ -388,10 +430,13 @@ public class MetacheatUI {
     }
 
     private void processMemoryViewUpdates() {
+        if (!Emulator.computer.getRunningProperty().get()) {
+            return;
+        }
+        GraphicsContext context = memoryViewCanvas.getGraphicsContext2D();
+        Set<MemoryCell> draw = new HashSet<>(redrawNodes);
+        redrawNodes.clear();
         Application.invokeLater(() -> {
-            GraphicsContext context = memoryViewCanvas.getGraphicsContext2D();
-            Set<MemoryCell> draw = new HashSet<>(redrawNodes);
-            redrawNodes.clear();
             draw.stream().forEach((jace.cheat.MemoryCell cell) -> {
                 if (showValuesCheckbox.isSelected()) {
                     int val = cell.value.get() & 0x0ff;
@@ -416,7 +461,7 @@ public class MetacheatUI {
         boolean resume = Emulator.computer.pause();
 
         if (animationTimer == null) {
-            animationTimer = new ScheduledThreadPoolExecutor(10);
+            animationTimer = new ScheduledThreadPoolExecutor(1);
         }
 
         if (animationFuture != null) {
@@ -427,9 +472,18 @@ public class MetacheatUI {
 
         cheatEngine.initMemoryView();
         int pixelsPerBlock = 16 * MEMORY_BOX_TOTAL_SIZE;
-        memoryViewColumns = ((int) memoryViewPane.getWidth()) / pixelsPerBlock * 16;
+        memoryViewColumns = (int) (memoryViewPane.getWidth() / pixelsPerBlock * 16);
         memoryViewRows = ((cheatEngine.getEndAddress() - cheatEngine.getStartAddress()) / memoryViewColumns) + 1;
-        int canvasHeight = memoryViewRows * MEMORY_BOX_TOTAL_SIZE;
+        double canvasHeight = memoryViewRows * MEMORY_BOX_TOTAL_SIZE * drawScale;
+
+        // Guard against asking for a big texture because bad things will happen!
+        while (canvasHeight >= 16384) {
+            memoryViewColumns += 16;
+            memoryViewRows = ((cheatEngine.getEndAddress() - cheatEngine.getStartAddress()) / memoryViewColumns) + 1;
+            canvasHeight = memoryViewRows * MEMORY_BOX_TOTAL_SIZE * drawScale;
+        }
+        double canvasWidth = memoryViewColumns * MEMORY_BOX_TOTAL_SIZE * drawScale;
+
         memoryViewContents.setPrefHeight(canvasHeight);
         memoryViewCanvas.setHeight(canvasHeight);
         GraphicsContext context = memoryViewCanvas.getGraphicsContext2D();
@@ -439,12 +493,18 @@ public class MetacheatUI {
             int col = (addr - cheatEngine.getStartAddress()) % memoryViewColumns;
             int row = (addr - cheatEngine.getStartAddress()) / memoryViewColumns;
             MemoryCell cell = cheatEngine.getMemoryCell(addr);
-            cell.setRect(col * MEMORY_BOX_TOTAL_SIZE, row * MEMORY_BOX_TOTAL_SIZE, MEMORY_BOX_SIZE, MEMORY_BOX_SIZE);
+            cell.setRect(
+                    (int) (col * MEMORY_BOX_TOTAL_SIZE * drawScale), 
+                    (int) (row * MEMORY_BOX_TOTAL_SIZE * drawScale), 
+                    (int) (MEMORY_BOX_SIZE * drawScale), 
+                    (int) (MEMORY_BOX_SIZE * drawScale));
             redrawNodes.add(cell);
         }
         MemoryCell.setListener((javafx.beans.value.ObservableValue<? extends jace.cheat.MemoryCell> prop, jace.cheat.MemoryCell oldCell, jace.cheat.MemoryCell newCell) -> {
             redrawNodes.add(newCell);
         });
+        
+        setZoom(1/drawScale);
 
         if (resume) {
             Emulator.computer.resume();
@@ -455,6 +515,12 @@ public class MetacheatUI {
         if (memoryViewCanvas != null) {
             double zoom = memoryViewCanvas.getScaleX();
             zoom += amount;
+            setZoom(zoom);
+        }
+    }
+    
+    private void setZoom(double zoom) {
+        if (memoryViewCanvas != null) {
             memoryViewCanvas.setScaleX(zoom);
             memoryViewCanvas.setScaleY(zoom);
             StackPane scrollArea = (StackPane) memoryViewCanvas.getParent();
@@ -508,5 +574,15 @@ public class MetacheatUI {
 
     private void addCheat(int addr, int val) {
         cheatEngine.addCheat(new DynamicCheat(addr, String.valueOf(val)));
+    }
+
+    int currentlyInspecting = 0;
+
+    public void inspectAddress(int address) {
+        codeInspectorAddress.setText("$" + Integer.toHexString(address));
+    }
+
+    public boolean isInspecting(int address) {
+        return currentlyInspecting == address;
     }
 }

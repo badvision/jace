@@ -194,6 +194,41 @@
                               </BorderPane>
                            </content>
                       </TitledPane>
+                        <TitledPane expanded="false" text="Inspector" VBox.vgrow="SOMETIMES">
+                           <content>
+                              <VBox>
+                                 <children>
+                                    <HBox prefHeight="33.0" prefWidth="236.0" spacing="4.0" VBox.vgrow="NEVER">
+                                       <children>
+                                          <Label alignment="CENTER_RIGHT" prefHeight="26.0" prefWidth="68.0" text="Address" textAlignment="RIGHT" HBox.hgrow="NEVER">
+                                             <opaqueInsets>
+                                                <Insets />
+                                             </opaqueInsets>
+                                          </Label>
+                                          <TextField fx:id="codeInspectorAddress" prefHeight="26.0" prefWidth="94.0" HBox.hgrow="ALWAYS" />
+                                       </children>
+                                       <opaqueInsets>
+                                          <Insets />
+                                       </opaqueInsets>
+                                    </HBox>
+                                    <TabPane minHeight="-Infinity" prefHeight="102.0" prefWidth="236.0" side="LEFT" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="SOMETIMES">
+                                      <tabs>
+                                        <Tab text="W">
+                                             <content>
+                                                <ListView fx:id="codeInspectorWriteList" editable="true" />
+                                             </content>
+                                          </Tab>
+                                        <Tab text="R">
+                                             <content>
+                                                <ListView fx:id="codeInspectorReadList" editable="true" />
+                                             </content>
+                                          </Tab>
+                                      </tabs>
+                                    </TabPane>
+                                 </children>
+                              </VBox>
+                           </content>
+                        </TitledPane>
                       <TitledPane expanded="false" text="Snapshots" VBox.vgrow="NEVER">
                            <content>
                               <BorderPane minWidth="-Infinity">

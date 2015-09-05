@@ -463,7 +463,7 @@ public class MOS65C02 extends CPU {
                 }
                 implied = false;
             } else if (fmt.contains("R")) {
-                this.f1 = fmt.substring(0, fmt.indexOf("R"));
+                this.f1 = fmt.substring(0, fmt.indexOf('R'));
                 f2 = "";
                 relative = true;
                 implied = false;
@@ -552,8 +552,7 @@ public class MOS65C02 extends CPU {
         @Override
         public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
             int mask = 0x0ff ^ (1 << bit);
-            value &= mask;
-            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) (value & mask), true, false);
         }
     }
 
@@ -568,8 +567,7 @@ public class MOS65C02 extends CPU {
         @Override
         public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
             int mask = 1 << bit;
-            value |= mask;
-            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) (value | mask), true, false);
         }
     }
 
@@ -823,7 +821,7 @@ public class MOS65C02 extends CPU {
             cpu.push((byte) cpu.A);
         }),
         PHP((address, value, addressMode, cpu) -> {
-            cpu.push((byte) (cpu.getStatus()));
+            cpu.push((cpu.getStatus()));
         }),
         PHX((address, value, addressMode, cpu) -> {
             cpu.push((byte) cpu.X);
@@ -975,13 +973,11 @@ public class MOS65C02 extends CPU {
         }),
         TRB((address, value, addressMode, cpu) -> {
             cpu.C = (value & cpu.A) != 0 ? 1 : 0;
-            value &= ~cpu.A;
-            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) (value & ~cpu.A), true, false);
         }),
         TSB((address, value, addressMode, cpu) -> {
             cpu.C = (value & cpu.A) != 0 ? 1 : 0;
-            value |= cpu.A;
-            cpu.getMemory().write(address, (byte) value, true, false);
+            cpu.getMemory().write(address, (byte) (value | cpu.A), true, false);
         }),
         TSX((address, value, addressMode, cpu) -> {
             cpu.X = cpu.STACK;
@@ -1097,9 +1093,6 @@ public class MOS65C02 extends CPU {
                 System.out.println("Unrecognized opcode "
                         + Integer.toHexString(op)
                         + " at " + Integer.toHexString(pc));
-            }
-            if (isLogEnabled()) {
-                dumpTrace();
             }
             if (breakOnBadOpcode) {
                 OPCODE.BRK.execute(this);

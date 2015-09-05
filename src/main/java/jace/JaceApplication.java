@@ -29,7 +29,7 @@ public class JaceApplication extends Application {
 
     static JaceApplication singleton;
 
-    Stage primaryStage;
+    public Stage primaryStage;
     JaceUIController controller;
 
     static boolean romStarted = false;

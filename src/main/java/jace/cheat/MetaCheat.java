@@ -2,6 +2,7 @@ package jace.cheat;
 
 import jace.Emulator;
 import jace.JaceApplication;
+import jace.core.CPU;
 import jace.core.Computer;
 import jace.core.RAM;
 import jace.core.RAMEvent;
@@ -15,8 +16,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.Property;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -327,10 +331,18 @@ public class MetaCheat extends Cheats {
         }
     }
 
+    AtomicInteger pendingInspectorUpdates = new AtomicInteger(0);
+    public void onInspectorChanged() {
+        pendingInspectorUpdates.set(0);
+    }
+
     private void processMemoryEvent(RAMEvent e) {
         MemoryCell cell = getMemoryCell(e.getAddress());
         if (cell != null) {
-            int programCounter = Emulator.computer.getCpu().getProgramCounter();
+            CPU cpu = Emulator.computer.getCpu();
+            if (!cpu.isLogEnabled()) {
+                cpu.traceLength = 1;
+            }
             switch (e.getType()) {
                 case EXECUTE:
                 case READ_OPERAND:
@@ -338,16 +350,52 @@ public class MetaCheat extends Cheats {
                     break;
                 case WRITE:
                     cell.writeCount.set(Math.min(255, cell.writeCount.get() + lightRate));
-                    cell.writeInstructions.add(programCounter);
-                    if (cell.writeInstructions.size() > historyLength) {
-                        cell.writeInstructions.remove(0);
+                    if (ui.isInspecting(cell.address)) {
+                        if (pendingInspectorUpdates.incrementAndGet() < 5) {
+                            int pc = cpu.getProgramCounter();
+                            String trace = cpu.getLastTrace();
+                            Platform.runLater(() -> {
+                                pendingInspectorUpdates.decrementAndGet();
+                                cell.writeInstructions.add(pc);
+                                cell.writeInstructionsDisassembly.add(trace);
+                                if (cell.writeInstructions.size() > historyLength) {
+                                    cell.writeInstructions.remove(0);
+                                    cell.writeInstructionsDisassembly.remove(0);
+                                }
+                            });
+                        }
+                    } else {
+                        cell.writeInstructions.add(cpu.getProgramCounter());
+                        cell.writeInstructionsDisassembly.add(cpu.getLastTrace());
+                        if (cell.writeInstructions.size() > historyLength) {
+                            cell.writeInstructions.remove(0);
+                            cell.writeInstructionsDisassembly.remove(0);
+                        }
                     }
                     break;
                 default:
                     cell.readCount.set(Math.min(255, cell.readCount.get() + lightRate));
-                    cell.readInstructions.add(programCounter);
-                    if (cell.readInstructions.size() > historyLength) {
-                        cell.readInstructions.remove(0);
+                    if (ui.isInspecting(cell.address)) {
+                        if (pendingInspectorUpdates.incrementAndGet() < 5) {
+                            int pc = cpu.getProgramCounter();
+                            String trace = cpu.getLastTrace();
+                            Platform.runLater(() -> {
+                                pendingInspectorUpdates.decrementAndGet();
+                                cell.readInstructions.add(pc);
+                                cell.readInstructionsDisassembly.add(trace);
+                                if (cell.readInstructions.size() > historyLength) {
+                                    cell.readInstructions.remove(0);
+                                    cell.readInstructionsDisassembly.remove(0);
+                                }
+                            });
+                        }
+                    } else {
+                        cell.readInstructions.add(cpu.getProgramCounter());
+                        cell.readInstructionsDisassembly.add(cpu.getLastTrace());
+                        if (cell.readInstructions.size() > historyLength) {
+                            cell.readInstructions.remove(0);
+                            cell.readInstructionsDisassembly.remove(0);
+                        }
                     }
             }
             cell.value.set(e.getNewValue());
@@ -380,7 +428,7 @@ public class MetaCheat extends Cheats {
             in = new BufferedReader(new FileReader(saveFile));
             StringBuilder guts = new StringBuilder();
             String line;
-            while ((line=in.readLine()) != null) {
+            while ((line = in.readLine()) != null) {
                 DynamicCheat cheat = DynamicCheat.deserialize(line);
                 addCheat(cheat);
             }

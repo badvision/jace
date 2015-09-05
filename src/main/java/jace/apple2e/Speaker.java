@@ -18,6 +18,7 @@
  */
 package jace.apple2e;
 
+import jace.JaceApplication;
 import jace.config.ConfigurableField;
 import jace.core.Computer;
 import jace.core.Device;
@@ -59,7 +60,7 @@ public class Speaker extends Device {
             fileOutputActive = false;
         } else {
             FileChooser fileChooser = new FileChooser();
-            File f = fileChooser.showSaveDialog(null);
+            File f = fileChooser.showSaveDialog(JaceApplication.getApplication().primaryStage);
             if (f == null) {
                 return;
             }

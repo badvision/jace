@@ -71,6 +71,14 @@ public abstract class CPU extends Device {
         }
         traceLog.add(line);
     }
+    
+    public String getLastTrace() {
+        if (traceLog.isEmpty()) {
+            return "???";
+        } else {
+            return traceLog.get(traceLog.size()-1);
+        }
+    }
 
     public void dumpTrace() {
         computer.pause();

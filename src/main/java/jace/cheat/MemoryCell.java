@@ -27,7 +27,9 @@ public class MemoryCell implements Comparable<MemoryCell> {
     public IntegerProperty writeCount = new SimpleIntegerProperty();
     public BooleanBinding hasCount = readCount.add(execCount).add(writeCount).greaterThan(0);
     public ObservableList<Integer> readInstructions = FXCollections.observableList(new ArrayList<>());
+    public ObservableList<String> readInstructionsDisassembly = FXCollections.observableArrayList(new ArrayList<>());
     public ObservableList<Integer> writeInstructions = FXCollections.observableList(new ArrayList<>());
+    public ObservableList<String> writeInstructionsDisassembly = FXCollections.observableArrayList(new ArrayList<>());
     private int x;
     private int y;
     private int width;
@@ -76,6 +78,5 @@ public class MemoryCell implements Comparable<MemoryCell> {
     
     public boolean hasCounts() {
         return hasCount.get();
-    }
-    
+    }    
 }

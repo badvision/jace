@@ -163,7 +163,6 @@ public class EmulatorUILogic implements Reconfigurable {
 //            watchValue.setText("00");
 //        }
 //    }
-
 //    public static void updateBreakpointList(final DebuggerPanel panel) {
 //        java.awt.EventQueue.invokeLater(() -> {
 //            Integer address;
@@ -200,7 +199,7 @@ public class EmulatorUILogic implements Reconfigurable {
     public static void runFile() {
         Emulator.computer.pause();
         FileChooser select = new FileChooser();
-        File binary = select.showOpenDialog(null);
+        File binary = select.showOpenDialog(JaceApplication.getApplication().primaryStage);
         if (binary == null) {
             Emulator.computer.resume();
             return;
@@ -336,7 +335,7 @@ public class EmulatorUILogic implements Reconfigurable {
         Emulator.computer.pause();
         Image i = Emulator.computer.getVideo().getFrameBuffer();
 //        BufferedImage bufImageARGB = SwingFXUtils.fromFXImage(i, null);
-        File targetFile = select.showSaveDialog(null);
+        File targetFile = select.showSaveDialog(JaceApplication.getApplication().primaryStage);
         if (targetFile == null) {
             return;
         }
@@ -375,7 +374,7 @@ public class EmulatorUILogic implements Reconfigurable {
             throw new RuntimeException(exception);
         }
     }
-    
+
     @InvokableAction(
             name = "Open IDE",
             category = "development",
@@ -404,12 +403,15 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     static final Map<Object, Set<Label>> INDICATORS = new HashMap<>();
+
     static public void addIndicator(Object owner, Label icon) {
         addIndicator(owner, icon, 250);
     }
-    
+
     static public void addIndicator(Object owner, Label icon, long TTL) {
-        if (JaceApplication.singleton == null) return;
+        if (JaceApplication.getApplication() == null) {
+            return;
+        }
         synchronized (INDICATORS) {
             Set<Label> ind = INDICATORS.get(owner);
             if (ind == null) {
@@ -417,12 +419,14 @@ public class EmulatorUILogic implements Reconfigurable {
                 INDICATORS.put(owner, ind);
             }
             ind.add(icon);
-            JaceApplication.singleton.controller.addIndicator(icon);
+            JaceApplication.getApplication().controller.addIndicator(icon);
         }
     }
 
     static public void removeIndicator(Object owner, Label icon) {
-        if (JaceApplication.singleton == null) return;
+        if (JaceApplication.singleton == null) {
+            return;
+        }
         synchronized (INDICATORS) {
             Set<Label> ind = INDICATORS.get(owner);
             if (ind != null) {
@@ -433,7 +437,9 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     static public void removeIndicators(Object owner) {
-        if (JaceApplication.singleton == null) return;
+        if (JaceApplication.singleton == null) {
+            return;
+        }
         synchronized (INDICATORS) {
             Set<Label> ind = INDICATORS.get(owner);
             if (ind == null) {
@@ -445,7 +451,7 @@ public class EmulatorUILogic implements Reconfigurable {
             INDICATORS.remove(owner);
         }
     }
-    
+
     static public void addMouseListener(EventHandler<MouseEvent> handler) {
         if (JaceApplication.singleton != null) {
             JaceApplication.singleton.controller.addMouseListener(handler);
@@ -459,7 +465,7 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     public static void simulateCtrlAppleReset() {
-        Computer computer = JaceApplication.singleton.controller.computer;        
+        Computer computer = JaceApplication.singleton.controller.computer;
         computer.keyboard.openApple(true);
         computer.warmStart();
         Platform.runLater(() -> {
@@ -471,7 +477,7 @@ public class EmulatorUILogic implements Reconfigurable {
             computer.keyboard.openApple(false);
         });
     }
-    
+
     @Override
     public String getName() {
         return "Jace User Interface";

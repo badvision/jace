@@ -5,6 +5,7 @@
  */
 package jace.ide;
 
+import jace.JaceApplication;
 import jace.ide.Program.DocumentType;
 import jace.ide.Program.Option;
 import java.io.File;
@@ -149,7 +150,7 @@ public class IdeController {
         chooser.getExtensionFilters().addAll(
                 new FileChooser.ExtensionFilter("All Files", "*.*")
         );
-        File file = chooser.showOpenDialog(null);
+        File file = chooser.showOpenDialog(JaceApplication.getApplication().primaryStage);
         if (file != null && file.isFile() && file.exists()) {
             DocumentType type = DocumentType.fromFile(file);
             createTab(type, file);
@@ -196,7 +197,7 @@ public class IdeController {
                 new FileChooser.ExtensionFilter(type.name(), type.extensions),
                 new FileChooser.ExtensionFilter("All Files", "*.*")
         );
-        return chooser.showSaveDialog(null);
+        return chooser.showSaveDialog(JaceApplication.getApplication().primaryStage);
     }
 
     @FXML

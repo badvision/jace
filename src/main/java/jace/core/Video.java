@@ -131,7 +131,9 @@ public abstract class Video extends Device {
     public static int MIN_SCREEN_REFRESH = 15;
 
     Runnable redrawScreen = () -> {
-        visible.getPixelWriter().setPixels(0, 0, 560, 192, video.getPixelReader(), 0, 0);
+        if (computer.getRunningProperty().get()) {
+            visible.getPixelWriter().setPixels(0, 0, 560, 192, video.getPixelReader(), 0, 0);
+        }
     };
     public void redraw() {
         screenDirty = false;

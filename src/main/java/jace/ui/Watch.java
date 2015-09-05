@@ -6,6 +6,7 @@
 package jace.ui;
 
 import jace.Emulator;
+import jace.cheat.MemoryCell;
 import jace.core.RAMListener;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,6 +20,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.CornerRadii;
@@ -32,6 +34,7 @@ import javafx.scene.text.TextAlignment;
  * @author blurry
  */
 class Watch extends VBox {
+
     private static final int GRAPH_WIDTH = 50;
     private static final double GRAPH_HEIGHT = 50;
     int address;
@@ -41,11 +44,13 @@ class Watch extends VBox {
     int value = 0;
     BooleanProperty holding = null;
     private final MetacheatUI outer;
+    MemoryCell cell;
 
     public Watch(int address, final MetacheatUI outer) {
         super();
         this.outer = outer;
         this.address = address;
+        cell = outer.cheatEngine.getMemoryCell(address);
         redraw = outer.animationTimer.scheduleAtFixedRate(this::redraw, MetacheatUI.FRAME_RATE, MetacheatUI.FRAME_RATE, TimeUnit.MILLISECONDS);
         setBackground(new Background(new BackgroundFill(Color.NAVY, CornerRadii.EMPTY, Insets.EMPTY)));
         Label addrLabel = new Label("$" + Integer.toHexString(address));
@@ -53,6 +58,12 @@ class Watch extends VBox {
         addrLabel.setMinWidth(GRAPH_WIDTH);
         addrLabel.setFont(new Font(Font.getDefault().getFamily(), 14));
         addrLabel.setTextFill(Color.WHITE);
+        addrLabel.setMouseTransparent(false);
+        addrLabel.setOnMouseClicked((MouseEvent evt)-> {
+            if (evt.isPrimaryButtonDown()) {
+                outer.inspectAddress(address);
+            }
+        });
         graph = new Canvas(GRAPH_WIDTH, GRAPH_HEIGHT);
         getChildren().add(addrLabel);
         getChildren().add(graph);
@@ -68,7 +79,10 @@ class Watch extends VBox {
     }
 
     public void redraw() {
-        int val = outer.cheatEngine.getMemoryCell(address).value.get() & 0x0ff;
+        if (!Emulator.computer.getRunningProperty().get()) {
+            return;
+        }
+        int val = cell.value.get() & 0x0ff;
         if (!holding.get()) {
             value = val;
         }
@@ -117,5 +131,5 @@ class Watch extends VBox {
         holding.set(false);
         redraw.cancel(false);
     }
-    
+
 }
