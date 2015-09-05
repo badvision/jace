@@ -72,14 +72,6 @@ public abstract class CPU extends Device {
         traceLog.add(line);
     }
     
-    public String getLastTrace() {
-        if (traceLog.isEmpty()) {
-            return "???";
-        } else {
-            return traceLog.get(traceLog.size()-1);
-        }
-    }
-
     public void dumpTrace() {
         computer.pause();
         ArrayList<String> newLog = new ArrayList<>();
@@ -167,4 +159,20 @@ public abstract class CPU extends Device {
     }
 
     abstract public void JSR(int pointer);
+
+    boolean singleTraceEnabled = false;
+    public String lastTrace = "START";
+    public void performSingleTrace() {
+        singleTraceEnabled = true;
+    }
+    public boolean isSingleTraceEnabled() {
+        return singleTraceEnabled;
+    }
+    public String getLastTrace() {
+        return lastTrace;
+    }
+    public void captureSingleTrace(String trace) {
+        lastTrace = trace;
+        singleTraceEnabled = false;
+    }
 }

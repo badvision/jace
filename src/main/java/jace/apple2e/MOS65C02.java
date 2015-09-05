@@ -1045,8 +1045,9 @@ public class MOS65C02 extends CPU {
         int pc = getProgramCounter();
 
         String traceEntry = null;
-        if (isTraceEnabled() || isLogEnabled() || warnAboutExtendedOpcodes) {
+        if (isSingleTraceEnabled() || isTraceEnabled() || isLogEnabled() || warnAboutExtendedOpcodes) {
             traceEntry = getState().toUpperCase() + "  " + Integer.toString(pc, 16) + " : " + disassemble();
+            captureSingleTrace(traceEntry);
             if (isTraceEnabled()) {
                 Logger.getLogger(getClass().getName()).info(traceEntry);
             }

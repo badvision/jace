@@ -309,6 +309,7 @@ public class MetaCheat extends Cheats {
 
     @Override
     public void tick() {
+        computer.cpu.performSingleTrace();
         if (fadeCounter-- <= 0) {
             fadeCounter = FADE_TIMER_VALUE;
             memoryCells.values().stream()
@@ -341,9 +342,6 @@ public class MetaCheat extends Cheats {
             CPU cpu = Emulator.computer.getCpu();
             int pc = cpu.getProgramCounter();
             String trace = cpu.getLastTrace();
-            if (!cpu.isLogEnabled()) {
-                cpu.traceLength = 1;
-            }
             switch (e.getType()) {
                 case EXECUTE:
                     cell.execInstructionsDisassembly.add(trace);
