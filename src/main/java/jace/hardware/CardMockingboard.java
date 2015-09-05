@@ -238,7 +238,7 @@ public class CardMockingboard extends Card implements Runnable {
         /* The AY-3-8910 has 16 levels, in a logarithmic scale (3dB per step) */
         /* The YM2149 still has 16 levels for the tone generators, but 32 for */
         /* the envelope generator (1.5dB per step). */
-        double out = ((double) MAX_AMPLITUDE * (double) volume) / 100.0;
+        double out = (MAX_AMPLITUDE * volume) / 100.0;
         // Reduce max amplitude to reflect post-mixer values so we don't have to scale volume when mixing channels
         out = out * 2.0 / 3.0 / numChips;
         double delta = 1.15;

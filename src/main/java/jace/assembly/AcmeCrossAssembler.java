@@ -5026,7 +5026,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                     r2 = readPages[(r4+8)>>>12][((r4+8)>>>2)&0x3ff];
                     r8 = readPages[(r3+8)>>>12][((r3+8)>>>2)&0x3ff];
                     writePages[(r3+16)>>>12][((r3+16)>>>2)&0x3ff] = r0;
-                    { long hilo = (long)(r8) * ((long)r2); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r8) * r2; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r2 = lo;
                     writePages[(r3+8)>>>12][((r3+8)>>>2)&0x3ff] = r2;
                     r2 = r0 + 2;
@@ -5067,7 +5067,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                     }
                 case 0x139bc:
                     r10 = r2 & 1;
-                    { long hilo = (long)(r9) * ((long)r8); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r9) * r8; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     if(r10 == r0) {
                         /* Next insn is delay slot */ 
                         pc=0x139d0;
@@ -5076,7 +5076,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                     r9 = lo;
                 case 0x139d0:
                     r2 = r2 >> 1;
-                    { long hilo = (long)(r8) * ((long)r8); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r8) * r8; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r8 = lo;
                     if(r2 != r0) {
                         /* Next insn is delay slot */ 
@@ -44498,7 +44498,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
         for(;;) {
             switch(pc) {
                 case 0x3c200:
-                    { long hilo = (long)(r7) * ((long)r6); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r7) * r6; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r29 = r29 + -64;
                     writePages[(r29+44)>>>12][((r29+44)>>>2)&0x3ff] = r21;
                     writePages[(r29+52)>>>12][((r29+52)>>>2)&0x3ff] = r23;
@@ -44913,7 +44913,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                 case 0x3c870:
                     r20 = lo;
                     r20 = r20 + -1;
-                    { long hilo = (long)(r20) * ((long)r16); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r20) * r16; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r20 = lo;
                     r16 = r20 < r16 ? 1 : 0;
                     if(r16 != r0) {
@@ -46257,7 +46257,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
         for(;;) {
             switch(pc) {
                 case 0x3da00:
-                    { long hilo = (long)(r7) * ((long)r6); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r7) * r6; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r29 = r29 + -64;
                     r2 = r29 + 28;
                     writePages[(r29+48)>>>12][((r29+48)>>>2)&0x3ff] = r18;
@@ -50523,7 +50523,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                         continue;
                     }
                 case 0x432ec:
-                    { long hilo = (long)(r2) * ((long)r24); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r2) * r24; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r12 = r0 + 1;
                     r2 = lo;
                     r2 = r8 + r2;
@@ -67553,13 +67553,13 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                     r11 = readPages[(r6+-4)>>>12][((r6+-4)>>>2)&0x3ff];
                     r8 = readPages[(r3+0)>>>12][((r3+0)>>>2)&0x3ff];
                     r10 = r11 & 65535;
-                    { long hilo = (long)(r22) * ((long)r10); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r22) * r10; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r11 = r11 >>> 16;
                     r3 = r3 + 4;
                     r10 = lo;
                     r10 = r4 + r10;
                     r4 = r10 >>> 16;
-                    { long hilo = (long)(r22) * ((long)r11); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r22) * r11; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r7 = r10 & 65535;
                     r7 = r2 - r7;
                     r11 = lo;
@@ -72043,13 +72043,13 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                     r11 = readPages[(r3+0)>>>12][((r3+0)>>>2)&0x3ff];
                     r8 = r8 + 1;
                     r9 = r11 & 65535;
-                    { long hilo = (long)(r9) * ((long)r6); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r9) * r6; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r11 = r11 >>> 16;
                     r3 = r3 + 4;
                     r9 = lo;
                     r9 = r9 + r7;
                     r7 = r9 >>> 16;
-                    { long hilo = (long)(r11) * ((long)r6); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r11) * r6; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r9 = r9 & 65535;
                     r11 = lo;
                     r10 = r7 + r11;
@@ -72607,7 +72607,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                     r6 = readPages[(r3+0)>>>12][((r3+0)>>>2)&0x3ff];
                     r7 = readPages[(r4+0)>>>12][((r4+0)>>>2)&0x3ff];
                     r5 = r6 & 65535;
-                    { long hilo = (long)(r5) * ((long)r8); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r5) * r8; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r6 = r6 >>> 16;
                     r10 = r7 & 65535;
                     r7 = r7 >>> 16;
@@ -72615,7 +72615,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                     r5 = lo;
                     r5 = r5 + r10;
                     r5 = r5 + r9;
-                    { long hilo = (long)(r6) * ((long)r8); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r6) * r8; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r9 = r5 >>> 16;
                     r5 = r5 & 65535;
                     r6 = lo;
@@ -72657,7 +72657,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                     tmp = (tmp>>>(((~addr)&2)<<3)) & 0xffff;
                     r6 = tmp;
                     r7 = r7 >>> 16;
-                    { long hilo = (long)(r6) * ((long)r9); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r6) * r9; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r4 = r4 & 65535;
                     r3 = r3 + 4;
                     r8 = r5 + 4;
@@ -72672,7 +72672,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                     tmp = (tmp>>>(((~addr)&2)<<3)) & 0xffff;
                     r4 = tmp;
                     r7 = readPages[(r5+4)>>>12][((r5+4)>>>2)&0x3ff];
-                    { long hilo = (long)(r4) * ((long)r9); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r4) * r9; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r10 = r7 & 65535;
                     r6 = r6 >>> 16;
                     r4 = lo;
@@ -74973,7 +74973,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
                         continue;
                     }
                 case 0x5f8c0:
-                    { long hilo = (long)(r2) * ((long)r15); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r2) * r15; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r10 = r0 + 1;
                     r2 = lo;
                     r2 = r8 + r2;
@@ -82614,7 +82614,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
         for(;;) {
             switch(pc) {
                 case 0x65600:
-                    { long hilo = (long)(r5) * ((long)r6); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r5) * r6; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r29 = r29 + -48;
                     writePages[(r29+44)>>>12][((r29+44)>>>2)&0x3ff] = r31;
                     writePages[(r29+40)>>>12][((r29+40)>>>2)&0x3ff] = r20;
@@ -86669,7 +86669,7 @@ public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
         for(;;) {
             switch(pc) {
                 case 0x69000:
-                    { long hilo = (long)(r7) * ((long)r6); hi = (int) (hilo >>> 32); lo = (int) hilo; }
+                    { long hilo = (r7) * r6; hi = (int) (hilo >>> 32); lo = (int) hilo; }
                     r29 = r29 + -56;
                     writePages[(r29+40)>>>12][((r29+40)>>>2)&0x3ff] = r21;
                     writePages[(r29+48)>>>12][((r29+48)>>>2)&0x3ff] = r23;

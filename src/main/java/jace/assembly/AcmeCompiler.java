@@ -1,7 +1,7 @@
 package jace.assembly;
 
-import jace.ide.Program;
 import jace.ide.CompileResult;
+import jace.ide.Program;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;

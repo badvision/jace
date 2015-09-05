@@ -160,9 +160,9 @@ public class StateManager implements Reconfigurable {
         // more sophosticated.
         Class type = node.getCurrentValue().getClass();
         if (PagedMemory.class.isAssignableFrom(type)) {
-            addMemoryPages((ObjectGraphNode<PagedMemory>) node, f);
+            addMemoryPages(node, f);
         } else if (BufferedImage.class.isAssignableFrom(type)) {
-            addVideoFrame((ObjectGraphNode<BufferedImage>) node, f);
+            addVideoFrame(node, f);
         } else if (List.class.isAssignableFrom(type)) {
             List l = (List) node.getCurrentValue();
             Type fieldGenericType = f.getGenericType();

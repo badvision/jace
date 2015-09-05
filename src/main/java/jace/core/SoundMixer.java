@@ -20,6 +20,7 @@ package jace.core;
 
 import jace.config.ConfigurableField;
 import jace.config.DynamicSelection;
+import jace.config.Reconfigurable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -185,7 +186,7 @@ public class SoundMixer extends Device {
             lineAvailable = false;
             throw new LineUnavailableException("Line is not an output line!");
         }
-        final SourceDataLine sdl = (SourceDataLine) l;
+        final SourceDataLine sdl = l;
         sdl.open();
         return sdl;
     }
@@ -216,7 +217,7 @@ public class SoundMixer extends Device {
             }
             return o;
         }).filter((o) -> (o instanceof Card)).forEach((o) -> {
-            ((Card) o).reconfigure();
+            ((Reconfigurable) o).reconfigure();
         });
         if (theMixer != null) {
             for (Line l : theMixer.getSourceLines()) {

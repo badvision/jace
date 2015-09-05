@@ -44,7 +44,7 @@ public class ClassSelection extends DynamicSelection<Class> {
     @Override
     public LinkedHashMap<Class, String> getSelections() {
         LinkedHashMap<Class, String> selections = new LinkedHashMap<>();
-        Set<? extends Class> allClasses = (Set<? extends Class>) Utility.findAllSubclasses(template);
+        Set<? extends Class> allClasses = Utility.findAllSubclasses(template);
         if (!allClasses.contains(null)) {
             allClasses.add(null);
         }

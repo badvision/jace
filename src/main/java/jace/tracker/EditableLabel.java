@@ -36,6 +36,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
+import javax.swing.text.JTextComponent;
 
 /**
  *
@@ -150,7 +151,7 @@ public class EditableLabel extends JPanel implements MouseListener, FocusListene
     private void deactivateEdit() {
         isEditing = false;
         if (editComponent instanceof JTextField) {
-            String value = ((JTextField) editComponent).getText();
+            String value = ((JTextComponent) editComponent).getText();
             if (value != null) {
                 value = value.trim();
                 if (value.length() > width) {
@@ -165,10 +166,10 @@ public class EditableLabel extends JPanel implements MouseListener, FocusListene
             }
             if (value == null || value.equals("")) {
                 showBlankValue();
-                ((JTextField) editComponent).setText(null);
+                ((JTextComponent) editComponent).setText(null);
             } else {
                 labelComponent.setText(value);
-                ((JTextField) editComponent).setText(value.trim());
+                ((JTextComponent) editComponent).setText(value.trim());
             }
         } else if (editComponent instanceof JComboBox) {
             ImageIcon selection = (ImageIcon) ((JComboBox) editComponent).getSelectedItem();

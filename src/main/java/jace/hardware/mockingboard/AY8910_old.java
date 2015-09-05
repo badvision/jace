@@ -163,7 +163,7 @@ public class AY8910_old {
             /* number.                                                               */
             double clk = clock;
             double smprate = SampleRate;
-            UpdateStep = (int) (((double)STEP * smprate * 8.0 + clk/2.0) / clk);
+            UpdateStep = (int) ((STEP * smprate * 8.0 + clk/2.0) / clk);
         }
         
         public void setReg(Reg r, int value) {

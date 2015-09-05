@@ -223,9 +223,9 @@ public class PrinceOfPersiaCheats extends Cheats {
         // that are on the left edge of the screen!
         int yCoor = ((int) (y * 192) % 63);
         if (yCoor >= 47) {
-            double yOffset = 1.0 - (((double) yCoor - 47.0) / 16.0);
+            double yOffset = 1.0 - ((yCoor - 47.0) / 16.0);
             int xCoor = ((int) (x * 280) % 28);
-            double xOffset = ((double) xCoor) / 28.0;
+            double xOffset = xCoor / 28.0;
             if (xOffset <= yOffset) {
                 col--;
             }

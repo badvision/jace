@@ -42,7 +42,7 @@ public abstract class KeyHandler {
         if (testCode != null) {
             key = testCode;
         } else {
-            init((KeyCodeCombination) KeyCodeCombination.valueOf(comboText));
+            init(KeyCodeCombination.valueOf(comboText));
         }
     }
     

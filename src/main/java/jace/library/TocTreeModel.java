@@ -70,8 +70,8 @@ public class TocTreeModel implements TreeModel {
             return tree.keySet().toArray()[index];
         }
         if (parent instanceof String) {
-            if (tree.get((String) parent) != null) {
-                return tree.get((String) parent).values().toArray()[index];
+            if (tree.get(parent) != null) {
+                return tree.get(parent).values().toArray()[index];
             }
         }
         return null;
@@ -82,8 +82,8 @@ public class TocTreeModel implements TreeModel {
             return tree.keySet().size();
         }
         if (twoLevel && parent instanceof String) {
-            if (tree.get((String) parent) != null) {
-                return tree.get((String) parent).values().size();
+            if (tree.get(parent) != null) {
+                return tree.get(parent).values().size();
             }
         }
         
@@ -102,7 +102,7 @@ public class TocTreeModel implements TreeModel {
         if (parent instanceof String) {
             String n = (String) parent;
             int index = 0;
-            for (String c : tree.get((String) parent).keySet()) {
+            for (String c : tree.get(parent).keySet()) {
                 if (c.equals(child)) {
                     return index;
                 }

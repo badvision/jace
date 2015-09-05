@@ -52,12 +52,12 @@ public class TimedGenerator {
     public void setRate(int clock, int sample_rate) {
         sampleRate = sample_rate;
         this.clock = clock;
-        cyclesPerSample = ((double) clock) / ((double) sampleRate);
+        cyclesPerSample = clock / sampleRate;
     }
 
     public void setPeriod(int _period) {
         period = _period > 0 ? _period : 1;
-        clocksPerPeriod = (int) (period * stepsPerCycle());
+        clocksPerPeriod = (period * stepsPerCycle());
         // set counter back... necessary?
 //        while (clocksPerPeriod > period) {
 //            counter -= clocksPerPeriod;

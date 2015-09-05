@@ -115,7 +115,7 @@ public abstract class TimedDevice extends Device {
 
     public final void setSpeed(long cyclesPerSecond) {
         cyclesPerInterval = cyclesPerSecond / 100L;
-        nanosPerInterval = (long) ((double) cyclesPerInterval * NANOS_PER_SECOND / (double) cyclesPerSecond);
+        nanosPerInterval = (long) (cyclesPerInterval * NANOS_PER_SECOND / cyclesPerSecond);
 //        System.out.println("Will pause " + nanosPerInterval + " nanos every " + cyclesPerInterval + " cycles");
         cycleTimer = 0;
         resetSyncTimer();
