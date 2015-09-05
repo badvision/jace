@@ -319,10 +319,11 @@ public class MOS65C02 extends CPU {
         }
         int address = 0;
         int value = 0;
+        boolean shouldFetch;
 
         private void fetch(MOS65C02 cpu) {
             address = getMode().calculator.calculateAddress(cpu);
-            value = getMode().calculator.getValue(!command.isStoreOnly(), cpu);
+            value = shouldFetch ? getMode().calculator.getValue(!command.isStoreOnly(), cpu) : 0;
         }
 
         public void execute(MOS65C02 cpu) {
@@ -330,15 +331,20 @@ public class MOS65C02 extends CPU {
         }
 
         private OPCODE(int val, COMMAND c, MODE m, int wait) {
-            this(val, c, m, wait, false);
+            this(val, c, m, wait, m.fetchValue, false);
         }
 
         private OPCODE(int val, COMMAND c, MODE m, int wait, boolean extended) {
+            this(val, c, m, wait, m.fetchValue, extended);
+        }
+
+        private OPCODE(int val, COMMAND c, MODE m, int wait, boolean fetch, boolean extended) {
             code = val;
             waitCycles = wait - 1;
             command = c;
             addressingMode = m;
             isExtendedOpcode = extended;
+            shouldFetch = fetch;
         }
     }
 
@@ -346,15 +352,15 @@ public class MOS65C02 extends CPU {
 
         abstract int calculateAddress(MOS65C02 cpu);
 
-        default int getValue(boolean isRead, MOS65C02 cpu) {
+        default int getValue(boolean generateEvent, MOS65C02 cpu) {
             int address = calculateAddress(cpu);
-            return (address > -1) ? (0x0ff & cpu.getMemory().read(address, TYPE.READ_DATA, isRead, false)) : 0;
+            return (address > -1) ? (0x0ff & cpu.getMemory().read(address, TYPE.READ_DATA, generateEvent, false)) : 0;
         }
     }
 
     public enum MODE {
 
-        IMPLIED(1, "", (cpu) -> -1),
+        IMPLIED(1, "", (cpu) -> -1, false),
         //        RELATIVE(2, "#$~1 ($R)"),
         RELATIVE(2, "$R", (cpu) -> {
             int pc = cpu.getProgramCounter();
@@ -362,7 +368,7 @@ public class MOS65C02 extends CPU {
             // The wait cycles are not added unless the branch actually happens!
             cpu.setPageBoundaryPenalty((address & 0x00ff00) != (pc & 0x00ff00));
             return address;
-        }),
+        }, false),
         IMMEDIATE(2, "#$~1", (cpu) -> cpu.getProgramCounter() + 1),
         ZEROPAGE(2, "$~1", (cpu) -> cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) & 0x00FF),
         ZEROPAGE_X(2, "$~1,X", (cpu) -> 0x0FF & (cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X)),
@@ -452,8 +458,13 @@ public class MOS65C02 extends CPU {
         boolean twoByte = false;
         boolean relative = false;
         boolean implied = true;
+        boolean fetchValue = true;
 
         private MODE(int size, String fmt, AddressCalculator calc) {
+            this(size, fmt, calc, true);
+        }
+        private MODE(int size, String fmt, AddressCalculator calc, boolean fetch) {
+            this.fetchValue = fetch;
             this.size = size;
             if (fmt.contains("~")) {
                 this.f1 = fmt.substring(0, fmt.indexOf('~'));
@@ -1122,13 +1133,11 @@ public class MOS65C02 extends CPU {
     public void push(byte val) {
         getMemory().write(0x0100 + STACK, val, true, false);
         STACK = (STACK - 1) & 0x0FF;
-        //System.out.println("--> PUSH "+Integer.toString(0x0FF & val, 16));
     }
 
     public byte pop() {
         STACK = (STACK + 1) & 0x0FF;
         byte val = getMemory().read(0x0100 + STACK, TYPE.READ_DATA, true, false);
-        //System.out.println("<-- POP "+Integer.toString(0x0FF & val, 16));
         return val;
     }
 
