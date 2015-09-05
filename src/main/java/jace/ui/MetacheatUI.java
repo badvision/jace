@@ -311,7 +311,6 @@ public class MetacheatUI {
         memoryViewPane.boundsInParentProperty().addListener((prop, oldVal, newVal) -> redrawMemoryView());
         drawScale = isRetina ? 0.5 : 1.0;
         memoryViewCanvas.widthProperty().bind(memoryViewPane.widthProperty().multiply(drawScale));
-        setZoom(1/drawScale);
 
         watchesPane.setHgap(5);
         watchesPane.setVgap(5);
@@ -504,7 +503,7 @@ public class MetacheatUI {
             redrawNodes.add(newCell);
         });
         
-        setZoom(1/drawScale);
+        setZoom((1/drawScale) - 0.1);
 
         if (resume) {
             Emulator.computer.resume();
