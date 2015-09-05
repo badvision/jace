@@ -54,16 +54,11 @@ class Watch extends VBox {
         redraw = outer.animationTimer.scheduleAtFixedRate(this::redraw, MetacheatUI.FRAME_RATE, MetacheatUI.FRAME_RATE, TimeUnit.MILLISECONDS);
         setBackground(new Background(new BackgroundFill(Color.NAVY, CornerRadii.EMPTY, Insets.EMPTY)));
         Label addrLabel = new Label("$" + Integer.toHexString(address));
+        addrLabel.setOnMouseClicked((evt)-> outer.inspectAddress(address));
         addrLabel.setTextAlignment(TextAlignment.CENTER);
         addrLabel.setMinWidth(GRAPH_WIDTH);
         addrLabel.setFont(new Font(Font.getDefault().getFamily(), 14));
         addrLabel.setTextFill(Color.WHITE);
-        addrLabel.setMouseTransparent(false);
-        addrLabel.setOnMouseClicked((MouseEvent evt)-> {
-            if (evt.isPrimaryButtonDown()) {
-                outer.inspectAddress(address);
-            }
-        });
         graph = new Canvas(GRAPH_WIDTH, GRAPH_HEIGHT);
         getChildren().add(addrLabel);
         getChildren().add(graph);
