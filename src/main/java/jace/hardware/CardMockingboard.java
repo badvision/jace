@@ -159,14 +159,17 @@ public class CardMockingboard extends Card implements Runnable {
         if (e.getType().isRead()) {
             int val = controller.readRegister(register & 0x0f);
             e.setNewValue(val);
+//            System.out.println("Read "+Integer.toHexString(register)+" == "+val);
         } else {
             controller.writeRegister(register & 0x0f, e.getNewValue());
+//            System.out.println("Write "+Integer.toHexString(register)+" == "+e.getNewValue());
         }
     }
 
     @Override
     protected void handleIOAccess(int register, TYPE type, int value, RAMEvent e) {
         // Oddly, all IO is done at the firmware address bank.  It's a strange card.
+//        System.out.println("MB I/O Access "+type.name()+" "+register+":"+value);
         e.setNewValue(computer.getVideo().getFloatingBus());
     }
     long ticksSinceLastPlayback = 0;
@@ -319,6 +322,9 @@ public class CardMockingboard extends Card implements Runnable {
             int zeroSamples = 0;
             setRun(true);
             while (isRunning()) {
+                while (!computer.isRunning()) {
+                    Thread.sleep(500);
+                }
                 computer.getMotherboard().requestSpeed(this);
                 playSound(leftBuffer, rightBuffer);
                 int p = 0;
@@ -381,6 +387,8 @@ public class CardMockingboard extends Card implements Runnable {
         } catch (LineUnavailableException ex) {
             Logger.getLogger(CardMockingboard.class
                     .getName()).log(Level.SEVERE, null, ex);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(CardMockingboard.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             computer.getMotherboard().cancelSpeedRequest(this);
             System.out.println("Mockingboard playback stopped");

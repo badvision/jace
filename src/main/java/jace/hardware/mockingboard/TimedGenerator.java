@@ -50,7 +50,7 @@ public class TimedGenerator {
     }
 
     public void setRate(int clock, int sample_rate) {
-        sampleRate = sample_rate;
+        sampleRate = sample_rate == 0 ? 44100 : sample_rate;
         this.clock = clock;
         cyclesPerSample = clock / sampleRate;
     }

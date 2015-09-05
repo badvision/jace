@@ -23,17 +23,22 @@ import jace.core.Device;
 
 /**
  * Implementation of 6522 VIA chip
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ *
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public abstract class R6522 extends Device {
-
+    
     public R6522(Computer computer) {
         super(computer);
+        timer1freerun = true;
+        timer1running = true;
+        timer1latch = 0x1fff;
+        timer1interruptEnabled = false;
+        setRun(true);
     }
-    
+
     // 6522 VIA
     // http://www.applevault.com/twiki/Main/Mockingboard/6522.pdf
-    
     // I/O registers
     public static enum Register {
         ORB(0), // Output Register B
@@ -54,13 +59,16 @@ public abstract class R6522 extends Device {
         ORAH(15);// Output Register A (no handshake)
         
         int val;
+
         Register(int v) {
             val = v;
         }
         
         static public Register fromInt(int i) {
             for (Register r : Register.values()) {
-                if (r.val == i) return r;
+                if (r.val == i) {
+                    return r;
+                }
             }
             return null;
         }
@@ -130,14 +138,16 @@ public abstract class R6522 extends Device {
     protected String getDeviceName() {
         return "6522 VIA Chip";
     }
-
+    
     @Override
     public void tick() {
         if (timer1running) {
-            timer1counter --;
+            timer1counter--;
             if (timer1counter < 0) {
                 timer1counter = timer1latch;
-                if (!timer1freerun) timer1running = false;
+                if (!timer1freerun) {
+                    timer1running = false;
+                }
                 if (timer1interruptEnabled) {
 //                    System.out.println("Timer 1 generated interrupt");
                     timer1IRQ = true;
@@ -146,7 +156,7 @@ public abstract class R6522 extends Device {
             }
         }
         if (timer2running) {
-            timer2counter --;
+            timer2counter--;
             if (timer2counter < 0) {
                 timer2running = false;
                 timer2counter = timer2latch;
@@ -156,39 +166,42 @@ public abstract class R6522 extends Device {
                 }
             }
         }
-        if (!timer1running && !timer2running)
+        if (!timer1running && !timer2running) {
             setRun(false);
+        }
     }
-
+    
     @Override
     public void attach() {
         // Start chip
     }
-
+    
     @Override
     public void reconfigure() {
         // Reset
     }
     
-    public void writeRegister(int reg, int value) {
-        value &= 0x0ff;
+    public void writeRegister(int reg, int val) {
+        int value = val & 0x0ff;
         Register r = Register.fromInt(reg);
 //        System.out.println("Writing "+(value&0x0ff)+" to register "+r.toString());
         switch (r) {
             case ORB:
-                if (dataDirectionB == 0) break;
-                value = value & dataDirectionB;
-                sendOutputB(value);
+                if (dataDirectionB == 0) {
+                    break;
+                }
+                sendOutputB(value & dataDirectionB);
                 break;
             case ORA:
 //            case ORAH:
-                if (dataDirectionA == 0) break;
-                value = value & dataDirectionA;
-                sendOutputA(value);
+                if (dataDirectionA == 0) {
+                    break;
+                }
+                sendOutputA(value & dataDirectionA);
                 break;
             case DDRB:
                 dataDirectionB = value;
-                break;                
+                break;            
             case DDRA:
                 dataDirectionA = value;
                 break;
@@ -223,39 +236,55 @@ public abstract class R6522 extends Device {
             case ACR:
                 // SHIFT REGISTER NOT IMPLEMENTED
                 timer1freerun = (value & 64) != 0;
-                if (timer1freerun) timer1running = true;
+                if (timer1freerun) {
+                    timer1running = true;
+                    setRun(true);
+                }
                 break;
             case PCR:
                 // TODO: Implement if Votrax (SSI) is to be supported
                 break;
             case IFR:
-                if ((value & 64) != 0) timer1IRQ = false;
-                if ((value & 32) != 0) timer2IRQ = false;                
+                if ((value & 64) != 0) {
+                    timer1IRQ = false;
+                }
+                if ((value & 32) != 0) {
+                    timer2IRQ = false;
+                }                
                 break;
             case IER:
                 boolean enable = (value & 128) != 0;
-                if ((value & 64) != 0) timer1interruptEnabled = enable;
-                if ((value & 32) != 0) timer2interruptEnabled = enable;
+                if ((value & 64) != 0) {
+                    timer1interruptEnabled = enable;
+                }
+                if ((value & 32) != 0) {
+                    timer2interruptEnabled = enable;
+                }
                 break;
             default:
         }
     }
-    
+
     // Whatever uses 6522 will want to know when it is outputting values
     // So to hook that in, these abstract methods will be defined as appropriate
     public abstract void sendOutputA(int value);
-    public abstract void sendOutputB(int value);
 
+    public abstract void sendOutputB(int value);
+    
     public int readRegister(int reg) {
         Register r = Register.fromInt(reg);
 //        System.out.println("Reading register "+r.toString());
         switch (r) {
             case ORB:
-                if (dataDirectionB ==  0x0ff) break;
+                if (dataDirectionB == 0x0ff) {
+                    break;
+                }
                 return receiveOutputB() & (dataDirectionB ^ 0x0ff);
             case ORA:
             case ORAH:
-                if (dataDirectionA == 0x0ff) break;
+                if (dataDirectionA == 0x0ff) {
+                    break;
+                }
                 return receiveOutputA() & (dataDirectionA ^ 0x0ff);
             case DDRB:
                 return dataDirectionB;
@@ -263,14 +292,8 @@ public abstract class R6522 extends Device {
                 return dataDirectionA;
             case T1CL:
                 timer1IRQ = false;
-//                int out = timer1counter & 0x0ff;
-                // Behavior to get SkyFox to detect mockingboard -- thanks to tom@snsys.com!
-                timer1counter -= 8;
-//                return out;
-               return timer1counter & 0x0ff;
+                return timer1counter & 0x0ff;
             case T1CH:
-                // Behavior to get SkyFox to detect mockingboard -- thanks to tom@snsys.com!
-                timer1counter -= 8;
                 return (timer1counter & 0x0ff00) >> 8;
             case T1LL:
                 return timer1latch & 0x0ff;
@@ -286,24 +309,38 @@ public abstract class R6522 extends Device {
                 return 0;
             case ACR:
                 // SHIFT REGISTER NOT IMPLEMENTED
-                if (timer1freerun) return 64;
+                if (timer1freerun) {
+                    return 64;
+                }
                 return 0;
             case PCR:
                 break;
             case IFR:
                 int val = 0;
-                if (timer1IRQ) val |= 64;
-                if (timer2IRQ) val |= 32;
-                if (val != 0) val |= 128;
+                if (timer1IRQ) {
+                    val |= 64;
+                }
+                if (timer2IRQ) {
+                    val |= 32;
+                }
+                if (val != 0) {
+                    val |= 128;
+                }
                 return val;
             case IER:
                 val = 128;
-                if (timer1interruptEnabled) val |= 64;
-                if (timer2interruptEnabled) val |= 32;
+                if (timer1interruptEnabled) {
+                    val |= 64;
+                }
+                if (timer2interruptEnabled) {
+                    val |= 32;
+                }
                 return val;
         }
         return 0;
     }
+
     public abstract int receiveOutputA();
+
     public abstract int receiveOutputB();    
 }
