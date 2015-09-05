@@ -30,6 +30,7 @@ public class MemoryCell implements Comparable<MemoryCell> {
     public ObservableList<String> readInstructionsDisassembly = FXCollections.observableArrayList(new ArrayList<>());
     public ObservableList<Integer> writeInstructions = FXCollections.observableList(new ArrayList<>());
     public ObservableList<String> writeInstructionsDisassembly = FXCollections.observableArrayList(new ArrayList<>());
+    public ObservableList<String> execInstructionsDisassembly = FXCollections.observableArrayList(new ArrayList<>());
     private int x;
     private int y;
     private int width;

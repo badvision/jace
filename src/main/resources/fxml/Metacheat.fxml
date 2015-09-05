@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import java.lang.*?>
+<?import javafx.geometry.*?>
+<?import java.net.*?>
 <?import javafx.scene.canvas.*?>
 <?import javafx.scene.text.*?>
-<?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
-<?import java.lang.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="520.0" prefWidth="710.0" xmlns="http://javafx.com/javafx/8.0.40" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.ui.MetacheatUI">
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="520.0" prefWidth="710.0" stylesheets="@../styles/style.css" xmlns="http://javafx.com/javafx/8.0.40" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.ui.MetacheatUI">
+    <stylesheets>
+        <URL value="@/styles/style.css" />
+    </stylesheets>
    <children>
       <ToolBar prefHeight="40.0" prefWidth="200.0" VBox.vgrow="NEVER">
          <items>
@@ -215,12 +219,12 @@
                                       <tabs>
                                         <Tab text="W">
                                              <content>
-                                                <ListView fx:id="codeInspectorWriteList" editable="true" />
+                                                <ListView fx:id="codeInspectorWriteList" editable="true" styleClass="codeInspector" />
                                              </content>
                                           </Tab>
                                         <Tab text="R">
                                              <content>
-                                                <ListView fx:id="codeInspectorReadList" editable="true" />
+                                                <ListView fx:id="codeInspectorReadList" editable="true" styleClass="codeInspector" />
                                              </content>
                                           </Tab>
                                       </tabs>

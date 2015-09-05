@@ -339,11 +339,17 @@ public class MetaCheat extends Cheats {
         MemoryCell cell = getMemoryCell(e.getAddress());
         if (cell != null) {
             CPU cpu = Emulator.computer.getCpu();
+            int pc = cpu.getProgramCounter();
+            String trace = cpu.getLastTrace();
             if (!cpu.isLogEnabled()) {
                 cpu.traceLength = 1;
             }
             switch (e.getType()) {
                 case EXECUTE:
+                    cell.execInstructionsDisassembly.add(trace);
+                    if (cell.execInstructionsDisassembly.size() > historyLength) {
+                        cell.execInstructionsDisassembly.remove(0);
+                    }
                 case READ_OPERAND:
                     cell.execCount.set(Math.min(255, cell.execCount.get() + lightRate));
                     break;
@@ -351,8 +357,6 @@ public class MetaCheat extends Cheats {
                     cell.writeCount.set(Math.min(255, cell.writeCount.get() + lightRate));
                     if (ui.isInspecting(cell.address)) {
                         if (pendingInspectorUpdates.incrementAndGet() < 5) {
-                            int pc = cpu.getProgramCounter();
-                            String trace = cpu.getLastTrace();
                             Platform.runLater(() -> {
                                 pendingInspectorUpdates.decrementAndGet();
                                 cell.writeInstructions.add(pc);
@@ -376,8 +380,6 @@ public class MetaCheat extends Cheats {
                     cell.readCount.set(Math.min(255, cell.readCount.get() + lightRate));
                     if (ui.isInspecting(cell.address)) {
                         if (pendingInspectorUpdates.incrementAndGet() < 5) {
-                            int pc = cpu.getProgramCounter();
-                            String trace = cpu.getLastTrace();
                             Platform.runLater(() -> {
                                 pendingInspectorUpdates.decrementAndGet();
                                 cell.readInstructions.add(pc);

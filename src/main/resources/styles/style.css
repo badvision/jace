@@ -14,3 +14,8 @@
     -fx-graphic: "/jace/data/icon_keyboard.gif";
     -fx-graphic-text-gap: 2;
 }
+
+.codeInspector .list-cell {
+    -fx-font-size: 9pt;
+    -fx-font-family: "Courier New";
+}

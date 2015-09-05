@@ -310,7 +310,7 @@ public class MetacheatUI {
         });
         memoryViewPane.boundsInParentProperty().addListener((prop, oldVal, newVal) -> redrawMemoryView());
         drawScale = isRetina ? 0.5 : 1.0;
-        memoryViewCanvas.widthProperty().bind(memoryViewPane.widthProperty().multiply(drawScale));
+        memoryViewCanvas.widthProperty().bind(memoryViewPane.widthProperty().multiply(drawScale).subtract(8));
 
         watchesPane.setHgap(5);
         watchesPane.setVgap(5);
@@ -471,17 +471,9 @@ public class MetacheatUI {
 
         cheatEngine.initMemoryView();
         int pixelsPerBlock = 16 * MEMORY_BOX_TOTAL_SIZE;
-        memoryViewColumns = (int) (memoryViewPane.getWidth() / pixelsPerBlock * 16);
+        memoryViewColumns = (int) (memoryViewPane.getWidth() / pixelsPerBlock) * 16;
         memoryViewRows = ((cheatEngine.getEndAddress() - cheatEngine.getStartAddress()) / memoryViewColumns) + 1;
         double canvasHeight = memoryViewRows * MEMORY_BOX_TOTAL_SIZE * drawScale;
-
-        // Guard against asking for a big texture because bad things will happen!
-        while (canvasHeight >= 16384) {
-            memoryViewColumns += 16;
-            memoryViewRows = ((cheatEngine.getEndAddress() - cheatEngine.getStartAddress()) / memoryViewColumns) + 1;
-            canvasHeight = memoryViewRows * MEMORY_BOX_TOTAL_SIZE * drawScale;
-        }
-        double canvasWidth = memoryViewColumns * MEMORY_BOX_TOTAL_SIZE * drawScale;
 
         memoryViewContents.setPrefHeight(canvasHeight);
         memoryViewCanvas.setHeight(canvasHeight);
@@ -503,7 +495,7 @@ public class MetacheatUI {
             redrawNodes.add(newCell);
         });
         
-        setZoom((1/drawScale) - 0.1);
+        setZoom(1/drawScale);
 
         if (resume) {
             Emulator.computer.resume();
