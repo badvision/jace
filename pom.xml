@@ -142,13 +142,6 @@
             <version>0.9.9</version>
         </dependency>
         <dependency>
-            <groupId>megacz</groupId>
-            <artifactId>nestedvm</artifactId>
-            <version>2014.12.3</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/nestedvm.jar</systemPath>
-        </dependency>
-        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.10</version>
