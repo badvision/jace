@@ -32,6 +32,11 @@ public class EnvelopeGenerator extends TimedGenerator {
     int direction;
     int amplitude;
 
+    boolean start1high = false;
+    boolean start2high = false;
+    boolean oneShot = false;
+    boolean oddEven = false;
+    
     public EnvelopeGenerator(int _clock, int _sampleRate) {
         super(_clock, _sampleRate);
     }
@@ -50,55 +55,54 @@ public class EnvelopeGenerator extends TimedGenerator {
         }
     }
 
+    int effectiveAmplitude = 0;
     public void step() {
         int stateChanges = updateCounter();
+        int total = 0;
         for (int i = 0; i < stateChanges; i++) {
-            if (amplitude == 0 && direction == -1) {
-                if (!cont) {
-                    direction = 0;
-                } else if (hold) {
-                    direction = 0;
-                    if (alt) {
-                        amplitude = 15;
-                    }
-                } else if (alt) {
-                    direction = 1;
-                } else {
-                    amplitude = 15;
-                }
-            }
-            if (amplitude == 15 && direction == 1) {
-                if (!cont) {
-                    direction = 0;
-                    amplitude = 0;
-                } else if (hold) {
-                    direction = 0;
-                    if (alt) {
-                        amplitude = 0;
-                    }
-                } else if (alt) {
-                    direction = -1;
-                } else {
-                    amplitude = 0;
-                }
-            }
             amplitude += direction;
+            if (amplitude > 15 || amplitude < 0) {
+                setPhase(oddEven ? start1high : start2high);
+                oddEven = !oddEven;
+                if (hold) {
+                    direction = 0;
+                }
+            }
+            total += amplitude;
+        }
+        if (stateChanges == 0) {
+            effectiveAmplitude = amplitude;
+        } else {
+            effectiveAmplitude = Math.min(15, total / stateChanges);
         }
     }
 
     public void setShape(int shape) {
+        oddEven = false;
         counter = 0;
         cont = (shape & 8) != 0;
         attk = (shape & 4) != 0;
         alt = (shape & 2) != 0;
-        hold = (shape & 1) != 0;
-        if (attk) {
+        hold = ((shape ^ 8) & 9) != 0;
+        
+        start1high = !attk;
+        start2high = cont && ! (attk ^ alt ^ hold);
+        
+        setPhase(start1high);
+    }
+    
+    public void setPhase(boolean isHigh) {
+        if (isHigh) {
+            amplitude = 15;
+            direction = -1;            
+        } else {
             amplitude = 0;
             direction = 1;
-        } else {
-            amplitude = 15;
-            direction = -1;
-        }
+        }        
+    }
+
+    public int getEffectiveAmplitude() {
+        return effectiveAmplitude;
     }
 
     public int getAmplitude() {

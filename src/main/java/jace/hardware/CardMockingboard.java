@@ -33,6 +33,7 @@ import jace.hardware.mockingboard.R6522;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -184,6 +185,7 @@ public class CardMockingboard extends Card implements Runnable {
         }
 
         if (isRunning() && !pause) {
+//            buildMixerTable();
             timerSync.lock();
             try {
                 ticksSinceLastPlayback++;
@@ -246,13 +248,13 @@ public class CardMockingboard extends Card implements Runnable {
         out = out * 2.0 / 3.0 / numChips;
         double delta = 1.15;
         for (int i = 15; i > 0; i--) {
-            VolTable[i] = (int) Math.round(out);	/* round to nearest */	// [TC: unsigned int cast]
+            VolTable[i] = (int) (out / Math.pow(Math.sqrt(2),(15-i)));
 //            out /= 1.188502227;	/* = 10 ^ (1.5/20) = 1.5dB */
 //            out /= 1.15;	/* = 10 ^ (3/20) = 3dB */
-
-            delta += 0.0225;
-            out /= delta;   // As per applewin's source, the levels don't scale as documented.
+//            delta += 0.0225;
+//            out /= delta;   // As per applewin's source, the levels don't scale as documented.
         }
+        
         VolTable[0] = 0;
     }
     Thread playbackThread = null;
@@ -321,74 +323,75 @@ public class CardMockingboard extends Card implements Runnable {
             ticksSinceLastPlayback = 0;
             int zeroSamples = 0;
             setRun(true);
+            LockSupport.parkNanos(5000);
             while (isRunning()) {
-                while (!computer.isRunning()) {
-                    Thread.sleep(500);
+                while (isRunning() && !computer.isRunning()) {
+                    Thread.currentThread().yield();
                 }
-                computer.getMotherboard().requestSpeed(this);
-                playSound(leftBuffer, rightBuffer);
-                int p = 0;
-                for (int idx = 0; idx < BUFFER_LENGTH; idx++) {
-                    int sampleL = leftBuffer[idx];
-                    int sampleR = rightBuffer[idx];
-                    // Convert left + right samples into buffer format
-                    if (sampleL == 0 && sampleR == 0) {
-                        zeroSamples++;
-                    } else {
+                if (isRunning()) {
+                    computer.getMotherboard().requestSpeed(this);
+                    playSound(leftBuffer, rightBuffer);
+                    int p = 0;
+                    for (int idx = 0; idx < BUFFER_LENGTH; idx++) {
+                        int sampleL = leftBuffer[idx];
+                        int sampleR = rightBuffer[idx];
+                        // Convert left + right samples into buffer format
+                        if (sampleL == 0 && sampleR == 0) {
+                            zeroSamples++;
+                        } else {
+                            zeroSamples = 0;
+                        }
+                        for (int shift = SoundMixer.BITS - 8, index = 0; shift >= 0; shift -= 8, index++) {
+                            buffer[p + index] = (byte) (sampleR >> shift);
+                            buffer[p + index + bytesPerSample] = (byte) (sampleL >> shift);
+                        }
+                        p += frameSize;
+                    }
+                    try {
+                        timerSync.lock();
+                        ticksSinceLastPlayback -= ticksBeteenPlayback;
+                    } finally {
+                        timerSync.unlock();
+                    }
+                    out.write(buffer, 0, buffer.length);
+                    if (zeroSamples >= MAX_IDLE_SAMPLES) {
                         zeroSamples = 0;
-                    }
-                    for (int shift = SoundMixer.BITS - 8, index = 0; shift >= 0; shift -= 8, index++) {
-                        buffer[p + index] = (byte) (sampleR >> shift);
-                        buffer[p + index + bytesPerSample] = (byte) (sampleL >> shift);
-                    }
-                    p += frameSize;
-                }
-                try {
-                    timerSync.lock();
-                    ticksSinceLastPlayback -= ticksBeteenPlayback;
-                } finally {
-                    timerSync.unlock();
-                }
-                out.write(buffer, 0, buffer.length);
-                if (zeroSamples >= MAX_IDLE_SAMPLES) {
-                    zeroSamples = 0;
-                    pause = true;
-                    computer.getMotherboard().cancelSpeedRequest(this);
-                    while (pause && isRunning()) {
-                        try {
-                            Thread.sleep(50);
-                            timerSync.lock();
-                            playbackFinished.signalAll();
-                        } catch (InterruptedException ex) {
-                            return;
-                        } catch (IllegalMonitorStateException ex) {
-                            // Do nothing
-                        } finally {
+                        pause = true;
+                        computer.getMotherboard().cancelSpeedRequest(this);
+                        while (pause && isRunning()) {
                             try {
-                                timerSync.unlock();
+                                Thread.sleep(50);
+                                timerSync.lock();
+                                playbackFinished.signalAll();
+                            } catch (InterruptedException ex) {
+                                return;
                             } catch (IllegalMonitorStateException ex) {
-                                // Do nothing -- this is probably caused by a suspension event
+                                // Do nothing
+                            } finally {
+                                try {
+                                    timerSync.unlock();
+                                } catch (IllegalMonitorStateException ex) {
+                                    // Do nothing -- this is probably caused by a suspension event
+                                }
                             }
                         }
                     }
-                }
-                try {
-                    timerSync.lock();
-                    playbackFinished.signalAll();
-                    while (isRunning() && ticksSinceLastPlayback < ticksBeteenPlayback) {
-                        cpuCountReached.await();
+                    try {
+                        timerSync.lock();
+                        playbackFinished.signalAll();
+                        while (isRunning() && ticksSinceLastPlayback < ticksBeteenPlayback) {
+                            cpuCountReached.await();
+                        }
+                    } catch (InterruptedException ex) {
+                        // Do nothing, probably killing playback thread on purpose
+                    } finally {
+                        timerSync.unlock();
                     }
-                } catch (InterruptedException ex) {
-                    // Do nothing, probably killing playback thread on purpose
-                } finally {
-                    timerSync.unlock();
                 }
             }
         } catch (LineUnavailableException ex) {
             Logger.getLogger(CardMockingboard.class
                     .getName()).log(Level.SEVERE, null, ex);
-        } catch (InterruptedException ex) {
-            Logger.getLogger(CardMockingboard.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             computer.getMotherboard().cancelSpeedRequest(this);
             System.out.println("Mockingboard playback stopped");

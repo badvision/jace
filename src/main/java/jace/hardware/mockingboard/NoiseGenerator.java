@@ -30,7 +30,7 @@ public class NoiseGenerator extends TimedGenerator {
     }
     @Override
     public int stepsPerCycle() {
-        return 8;
+        return 4;
     }
     public void step() {
         int stateChanges = updateCounter();
@@ -39,11 +39,14 @@ public class NoiseGenerator extends TimedGenerator {
     }
     public static final int BIT17 = 0x010000;
     public void updateRng() {
-        // noise = (noise >> 1) ^ ((noise & 1) ? 0x14000 : 0);
-        int newBit17 = (rng & 0x04) > 0 == (rng & 0x01) > 0 ? BIT17 : 0;
-        rng = newBit17 + (rng >> 1);
+        rng = ((rng & 1) != 0 ? rng ^ 0x24000 : rng) >> 1;
+        if ((rng & 1) == 1) {
+            state = !state;
+        }
     }
+    
+    boolean state = false;
     public boolean isOn() {
-        return ((rng & 1) == 1);
+        return state;
     }
 }
