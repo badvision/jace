@@ -167,16 +167,17 @@ public class FloppyDisk {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         for (int track = 0; track < TRACK_COUNT; track++) {
             for (int sector = 0; sector < SECTOR_COUNT; sector++) {
+                int gap2 = (int) ((Math.random() * 5.0) + 4);
                 // 15 junk bytes
                 writeJunkBytes(output, 15);
                 // Address block
                 writeAddressBlock(output, track, sector);
                 // 4 junk bytes
-                writeJunkBytes(output, 4);
+                writeJunkBytes(output, gap2);
                 // Data block
                 nibblizeBlock(output, track, currentSectorOrder[sector], nibbles);
                 // 34 junk bytes
-                writeJunkBytes(output, 34);
+                writeJunkBytes(output, 38 - gap2);
             }
         }
         return output.toByteArray();
