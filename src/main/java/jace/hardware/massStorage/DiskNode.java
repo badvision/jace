@@ -100,7 +100,7 @@ public abstract class DiskNode {
         }
     }
 
-    public void refresh() {
+    public void refresh() throws IOException {
         ownerFilesystem.deallocateEntry(this);
         doRefresh();
         allocationTime = System.currentTimeMillis();

@@ -38,7 +38,7 @@ import java.util.logging.Logger;
  * is a folder and not a disk image. FreespaceBitmap and the various Node
  * classes are used to represent the filesystem structure.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class ProdosVirtualDisk implements IDisk {
 
@@ -61,7 +61,7 @@ public class ProdosVirtualDisk implements IDisk {
         DiskNode node = physicalMap.get(block);
         Arrays.fill(ioBuffer, (byte) (block & 0x0ff));
         if (node == null) {
-            System.out.println("Reading unknown block?!");
+            System.out.println("Reading unknown block " + Integer.toHexString(block));
             for (int i = 0; i < BLOCK_SIZE; i++) {
                 memory.write(bufferAddress + i, (byte) 0, false, false);
             }
@@ -132,11 +132,15 @@ public class ProdosVirtualDisk implements IDisk {
     }
 
     // Mark space occupied by node
-    public void allocateEntry(DiskNode node) {
+    public void allocateEntry(DiskNode node) throws IOException {
         physicalMap.put(node.baseBlock, node);
-        node.additionalNodes.stream().forEach((sub) -> {
-            physicalMap.put(sub.getBaseBlock(), sub);
-        });
+
+        for (DiskNode subnode : node.additionalNodes) {
+            int blockNum = getNextFreeBlock();
+            System.out.println("Allocating block " + Integer.toHexString(blockNum) + " for " + subnode.getName());
+            subnode.setBaseBlock(blockNum);
+            physicalMap.put(blockNum, subnode);
+        }
     }
 
     // Mark space occupied by nodes as free (remove allocation mapping)
@@ -145,11 +149,11 @@ public class ProdosVirtualDisk implements IDisk {
         if (physicalMap.get(node.baseBlock) != null && physicalMap.get(node.baseBlock).equals(node)) {
             physicalMap.remove(node.baseBlock);
         }
-        node.additionalNodes.stream().filter((sub) -> 
-                (physicalMap.get(sub.getBaseBlock()) != null && physicalMap.get(sub.baseBlock).equals(sub))).
+        node.additionalNodes.stream().filter((sub)
+                -> (physicalMap.get(sub.getBaseBlock()) != null && physicalMap.get(sub.baseBlock).equals(sub))).
                 forEach((sub) -> {
-            physicalMap.remove(sub.getBaseBlock());
-        });
+                    physicalMap.remove(sub.getBaseBlock());
+                });
     }
 
     // Is the specified block in use?
@@ -199,7 +203,6 @@ public class ProdosVirtualDisk implements IDisk {
         allocateEntry(rootDirectory);
         freespaceBitmap = new FreespaceBitmap(this, FREESPACE_BITMAP_START);
         allocateEntry(freespaceBitmap);
-
 
     }
 

@@ -123,7 +123,7 @@ public class JaceUIController {
             return null;
         }
         for (File f : files) {
-            if (f.isFile()) return f;
+            if (f.exists()) return f;
         }
         return null;
     }

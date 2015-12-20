@@ -21,6 +21,7 @@ package jace.hardware.massStorage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Representation of a prodos file with a known file type and having a known
@@ -81,16 +82,18 @@ public class FileNode extends DiskNode {
         } else if (fileSize <= SAPLING_MAX_SIZE) {
             setType(EntryType.SAPLING);
             return EntryType.SAPLING;
+        } else {
+            setType(EntryType.TREE);
+            return EntryType.TREE;
         }
-        setType(EntryType.TREE);
-        return EntryType.TREE;
     }
 
     @Override
     public void setName(String name) {
-        String[] parts = name.split("\\.");
-        FileType t = null;
+        String[] parts = name.replaceAll("[^A-Za-z0-9]", ".").split("\\.");
+        FileType t = FileType.UNKNOWN;
         int offset = 0;
+        String prodosName = name;
         if (parts.length > 1) {
             String extension = parts[parts.length - 1].toUpperCase();
             String[] extParts = extension.split("#");
@@ -103,16 +106,13 @@ public class FileNode extends DiskNode {
             } catch (IllegalArgumentException ex) {
                 System.out.println("Not sure what extension " + extension + " is!");
             }
-            name = "";
+            prodosName = "";
             for (int i = 0; i < parts.length - 1; i++) {
-                name += (i > 0 ? "." + parts[i] : parts[i]);
+                prodosName += (i > 0 ? "." + parts[i] : parts[i]);
             }
             if (extParts[extParts.length - 1].equals("SYSTEM")) {
-                name += ".SYSTEM";
+                prodosName += ".SYSTEM";
             }
-        }
-        if (t == null) {
-            t = FileType.UNKNOWN;
         }
         if (offset == 0) {
             offset = t.defaultLoadAddress;
@@ -121,12 +121,13 @@ public class FileNode extends DiskNode {
         loadAddress = offset;
 
         // Pass usable name (stripped of file extension and other type info) as name
-        super.setName(name);
+        super.setName(prodosName);
     }
 
     public FileNode(ProdosVirtualDisk ownerFilesystem, File file) throws IOException {
         setOwnerFilesystem(ownerFilesystem);
         setPhysicalFile(file);
+        setName(file.getName());
     }
 
     @Override
@@ -135,16 +136,19 @@ public class FileNode extends DiskNode {
 
     @Override
     public void doAllocate() throws IOException {
-        int dataBlocks = (int) ((getPhysicalFile().length() / ProdosVirtualDisk.BLOCK_SIZE) + 1);
-        int treeBlocks;
-        if (dataBlocks > 1 && dataBlocks < 257) {
-            treeBlocks = 1;
-        } else {
-            treeBlocks = 1 + (dataBlocks / 256);
+        int dataBlocks = (int) ((getPhysicalFile().length()+ProdosVirtualDisk.BLOCK_SIZE-1) / ProdosVirtualDisk.BLOCK_SIZE);
+        int treeBlocks =(((dataBlocks * 2) + (ProdosVirtualDisk.BLOCK_SIZE-2)) / ProdosVirtualDisk.BLOCK_SIZE);
+        if (treeBlocks > 1) treeBlocks++;
+//        if (dataBlocks > 1 && (dataBlocks*2) < ProdosVirtualDisk.BLOCK_SIZE) {
+//            treeBlocks = 1;
+//        } else {
+//            treeBlocks = 1 + (dataBlocks * 2 / ProdosVirtualDisk.BLOCK_SIZE);
+//        }
+        System.out.println("Allocating "+(dataBlocks + treeBlocks)+" blocks for file "+getName()+"; data "+dataBlocks+"; tree "+treeBlocks);
+        for (int i = 0; i < dataBlocks + treeBlocks; i++) {
+            new SubNode(i, this);
         }
-        for (int i = 1; i < dataBlocks + treeBlocks; i++) {
-            SubNode subNode = new SubNode(i, this);
-        }
+        setBaseBlock(additionalNodes.get(0).getBaseBlock());
     }
 
     @Override
@@ -154,6 +158,9 @@ public class FileNode extends DiskNode {
     @Override
     public void readBlock(int block, byte[] buffer) throws IOException {
 //        System.out.println("Read block "+block+" of file "+getName());
+        int dataBlocks = (int) ((getPhysicalFile().length()+ProdosVirtualDisk.BLOCK_SIZE-1) / ProdosVirtualDisk.BLOCK_SIZE);
+        int treeBlocks =(((dataBlocks * 2) + (ProdosVirtualDisk.BLOCK_SIZE-2)) / ProdosVirtualDisk.BLOCK_SIZE);
+        if (treeBlocks > 1) treeBlocks++;
         switch (this.getType()) {
             case SEEDLING:
                 readFile(buffer, 0);
@@ -163,20 +170,20 @@ public class FileNode extends DiskNode {
                     readFile(buffer, (block - 1));
                 } else {
                     // Generate seedling index block
-                    generateIndex(buffer, 0, 256);
+                    generateIndex(buffer, 0, dataBlocks);
                 }
                 break;
             case TREE:
-                int dataBlocks = (int) ((getPhysicalFile().length() / ProdosVirtualDisk.BLOCK_SIZE) + 1);
-                int treeBlocks = (dataBlocks / 256);
                 if (block == 0) {
-                    generateIndex(buffer, 0, treeBlocks);
-                } else if (block < treeBlocks) {
-                    int start = treeBlocks + (block - 1 * 256);
-                    int end = Math.min(start + 256, treeBlocks);
-                    generateIndex(buffer, treeBlocks, end);
+                    System.out.println("Reading index for "+getName());
+                    generateIndex(buffer, 1, treeBlocks);
+                } else if (block <= treeBlocks) {
+                    System.out.println("Reading tree block "+block+" for "+getName());
+                    int start = treeBlocks + ((block - 1) * 256);
+                    int end = treeBlocks + dataBlocks;
+                    generateIndex(buffer, start, end);
                 } else {
-                    readFile(buffer, (block - treeBlocks));
+                    readFile(buffer, (block - treeBlocks - 1));
                 }
                 break;
         }
@@ -190,10 +197,22 @@ public class FileNode extends DiskNode {
     }
 
     private void generateIndex(byte[] buffer, int indexStart, int indexLimit) {
-        int pos = 0;
-        for (int i = indexStart; pos < 256 && i < indexLimit && i < additionalNodes.size(); i++, pos++) {
-            buffer[pos] = (byte) (additionalNodes.get(i).baseBlock & 0x0ff);
-            buffer[pos + 256] = (byte) ((additionalNodes.get(i).baseBlock >> 8) & 0x0ff);
+        System.out.println("Index block contents:");
+        Arrays.fill(buffer, (byte) 0);
+        for (int i = indexStart, count=0; count < 256 && i < indexLimit && i < additionalNodes.size(); i++, count++) {
+            int base = additionalNodes.get(i).baseBlock;
+            System.out.print(Integer.toHexString(base)+":");            
+            buffer[count] = (byte) (base & 0x0ff);
+            buffer[count + 256] = (byte) (base >> 8);
         }
+        System.out.println();
+        for (int i=0; i < 256; i++) {
+            System.out.printf("%02X ",buffer[i]&0x0ff);
+        }
+        System.out.println();
+        for (int i=256; i < 512; i++) {
+            System.out.printf("%02X ",buffer[i]&0x0ff);
+        }
+        System.out.println();
     }
 }

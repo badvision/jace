@@ -49,7 +49,7 @@ public enum DiskType {
     }
     
     static public DiskType determineType(File file) {
-        if (!file.exists()) return null;
+        if (file == null || !file.exists()) return null;
         if (file.isDirectory()) return VIRTUAL;
         if (file.getName().toLowerCase().endsWith("hdv")) {
             return LARGE;

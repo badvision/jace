@@ -31,7 +31,6 @@ import java.io.IOException;
 public class SubNode extends DiskNode {
 
     int sequenceNumber;
-    private int seq;
 
     public SubNode(int seq, DiskNode parent) throws IOException {
         init(seq, parent);
@@ -49,6 +48,11 @@ public class SubNode extends DiskNode {
         parent.additionalNodes.add(this);
     }
 
+    @Override
+    public String getName() {
+        return parent.getName() + "; block "+sequenceNumber;
+    }
+    
     @Override
     public void doDeallocate() {
     }

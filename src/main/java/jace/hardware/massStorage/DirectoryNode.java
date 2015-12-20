@@ -30,11 +30,14 @@ import java.util.logging.Logger;
 
 /**
  * Prodos directory node
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ *
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class DirectoryNode extends DiskNode implements FileFilter {
 //    public static int FILE_ENTRY_SIZE = 38;
+
     public static int FILE_ENTRY_SIZE = 0x027;
+
     public DirectoryNode(ProdosVirtualDisk ownerFilesystem, File physicalDir, int baseBlock) throws IOException {
         setBaseBlock(baseBlock);
         init(ownerFilesystem, physicalDir);
@@ -43,7 +46,6 @@ public class DirectoryNode extends DiskNode implements FileFilter {
     public DirectoryNode(ProdosVirtualDisk ownerFilesystem, File physicalDir) throws IOException {
         init(ownerFilesystem, physicalDir);
     }
-
 
     private void init(ProdosVirtualDisk ownerFilesystem, File physicalFile) throws IOException {
         setPhysicalFile(physicalFile);
@@ -78,7 +80,8 @@ public class DirectoryNode extends DiskNode implements FileFilter {
 
     @Override
     /**
-     * Checks contents of subdirectory for changes as well as directory itself (super class)
+     * Checks contents of subdirectory for changes as well as directory itself
+     * (super class)
      */
     public boolean checkFile() throws IOException {
         boolean success = true;
@@ -90,7 +93,7 @@ public class DirectoryNode extends DiskNode implements FileFilter {
         for (File f : realFileList) {
             realFiles.add(f.getName());
         }
-        for (Iterator<DiskNode> i = getChildren().iterator(); i.hasNext(); ) {
+        for (Iterator<DiskNode> i = getChildren().iterator(); i.hasNext();) {
             DiskNode node = i.next();
             if (realFiles.contains(node.getPhysicalFile().getName())) {
                 realFiles.remove(node.getPhysicalFile().getName());
@@ -119,14 +122,15 @@ public class DirectoryNode extends DiskNode implements FileFilter {
         checkFile();
         if (block == 0) {
             generateHeader(buffer);
-            for (int i=0; i < 12 && i < children.size(); i++)
-            generateFileEntry(buffer, 4 + (i+1) * FILE_ENTRY_SIZE, i);
+            for (int i = 0; i < 12 && i < children.size(); i++) {
+                generateFileEntry(buffer, 4 + (i + 1) * FILE_ENTRY_SIZE, i);
+            }
         } else {
             int start = (block * 13) - 1;
             int end = start + 13;
             int offset = 4;
 
-            for (int i=start; i < end && i < children.size(); i++) {
+            for (int i = start; i < end && i < children.size(); i++) {
                 // TODO: Add any parts that are not file entries.
                 generateFileEntry(buffer, offset, i);
                 offset += FILE_ENTRY_SIZE;
@@ -136,7 +140,9 @@ public class DirectoryNode extends DiskNode implements FileFilter {
 
     @Override
     public boolean accept(File file) {
-        if (file.getName().endsWith("~")) return false;
+        if (file.getName().endsWith("~")) {
+            return false;
+        }
         char c = file.getName().charAt(0);
         if (c == '.' || c == '~') {
             return false;
@@ -146,24 +152,27 @@ public class DirectoryNode extends DiskNode implements FileFilter {
 
     /**
      * Generate the directory header found in the base block of a directory
+     *
      * @param buffer where to write data
      */
     @SuppressWarnings("static-access")
     private void generateHeader(byte[] buffer) {
 //        System.out.println("Generating directory header");
         // Previous block = 0
-        generateWord(buffer, 0,0);
+        generateWord(buffer, 0, 0);
         // Next block
         int nextBlock = 0;
-        if (!additionalNodes.isEmpty())
+        if (!additionalNodes.isEmpty()) {
             nextBlock = additionalNodes.get(0).baseBlock;
+        }
         generateWord(buffer, 0x02, nextBlock);
         // Directory header + name length
         // Volumme header = 0x0f0; Subdirectory header = 0x0e0
-        buffer[4]= (byte) ((baseBlock == 0x02 ? 0x0f0 : 0x0E0) + getName().length());
+        buffer[4] = (byte) ((baseBlock == 0x02 ? 0x0f0 : 0x0E0) + getName().length());
         generateName(buffer, 5, this);
-        for (int i=0x014 ; i <= 0x01b; i++)
+        for (int i = 0x014; i <= 0x01b; i++) {
             buffer[i] = 0;
+        }
         generateTimestamp(buffer, 0x01c, getPhysicalFile().lastModified());
         // Prodos 1.9
         buffer[0x020] = 0x019;
@@ -185,6 +194,7 @@ public class DirectoryNode extends DiskNode implements FileFilter {
 
     /**
      * Generate the entry of a directory
+     *
      * @param buffer where to write data
      * @param offset starting offset in buffer to write
      * @param fileNumber number of file (indexed in Children array) to write
@@ -192,17 +202,17 @@ public class DirectoryNode extends DiskNode implements FileFilter {
     private void generateFileEntry(byte[] buffer, int offset, int fileNumber) throws IOException {
 //        System.out.println("Generating entry for "+children.get(fileNumber).getName());
         DiskNode child = children.get(fileNumber);
+        child.allocate();
         // Entry Type and length
         buffer[offset] = (byte) ((child.getType().code << 4) + child.getName().length());
         // Name
-        generateName(buffer, offset+1, child);
+        generateName(buffer, offset + 1, child);
         // File type
         buffer[offset + 0x010] = (byte) ((child instanceof DirectoryNode) ? 0x0f : ((FileNode) child).fileType);
         // Key pointer
         generateWord(buffer, offset + 0x011, child.getBaseBlock());
         // Blocks used -- will report only one unless file is actually allocated
-//        child.allocate();
-        generateWord(buffer, offset + 0x013, 1 + child.additionalNodes.size());
+        generateWord(buffer, offset + 0x013, child.additionalNodes.size());
         // EOF
         // TODO: Verify this is the right thing to do -- is EOF total length or a modulo?
         int length = ((int) child.physicalFile.length()) & 0x0ffffff;
@@ -214,11 +224,12 @@ public class DirectoryNode extends DiskNode implements FileFilter {
         buffer[offset + 0x01c] = 0x19;
         // Minimum version = 0
         buffer[offset + 0x01d] = 0;
-        // Access = all granted
-        buffer[offset + 0x01e] = (byte) 0x0ff;
+        // Access = Read-only
+        buffer[offset + 0x01e] = (byte) 0x001;
         // AUX type
-        if (child instanceof FileNode)
+        if (child instanceof FileNode) {
             generateWord(buffer, offset + 0x01f, ((FileNode) child).loadAddress);
+        }
         // Modification date
         generateTimestamp(buffer, offset + 0x021, child.physicalFile.lastModified());
         // Key pointer for directory
@@ -231,26 +242,22 @@ public class DirectoryNode extends DiskNode implements FileFilter {
 
         // yyyyyyym mmmddddd - Byte 0,1
         // ---hhhhh --mmmmmm - Byte 2,3
-//        buffer[offset+1] = (byte) (((c.get(Calendar.YEAR) - 1990) << 1) + ((c.get(Calendar.MONTH)>> 3) & 1));
-       buffer[offset+0] = 0;
-       buffer[offset+1] = 0;
-       buffer[offset+2] = 0;
-       buffer[offset+3] = 0;
+        buffer[offset+1] = (byte) (((c.get(Calendar.YEAR) - 2000) << 1) | ((c.get(Calendar.MONTH)+1)>> 3));
 //        buffer[offset+2] = (byte) ((c.get(Calendar.MONTH)>> 3) & 1);
-//        buffer[offset+3] = (byte) (((c.get(Calendar.MONTH)&7) + c.get(Calendar.DAY_OF_MONTH)) & 0x0ff);
-//        buffer[offset+0] = (byte) c.get(Calendar.HOUR_OF_DAY);
-//        buffer[offset+1] = (byte) c.get(Calendar.MINUTE);
+        buffer[offset+0] = (byte) (((((c.get(Calendar.MONTH)+1)&7)<<5) | c.get(Calendar.DAY_OF_MONTH)) & 0x0ff);
+        buffer[offset+3] = (byte) c.get(Calendar.HOUR_OF_DAY);
+        buffer[offset+2] = (byte) c.get(Calendar.MINUTE);
     }
 
     private void generateWord(byte[] buffer, int i, int value) {
         // Little endian format
         buffer[i] = (byte) (value & 0x0ff);
-        buffer[i+1] = (byte) ((value >> 8) & 0x0ff);
+        buffer[i + 1] = (byte) ((value >> 8) & 0x0ff);
     }
 
     private void generateName(byte[] buffer, int offset, DiskNode node) {
-        for (int i=0; i < node.getName().length(); i++) {
-            buffer[offset+i] = (byte) node.getName().charAt(i);
+        for (int i = 0; i < node.getName().length(); i++) {
+            buffer[offset + i] = (byte) node.getName().charAt(i);
         }
     }
 
