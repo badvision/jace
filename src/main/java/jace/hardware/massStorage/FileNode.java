@@ -27,7 +27,7 @@ import java.util.Arrays;
  * Representation of a prodos file with a known file type and having a known
  * size (either seedling, sapling or tree)
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class FileNode extends DiskNode {
 
@@ -136,15 +136,11 @@ public class FileNode extends DiskNode {
 
     @Override
     public void doAllocate() throws IOException {
-        int dataBlocks = (int) ((getPhysicalFile().length()+ProdosVirtualDisk.BLOCK_SIZE-1) / ProdosVirtualDisk.BLOCK_SIZE);
-        int treeBlocks =(((dataBlocks * 2) + (ProdosVirtualDisk.BLOCK_SIZE-2)) / ProdosVirtualDisk.BLOCK_SIZE);
-        if (treeBlocks > 1) treeBlocks++;
-//        if (dataBlocks > 1 && (dataBlocks*2) < ProdosVirtualDisk.BLOCK_SIZE) {
-//            treeBlocks = 1;
-//        } else {
-//            treeBlocks = 1 + (dataBlocks * 2 / ProdosVirtualDisk.BLOCK_SIZE);
-//        }
-        System.out.println("Allocating "+(dataBlocks + treeBlocks)+" blocks for file "+getName()+"; data "+dataBlocks+"; tree "+treeBlocks);
+        int dataBlocks = (int) ((getPhysicalFile().length() + ProdosVirtualDisk.BLOCK_SIZE - 1) / ProdosVirtualDisk.BLOCK_SIZE);
+        int treeBlocks = (((dataBlocks * 2) + (ProdosVirtualDisk.BLOCK_SIZE - 2)) / ProdosVirtualDisk.BLOCK_SIZE);
+        if (treeBlocks > 1) {
+            treeBlocks++;
+        }
         for (int i = 0; i < dataBlocks + treeBlocks; i++) {
             new SubNode(i, this);
         }
@@ -157,10 +153,11 @@ public class FileNode extends DiskNode {
 
     @Override
     public void readBlock(int block, byte[] buffer) throws IOException {
-//        System.out.println("Read block "+block+" of file "+getName());
-        int dataBlocks = (int) ((getPhysicalFile().length()+ProdosVirtualDisk.BLOCK_SIZE-1) / ProdosVirtualDisk.BLOCK_SIZE);
-        int treeBlocks =(((dataBlocks * 2) + (ProdosVirtualDisk.BLOCK_SIZE-2)) / ProdosVirtualDisk.BLOCK_SIZE);
-        if (treeBlocks > 1) treeBlocks++;
+        int dataBlocks = (int) ((getPhysicalFile().length() + ProdosVirtualDisk.BLOCK_SIZE - 1) / ProdosVirtualDisk.BLOCK_SIZE);
+        int treeBlocks = (((dataBlocks * 2) + (ProdosVirtualDisk.BLOCK_SIZE - 2)) / ProdosVirtualDisk.BLOCK_SIZE);
+        if (treeBlocks > 1) {
+            treeBlocks++;
+        }
         switch (this.getType()) {
             case SEEDLING:
                 readFile(buffer, 0);
@@ -175,10 +172,8 @@ public class FileNode extends DiskNode {
                 break;
             case TREE:
                 if (block == 0) {
-                    System.out.println("Reading index for "+getName());
                     generateIndex(buffer, 1, treeBlocks);
                 } else if (block <= treeBlocks) {
-                    System.out.println("Reading tree block "+block+" for "+getName());
                     int start = treeBlocks + ((block - 1) * 256);
                     int end = treeBlocks + dataBlocks;
                     generateIndex(buffer, start, end);
@@ -197,22 +192,11 @@ public class FileNode extends DiskNode {
     }
 
     private void generateIndex(byte[] buffer, int indexStart, int indexLimit) {
-        System.out.println("Index block contents:");
         Arrays.fill(buffer, (byte) 0);
-        for (int i = indexStart, count=0; count < 256 && i < indexLimit && i < additionalNodes.size(); i++, count++) {
+        for (int i = indexStart, count = 0; count < 256 && i < indexLimit && i < additionalNodes.size(); i++, count++) {
             int base = additionalNodes.get(i).baseBlock;
-            System.out.print(Integer.toHexString(base)+":");            
             buffer[count] = (byte) (base & 0x0ff);
             buffer[count + 256] = (byte) (base >> 8);
         }
-        System.out.println();
-        for (int i=0; i < 256; i++) {
-            System.out.printf("%02X ",buffer[i]&0x0ff);
-        }
-        System.out.println();
-        for (int i=256; i < 512; i++) {
-            System.out.printf("%02X ",buffer[i]&0x0ff);
-        }
-        System.out.println();
     }
 }

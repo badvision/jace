@@ -137,7 +137,6 @@ public class ProdosVirtualDisk implements IDisk {
 
         for (DiskNode subnode : node.additionalNodes) {
             int blockNum = getNextFreeBlock();
-            System.out.println("Allocating block " + Integer.toHexString(blockNum) + " for " + subnode.getName());
             subnode.setBaseBlock(blockNum);
             physicalMap.put(blockNum, subnode);
         }

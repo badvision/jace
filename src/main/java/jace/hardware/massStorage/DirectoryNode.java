@@ -157,7 +157,6 @@ public class DirectoryNode extends DiskNode implements FileFilter {
      */
     @SuppressWarnings("static-access")
     private void generateHeader(byte[] buffer) {
-//        System.out.println("Generating directory header");
         // Previous block = 0
         generateWord(buffer, 0, 0);
         // Next block
@@ -200,7 +199,6 @@ public class DirectoryNode extends DiskNode implements FileFilter {
      * @param fileNumber number of file (indexed in Children array) to write
      */
     private void generateFileEntry(byte[] buffer, int offset, int fileNumber) throws IOException {
-//        System.out.println("Generating entry for "+children.get(fileNumber).getName());
         DiskNode child = children.get(fileNumber);
         child.allocate();
         // Entry Type and length
@@ -242,11 +240,10 @@ public class DirectoryNode extends DiskNode implements FileFilter {
 
         // yyyyyyym mmmddddd - Byte 0,1
         // ---hhhhh --mmmmmm - Byte 2,3
-        buffer[offset+1] = (byte) (((c.get(Calendar.YEAR) - 2000) << 1) | ((c.get(Calendar.MONTH)+1)>> 3));
-//        buffer[offset+2] = (byte) ((c.get(Calendar.MONTH)>> 3) & 1);
-        buffer[offset+0] = (byte) (((((c.get(Calendar.MONTH)+1)&7)<<5) | c.get(Calendar.DAY_OF_MONTH)) & 0x0ff);
-        buffer[offset+3] = (byte) c.get(Calendar.HOUR_OF_DAY);
-        buffer[offset+2] = (byte) c.get(Calendar.MINUTE);
+        buffer[offset + 0] = (byte) (((((c.get(Calendar.MONTH) + 1) & 7) << 5) | c.get(Calendar.DAY_OF_MONTH)) & 0x0ff);
+        buffer[offset + 1] = (byte) (((c.get(Calendar.YEAR) - 2000) << 1) | ((c.get(Calendar.MONTH) + 1) >> 3));
+        buffer[offset + 2] = (byte) c.get(Calendar.MINUTE);
+        buffer[offset + 3] = (byte) c.get(Calendar.HOUR_OF_DAY);
     }
 
     private void generateWord(byte[] buffer, int i, int value) {
