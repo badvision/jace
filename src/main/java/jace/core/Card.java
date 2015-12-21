@@ -128,7 +128,8 @@ public abstract class Card extends Device {
 
         firmwareListener = memory.observe(RAMEvent.TYPE.ANY, baseRom, baseRom + 255, (e) -> {
             computer.getMemory().setActiveCard(slot);
-            if (SoftSwitches.CXROM.isOff()) {
+            // Sather 6-4: Writes will still go through even when CXROM inhibits slot ROM
+            if (SoftSwitches.CXROM.isOff() || !e.getType().isRead()) {
                 handleFirmwareAccess(e.getAddress() & 0x0ff, e.getType(), e.getNewValue(), e);
             }
         });
