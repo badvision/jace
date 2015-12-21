@@ -24,6 +24,7 @@ import jace.core.Computer;
 import jace.core.RAM;
 import jace.core.RAMEvent.TYPE;
 import jace.state.Stateful;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -36,6 +37,7 @@ import java.util.logging.Logger;
  */
 @Stateful
 public class MOS65C02 extends CPU {
+    private static final Logger LOG = Logger.getLogger(MOS65C02.class.getName());
 
     public boolean readAddressTriggersEvent = true;
     static int RESET_VECTOR = 0x00FFFC;
@@ -209,6 +211,7 @@ public class MOS65C02 extends CPU {
         LSR_AB(0x004E, COMMAND.LSR, MODE.ABSOLUTE, 6),
         LSR_AB_X(0x005E, COMMAND.LSR, MODE.ABSOLUTE_X, 7),
         NOP(0x00EA, COMMAND.NOP, MODE.IMPLIED, 2),
+        SPECIAL(0x00FC, COMMAND.NOP_SPECIAL, MODE.ABSOLUTE, 4),
         ORA_IMM(0x0009, COMMAND.ORA, MODE.IMMEDIATE, 2),
         ORA_ZP(0x0005, COMMAND.ORA, MODE.ZEROPAGE, 3),
         ORA_ZP_X(0x0015, COMMAND.ORA, MODE.ZEROPAGE_X, 4),
@@ -583,7 +586,6 @@ public class MOS65C02 extends CPU {
     }
 
     public enum COMMAND {
-
         ADC((address, value, addressMode, cpu) -> {
             int w;
             cpu.V = ((cpu.A ^ value) & 0x080) == 0;
@@ -824,6 +826,11 @@ public class MOS65C02 extends CPU {
         }),
         NOP((address, value, addressMode, cpu) -> {
         }),
+        NOP_SPECIAL((address, value, addressMode, cpu) -> {
+            byte param1 = (byte) (address & 0x0ff);
+            byte param2 = (byte) (address >> 8);
+            cpu.performExtendedCommand(param1, param2);
+        }),
         ORA((address, value, addressMode, cpu) -> {
             cpu.A |= value;
             cpu.setNZ(cpu.A);
@@ -1049,7 +1056,7 @@ public class MOS65C02 extends CPU {
             traceEntry = getState().toUpperCase() + "  " + Integer.toString(pc, 16) + " : " + disassemble();
             captureSingleTrace(traceEntry);
             if (isTraceEnabled()) {
-                Logger.getLogger(getClass().getName()).info(traceEntry);
+                LOG.log(Level.INFO, traceEntry);
             }
             if (isLogEnabled()) {
                 log(traceEntry);
@@ -1059,8 +1066,8 @@ public class MOS65C02 extends CPU {
         int op = 0x00ff & getMemory().read(pc, TYPE.EXECUTE, true, false);
         OPCODE opcode = opcodes[op];
         if (traceEntry != null && warnAboutExtendedOpcodes && opcode != null && opcode.isExtendedOpcode) {
-            System.out.println(">>EXTENDED OPCODE DETECTED " + Integer.toHexString(opcode.code) + "<<");
-            System.out.println(traceEntry);
+            LOG.log(Level.WARNING, ">>EXTENDED OPCODE DETECTED {0}<<", Integer.toHexString(opcode.code));
+            LOG.log(Level.WARNING, traceEntry);
             if (isLogEnabled()) {
                 log(">>EXTENDED OPCODE DETECTED " + Integer.toHexString(opcode.code) + "<<");
                 log(traceEntry);
@@ -1102,9 +1109,7 @@ public class MOS65C02 extends CPU {
             addWaitCycles(wait);
 
             if (isLogEnabled() || breakOnBadOpcode) {
-                System.out.println("Unrecognized opcode "
-                        + Integer.toHexString(op)
-                        + " at " + Integer.toHexString(pc));
+                LOG.log(Level.WARNING, "Unrecognized opcode {0} at {1}", new Object[]{Integer.toHexString(op), Integer.toHexString(pc)});
             }
             if (breakOnBadOpcode) {
                 OPCODE.BRK.execute(this);
@@ -1175,13 +1180,13 @@ public class MOS65C02 extends CPU {
 
     @Override
     public void JSR(int address) {
-            pushWord(getProgramCounter() - 1);
+            pushPC();
             setProgramCounter(address);
     }
 
     public void BRK() {
         if (isLogEnabled()) {
-            System.out.println("BRK at $" + Integer.toString(getProgramCounter(), 16));
+            LOG.log(Level.WARNING, "BRK at ${0}", Integer.toString(getProgramCounter(), 16));
             dumpTrace();
         }
         B = true;
@@ -1233,7 +1238,7 @@ public class MOS65C02 extends CPU {
 //        V = true;
 //        Z = true;
         int newPC = getMemory().readWord(RESET_VECTOR, TYPE.READ_DATA, true, false);
-        System.out.println("Reset called, setting PC to (" + Integer.toString(RESET_VECTOR, 16) + ") = " + Integer.toString(newPC, 16));
+        LOG.log(Level.WARNING, "Reset called, setting PC to ({0}) = {1}", new Object[]{Integer.toString(RESET_VECTOR, 16), Integer.toString(newPC, 16)});
         setProgramCounter(newPC);
     }
 
@@ -1320,5 +1325,35 @@ public class MOS65C02 extends CPU {
     @Override
     public void pushPC() {
         pushWord(getProgramCounter() - 1);
+    }
+
+    /**
+     * Special commands -- these are usually treated as NOP but can be reused for emulator controls
+     * !byte $fc, $65, $00 ; Turn off tracing
+     * !byte $fc, $65, $01 ; Turn on tracing
+     * @param param1
+     * @param param2 
+     */
+    public void performExtendedCommand(byte param1, byte param2) {
+        LOG.log(Level.INFO, "Extended command {0},{1}", new Object[]{Integer.toHexString(param1), Integer.toHexString(param2)});
+        switch (param1 & 0x0ff) {
+            case 0x65:
+                // CPU functions
+                switch (param2 & 0x0ff) {
+                    case 0x00:
+                        // Turn off tracing
+                        trace = false;
+                        break;
+                    case 0x01:
+                        // Turn on tracing
+                        trace = true;
+                        break;
+                }
+                break;
+            case 0x64:
+                // Memory functions
+                getMemory().performExtendedCommand(param2 & 0x0ff);
+            default:
+        }
     }
 }

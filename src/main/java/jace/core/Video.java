@@ -156,18 +156,18 @@ public abstract class Video extends Device {
 
     @Override
     public void tick() {
+        setScannerLocation(currentWriter.getYOffset(y));
         setFloatingBus(computer.getMemory().readRaw(scannerAddress + x));
         if (hPeriod > 0) {
             hPeriod--;
-            if (hPeriod <= 1) {
+            if (hPeriod == 0) {
                 x = -1;
-                setScannerLocation(currentWriter.getYOffset(y));
             }
         } else {
-            if (!isVblank && x < (APPLE_CYCLES_PER_LINE)) {
+            if (!isVblank && x < (APPLE_CYCLES_PER_LINE-1)) {
                 draw();
             }
-            if (x >= APPLE_CYCLES_PER_LINE) {
+            if (x >= APPLE_CYCLES_PER_LINE - 1) {
                 int yy = y + hblankOffsetY;
                 if (yy < 0) {
                     yy += APPLE_SCREEN_LINES;
@@ -175,8 +175,7 @@ public abstract class Video extends Device {
                 if (yy >= APPLE_SCREEN_LINES) {
                     yy -= (TOTAL_LINES - APPLE_SCREEN_LINES);
                 }
-                setScannerLocation(currentWriter.getYOffset(yy) + hblankOffsetX + (yy < 64 ? 128 : 0));
-                x = -1;
+                x = hblankOffsetX - 1;
                 if (!isVblank) {
                     if (lineDirty) {
                         screenDirty = true;

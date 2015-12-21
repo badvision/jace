@@ -26,6 +26,8 @@ import jace.core.RAM;
 import jace.state.Stateful;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -38,6 +40,74 @@ import java.util.logging.Logger;
  */
 @Stateful
 abstract public class RAM128k extends RAM {
+    Logger LOG = Logger.getLogger(RAM128k.class.getName());
+
+    Map<String, PagedMemory> banks;
+
+    private Map<String, PagedMemory> getBanks() {
+        if (banks == null) {
+            banks = new HashMap<>();
+
+            banks.put("main", mainMemory);
+            banks.put("lc", languageCard);
+            banks.put("lc2", languageCard2);
+            banks.put("//e rom (80-col)", cPageRom);
+            banks.put("//e rom", rom);
+            banks.put("blank", blank);
+            banks.put("aux", getAuxMemory());
+            banks.put("aux lc", getAuxLanguageCard());
+            banks.put("aux lc2", getAuxLanguageCard2());
+            cards[1].ifPresent(c -> banks.put("card1a", c.getCxRom()));
+            cards[1].ifPresent(c -> banks.put("card1b", c.getC8Rom()));
+            cards[2].ifPresent(c -> banks.put("card2a", c.getCxRom()));
+            cards[2].ifPresent(c -> banks.put("card2b", c.getC8Rom()));
+            cards[3].ifPresent(c -> banks.put("card3a", c.getCxRom()));
+            cards[3].ifPresent(c -> banks.put("card3b", c.getC8Rom()));
+            cards[4].ifPresent(c -> banks.put("card4a", c.getCxRom()));
+            cards[4].ifPresent(c -> banks.put("card4b", c.getC8Rom()));
+            cards[5].ifPresent(c -> banks.put("card5a", c.getCxRom()));
+            cards[5].ifPresent(c -> banks.put("card5b", c.getC8Rom()));
+            cards[6].ifPresent(c -> banks.put("card6a", c.getCxRom()));
+            cards[6].ifPresent(c -> banks.put("card6b", c.getC8Rom()));
+            cards[7].ifPresent(c -> banks.put("card7a", c.getCxRom()));
+            cards[7].ifPresent(c -> banks.put("card7b", c.getC8Rom()));
+        }
+
+        return banks;
+    }
+
+    @Override
+    public void performExtendedCommand(int param) {
+        switch (param) {
+            case 0xda:
+                // 64 da : Dump all memory mappings
+                System.out.println("Active banks");
+                for (int i = 0; i < 256; i++) {
+                    byte[] read = activeRead.get(i);
+                    byte[] write = activeWrite.get(i);
+                    String readBank = getBanks().keySet().stream().filter(bank->{
+                        PagedMemory mem = getBanks().get(bank);
+                        for (byte[] page : mem.getMemory()) {
+                            if (page == read) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }).findFirst().orElse("unknown");
+                    String writeBank = getBanks().keySet().stream().filter(bank->{
+                        PagedMemory mem = getBanks().get(bank);
+                        for (byte[] page : mem.getMemory()) {
+                            if (page == write) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }).findFirst().orElse("unknown");
+                    LOG.log(Level.INFO,"Bank {0}\t{1}\t{2}", new Object[]{Integer.toHexString(i), readBank, writeBank});
+                }
+            default:
+        }
+    }
 
     @Stateful
     public PagedMemory mainMemory;
@@ -90,7 +160,7 @@ abstract public class RAM128k extends RAM {
             // First off, set up read/write for main memory (might get changed later on)
             activeRead.fillBanks(SoftSwitches.RAMRD.getState() ? getAuxMemory() : mainMemory);
             activeWrite.fillBanks(SoftSwitches.RAMWRT.getState() ? getAuxMemory() : mainMemory);
-            
+
             // Handle language card softswitches
             activeRead.fillBanks(rom);
             //activeRead.fillBanks(cPageRom);
@@ -110,7 +180,7 @@ abstract public class RAM128k extends RAM {
                     }
                 }
             }
-            
+
             if (SoftSwitches.LCWRITE.isOn()) {
                 if (SoftSwitches.AUXZP.isOff()) {
                     activeWrite.fillBanks(languageCard);
@@ -129,7 +199,7 @@ abstract public class RAM128k extends RAM {
                     activeWrite.set(i, null);
                 }
             }
-            
+
             // Handle 80STORE logic for bankswitching video ram
             if (SoftSwitches._80STORE.isOn()) {
                 activeRead.setBanks(0x04, 0x04, 0x04,
@@ -143,7 +213,7 @@ abstract public class RAM128k extends RAM {
                             SoftSwitches.PAGE2.isOn() ? getAuxMemory() : mainMemory);
                 }
             }
-            
+
             // Handle zero-page bankswitching
             if (SoftSwitches.AUXZP.getState()) {
                 // Aux pages 0 and 1
@@ -154,13 +224,13 @@ abstract public class RAM128k extends RAM {
                 activeRead.setBanks(0, 2, 0, mainMemory);
                 activeWrite.setBanks(0, 2, 0, mainMemory);
             }
-            
+
             /*
             INTCXROM   SLOTC3ROM  C1,C2,C4-CF   C3
             0         0          slot         rom
             0         1          slot         slot
             1         -          rom          rom
-            */
+             */
             if (SoftSwitches.CXROM.getState()) {
                 // Enable C1-CF to point to rom
                 activeRead.setBanks(0, 0x0F, 0x0C1, cPageRom);

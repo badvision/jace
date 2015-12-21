@@ -335,4 +335,6 @@ public abstract class RAM implements Reconfigurable {
     abstract public void attach();
 
     abstract public void detach();
+
+    abstract public void performExtendedCommand(int i);
 }
