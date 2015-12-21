@@ -61,7 +61,6 @@ public class SoundGenerator extends TimedGenerator {
         double amp = stateChanges == 0 ? 1 : 1.0 / Math.max(stateChanges-1, 1);
         int vol = useEnvGen ? envGen.getEffectiveAmplitude() : amplitude;
         boolean on = noiseActive && noiseGen.isOn() || (active && inverted);
-//        return invert ? -CardMockingboard.VolTable[vol] : CardMockingboard.VolTable[vol];
         return on ? (int) (CardMockingboard.VolTable[vol] * amp) : 0;
     }
     

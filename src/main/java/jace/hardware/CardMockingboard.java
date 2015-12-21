@@ -74,7 +74,7 @@ public class CardMockingboard extends Card implements Runnable {
     public PSG[] chips;
     // The 6522 controllr chips (always 2)
     public R6522[] controllers;
-    static private int ticksBeteenPlayback = 200;
+    static private int ticksBetweenPlayback = 200;
     Lock timerSync = new ReentrantLock();
     Condition cpuCountReached = timerSync.newCondition();
     Condition playbackFinished = timerSync.newCondition();
@@ -189,11 +189,11 @@ public class CardMockingboard extends Card implements Runnable {
             timerSync.lock();
             try {
                 ticksSinceLastPlayback++;
-                if (ticksSinceLastPlayback >= ticksBeteenPlayback) {
+                if (ticksSinceLastPlayback >= ticksBetweenPlayback) {
                     cpuCountReached.signalAll();
-                    while (isRunning() && ticksSinceLastPlayback >= ticksBeteenPlayback) {
+                    while (isRunning() && ticksSinceLastPlayback >= ticksBetweenPlayback) {
                         if (!playbackFinished.await(1, TimeUnit.SECONDS)) {
-                            gripe("The mockingboard playback thread has stalled.  Disabling mockingboard.");
+//                            gripe("The mockingboard playback thread has stalled.  Disabling mockingboard.");
                             suspend();
                         }
                     }
@@ -319,7 +319,8 @@ public class CardMockingboard extends Card implements Runnable {
             System.out.println("Mockingboard playback started");
             int bytesPerSample = frameSize / 2;
             buildMixerTable();
-            ticksBeteenPlayback = (int) ((Motherboard.SPEED * BUFFER_LENGTH) / SAMPLE_RATE);
+            ticksBetweenPlayback = (int) ((Motherboard.SPEED * BUFFER_LENGTH) / SAMPLE_RATE);
+            System.out.println("Ticks between playback: "+ticksBetweenPlayback);
             ticksSinceLastPlayback = 0;
             int zeroSamples = 0;
             setRun(true);
@@ -329,7 +330,6 @@ public class CardMockingboard extends Card implements Runnable {
                     Thread.currentThread().yield();
                 }
                 if (isRunning()) {
-                    computer.getMotherboard().requestSpeed(this);
                     playSound(leftBuffer, rightBuffer);
                     int p = 0;
                     for (int idx = 0; idx < BUFFER_LENGTH; idx++) {
@@ -349,7 +349,7 @@ public class CardMockingboard extends Card implements Runnable {
                     }
                     try {
                         timerSync.lock();
-                        ticksSinceLastPlayback -= ticksBeteenPlayback;
+                        ticksSinceLastPlayback -= ticksBetweenPlayback;
                     } finally {
                         timerSync.unlock();
                     }
@@ -379,8 +379,10 @@ public class CardMockingboard extends Card implements Runnable {
                     try {
                         timerSync.lock();
                         playbackFinished.signalAll();
-                        while (isRunning() && ticksSinceLastPlayback < ticksBeteenPlayback) {
+                        while (isRunning() && ticksSinceLastPlayback < ticksBetweenPlayback) {
+                            computer.getMotherboard().requestSpeed(this);
                             cpuCountReached.await();
+                            computer.getMotherboard().cancelSpeedRequest(this);                    
                         }
                     } catch (InterruptedException ex) {
                         // Do nothing, probably killing playback thread on purpose
