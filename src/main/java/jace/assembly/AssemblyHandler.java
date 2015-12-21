@@ -2,9 +2,9 @@ package jace.assembly;
 
 import jace.Emulator;
 import jace.core.RAM;
-import jace.ide.Program;
 import jace.ide.CompileResult;
 import jace.ide.LanguageHandler;
+import jace.ide.Program;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -53,6 +53,8 @@ public class AssemblyHandler implements LanguageHandler<File> {
 
     @Override
     public void clean(CompileResult<File> lastResult) {
-        lastResult.getCompiledAsset().delete();
+        if (lastResult.getCompiledAsset() != null) {
+            lastResult.getCompiledAsset().delete();
+        }
     }
 }
