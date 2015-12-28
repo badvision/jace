@@ -90,13 +90,13 @@ public class FileNode extends DiskNode {
 
     @Override
     public void setName(String name) {
-        String[] parts = name.replaceAll("[^A-Za-z0-9]", ".").split("\\.");
+        String[] parts = name.replaceAll("[^A-Za-z0-9#]", ".").split("\\.");
         FileType t = FileType.UNKNOWN;
         int offset = 0;
         String prodosName = name;
         if (parts.length > 1) {
             String extension = parts[parts.length - 1].toUpperCase();
-            String[] extParts = extension.split("#");
+            String[] extParts = extension.split("\\#");
             if (extParts.length == 2) {
                 offset = Integer.parseInt(extParts[1], 16);
                 extension = extParts[0];
@@ -167,7 +167,7 @@ public class FileNode extends DiskNode {
                     readFile(buffer, (block - 1));
                 } else {
                     // Generate seedling index block
-                    generateIndex(buffer, 0, dataBlocks);
+                    generateIndex(buffer, 1, treeBlocks + dataBlocks);
                 }
                 break;
             case TREE:
