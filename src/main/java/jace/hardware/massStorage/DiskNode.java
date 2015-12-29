@@ -115,6 +115,16 @@ public abstract class DiskNode {
         allocate();        
     }
 
+    public DiskNode getNodeSequence(int num) {
+        if (num == 0) {
+            return this;
+        } else if (num <= additionalNodes.size()) {
+            return additionalNodes.get(num-1);
+        } else {
+            return null;
+        }        
+    }
+    
     /**
      * @return the allocated
      */

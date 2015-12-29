@@ -194,7 +194,7 @@ public class FileNode extends DiskNode {
     private void generateIndex(byte[] buffer, int indexStart, int indexLimit) {
         Arrays.fill(buffer, (byte) 0);
         for (int i = indexStart, count = 0; count < 256 && i < indexLimit && i <= additionalNodes.size(); i++, count++) {
-            int base = additionalNodes.get(i-1).getBaseBlock();
+            int base = getNodeSequence(i).getBaseBlock();
             buffer[count] = (byte) (base & 0x0ff);
             buffer[count + 256] = (byte) (base >> 8);
         }

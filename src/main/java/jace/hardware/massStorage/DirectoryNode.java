@@ -21,6 +21,7 @@ package jace.hardware.massStorage;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashSet;
@@ -121,6 +122,7 @@ public class DirectoryNode extends DiskNode implements FileFilter {
 
     @Override
     public void readBlock(int block, byte[] buffer) throws IOException {
+        Arrays.fill(buffer, (byte) 0);
         checkFile();
         if (block == 0) {
             generateHeader(buffer);
@@ -128,7 +130,7 @@ public class DirectoryNode extends DiskNode implements FileFilter {
                 generateFileEntry(buffer, 4 + (i + 1) * FILE_ENTRY_SIZE, i);
             }
         } else {
-            generatePointers(buffer, additionalNodes.get(block-1).getBaseBlock(), block < (additionalNodes.size()-1) ? additionalNodes.get(block+1).getBaseBlock() : 0);
+            generatePointers(buffer, getNodeSequence(block-1).getBaseBlock(), getNodeSequence(block+1) != null ? getNodeSequence(block+1).getBaseBlock() : 0);
             int start = (block * 13) - 1;
             int end = start + 13;
             int offset = 4;
@@ -167,7 +169,7 @@ public class DirectoryNode extends DiskNode implements FileFilter {
      */
     @SuppressWarnings("static-access")
     private void generateHeader(byte[] buffer) {
-        generatePointers(buffer, 0, additionalNodes.size()>1 ? additionalNodes.get(1).getBaseBlock() : 0);
+        generatePointers(buffer, 0, getNodeSequence(1) == null ? 0 : getNodeSequence(1).getBaseBlock());
         // Directory header + name length
         // Volumme header = 0x0f0; Subdirectory header = 0x0e0
         buffer[4] = (byte) ((isRoot ? 0x0F0 : 0x0E0) | getName().length());
