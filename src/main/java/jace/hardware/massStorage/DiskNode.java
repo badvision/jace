@@ -33,7 +33,6 @@ import java.util.List;
 public abstract class DiskNode {
 
     public enum EntryType {
-
         DELETED(0),
         SEEDLING(1),
         SAPLING(2),
@@ -50,7 +49,7 @@ public abstract class DiskNode {
     boolean allocated = false;
     long allocationTime = -1L;
     long lastCheckTime = -1L;
-    int baseBlock = -1;
+    private int baseBlock = -1;
     List<DiskNode> additionalNodes;
     ProdosVirtualDisk ownerFilesystem;
     File physicalFile;
@@ -59,13 +58,23 @@ public abstract class DiskNode {
     private EntryType type;
     private String name;
 
-    public DiskNode() {
+    public DiskNode(ProdosVirtualDisk fs) throws IOException {
+        init(fs);
+        setBaseBlock(fs.getNextFreeBlock());
+    }
+
+    public DiskNode(ProdosVirtualDisk fs, int blockNumber) throws IOException {
+        init(fs);
+        setBaseBlock(blockNumber);
+    }
+    
+    private void init(ProdosVirtualDisk fs) throws IOException {
         additionalNodes = new ArrayList<>();
         children = new ArrayList<>();
+        setOwnerFilesystem(fs);
     }
 
     public boolean checkFile() throws IOException {
-        allocate();
         if (physicalFile == null) {
             return false;
         }
@@ -80,9 +89,9 @@ public abstract class DiskNode {
     public void allocate() throws IOException {
         if (!allocated) {
             doAllocate();
+            getOwnerFilesystem().physicalMap.put(baseBlock, this);
             allocationTime = System.currentTimeMillis();
             allocated = true;
-            ownerFilesystem.allocateEntry(this);
         }
     }
 
@@ -101,11 +110,9 @@ public abstract class DiskNode {
     }
 
     public void refresh() throws IOException {
-        ownerFilesystem.deallocateEntry(this);
+        deallocate();
         doRefresh();
-        allocationTime = System.currentTimeMillis();
-        allocated = true;
-        ownerFilesystem.allocateEntry(this);
+        allocate();        
     }
 
     /**
@@ -139,8 +146,9 @@ public abstract class DiskNode {
     /**
      * @param baseBlock the baseBlock to set
      */
-    public void setBaseBlock(int baseBlock) {
+    private void setBaseBlock(int baseBlock) {
         this.baseBlock = baseBlock;
+        ownerFilesystem.physicalMap.put(baseBlock, this);
     }
 
     /**
@@ -154,12 +162,8 @@ public abstract class DiskNode {
      * @param ownerFilesystem the ownerFilesystem to set
      * @throws IOException
      */
-    public void setOwnerFilesystem(ProdosVirtualDisk ownerFilesystem) throws IOException {
+    private void setOwnerFilesystem(ProdosVirtualDisk ownerFilesystem) throws IOException {
         this.ownerFilesystem = ownerFilesystem;
-        if (baseBlock == -1) {
-            setBaseBlock(ownerFilesystem.getNextFreeBlock());
-        }
-        ownerFilesystem.allocateEntry(this);
     }
 
     /**
@@ -206,6 +210,7 @@ public abstract class DiskNode {
     }
 
     public void addChild(DiskNode child) {
+        child.setParent(this);
         children.add(child);
     }
 

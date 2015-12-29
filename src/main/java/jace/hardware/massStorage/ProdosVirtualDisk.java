@@ -52,6 +52,7 @@ public class ProdosVirtualDisk implements IDisk {
 
     public ProdosVirtualDisk(File rootPath) throws IOException {
         ioBuffer = new byte[BLOCK_SIZE];
+        initDiskStructure();
         setPhysicalPath(rootPath);
     }
 
@@ -131,25 +132,14 @@ public class ProdosVirtualDisk implements IDisk {
         throw new IOException("Virtual Disk Full!");
     }
 
-    // Mark space occupied by node
-    public void allocateEntry(DiskNode node) throws IOException {
-        physicalMap.put(node.baseBlock, node);
-
-        for (DiskNode subnode : node.additionalNodes) {
-            int blockNum = getNextFreeBlock();
-            subnode.setBaseBlock(blockNum);
-            physicalMap.put(blockNum, subnode);
-        }
-    }
-
     // Mark space occupied by nodes as free (remove allocation mapping)
     public void deallocateEntry(DiskNode node) {
         // Only de-map nodes if the allocation table is actually pointing to the nodes!
-        if (physicalMap.get(node.baseBlock) != null && physicalMap.get(node.baseBlock).equals(node)) {
-            physicalMap.remove(node.baseBlock);
+        if (physicalMap.get(node.getBaseBlock()) != null && physicalMap.get(node.getBaseBlock()).equals(node)) {
+            physicalMap.remove(node.getBaseBlock());
         }
         node.additionalNodes.stream().filter((sub)
-                -> (physicalMap.get(sub.getBaseBlock()) != null && physicalMap.get(sub.baseBlock).equals(sub))).
+                -> (physicalMap.get(sub.getBaseBlock()) != null && physicalMap.get(sub.getBaseBlock()).equals(sub))).
                 forEach((sub) -> {
                     physicalMap.remove(sub.getBaseBlock());
                 });
@@ -183,12 +173,16 @@ public class ProdosVirtualDisk implements IDisk {
         return physicalRoot;
     }
 
-    public void setPhysicalPath(File f) throws IOException {
+    private void initDiskStructure() throws IOException {
+        physicalMap = new HashMap<>();
+        freespaceBitmap = new FreespaceBitmap(this, FREESPACE_BITMAP_START);
+    }
+    
+    private void setPhysicalPath(File f) throws IOException {
         if (physicalRoot != null && physicalRoot.equals(f)) {
             return;
         }
         physicalRoot = f;
-        physicalMap = new HashMap<>();
         if (!physicalRoot.exists() || !physicalRoot.isDirectory()) {
             try {
                 throw new IOException("Root path must be a directory that exists!");
@@ -197,12 +191,9 @@ public class ProdosVirtualDisk implements IDisk {
             }
         }
         // Root directory ALWAYS starts on block 2!
-        rootDirectory = new DirectoryNode(this, physicalRoot, VOLUME_START);
+        rootDirectory = new DirectoryNode(this, physicalRoot, VOLUME_START, true);
         rootDirectory.setName("VIRTUAL");
-        allocateEntry(rootDirectory);
-        freespaceBitmap = new FreespaceBitmap(this, FREESPACE_BITMAP_START);
-        allocateEntry(freespaceBitmap);
-
+        rootDirectory.allocate();
     }
 
     @Override

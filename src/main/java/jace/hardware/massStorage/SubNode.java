@@ -33,18 +33,18 @@ public class SubNode extends DiskNode {
     int sequenceNumber;
 
     public SubNode(int seq, DiskNode parent) throws IOException {
+        super(parent.getOwnerFilesystem());
         init(seq, parent);
     }
 
     public SubNode(int seq, DiskNode parent, int baseBlock) throws IOException {
-        setBaseBlock(baseBlock);
+        super(parent.getOwnerFilesystem(), baseBlock);
         init(seq, parent);
     }
 
     private void init(int seq, DiskNode parent) throws IOException {
         sequenceNumber = seq;
         setParent(parent);
-        setOwnerFilesystem(parent.getOwnerFilesystem());
         parent.additionalNodes.add(this);
     }
 

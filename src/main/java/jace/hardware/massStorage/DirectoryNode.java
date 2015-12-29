@@ -37,21 +37,23 @@ public class DirectoryNode extends DiskNode implements FileFilter {
 //    public static int FILE_ENTRY_SIZE = 38;
 
     public static int FILE_ENTRY_SIZE = 0x027;
-
-    public DirectoryNode(ProdosVirtualDisk ownerFilesystem, File physicalDir, int baseBlock) throws IOException {
-        setBaseBlock(baseBlock);
-        init(ownerFilesystem, physicalDir);
+    private boolean isRoot;
+    
+    public DirectoryNode(ProdosVirtualDisk ownerFilesystem, File physicalDir, int baseBlock, boolean root) throws IOException {
+        super(ownerFilesystem, baseBlock);
+        init(ownerFilesystem, physicalDir, root);
     }
 
-    public DirectoryNode(ProdosVirtualDisk ownerFilesystem, File physicalDir) throws IOException {
-        init(ownerFilesystem, physicalDir);
+    public DirectoryNode(ProdosVirtualDisk ownerFilesystem, File physicalDir, boolean root) throws IOException {
+        super(ownerFilesystem);
+        init(ownerFilesystem, physicalDir, root);
     }
 
-    private void init(ProdosVirtualDisk ownerFilesystem, File physicalFile) throws IOException {
+    private void init(ProdosVirtualDisk ownerFilesystem, File physicalFile, boolean root) throws IOException {
+        isRoot = root;
         setPhysicalFile(physicalFile);
         setType(EntryType.SUBDIRECTORY);
         setName(physicalFile.getName());
-        setOwnerFilesystem(ownerFilesystem);
     }
 
     @Override
@@ -59,15 +61,15 @@ public class DirectoryNode extends DiskNode implements FileFilter {
     }
 
     @Override
-    public void doAllocate() {
+    public void doAllocate() throws IOException {
         File[] files = physicalFile.listFiles(this);
         int numEntries = files.length;
-        int numBlocks = 1;
         // First block has 12 entries, subsequent blocks have 13 entries
-        if (numEntries > 12) {
-            numBlocks += (numEntries - 12) / 13;
+        int numBlocks = 1 + numEntries / 13;
+        for (int i=1; i < numBlocks; i++) {
+            new SubNode(i, this, getOwnerFilesystem().getNextFreeBlock());
         }
-
+        
         for (File f : files) {
             addFile(f);
         }
@@ -126,6 +128,7 @@ public class DirectoryNode extends DiskNode implements FileFilter {
                 generateFileEntry(buffer, 4 + (i + 1) * FILE_ENTRY_SIZE, i);
             }
         } else {
+            generatePointers(buffer, additionalNodes.get(block-1).getBaseBlock(), block < (additionalNodes.size()-1) ? additionalNodes.get(block+1).getBaseBlock() : 0);
             int start = (block * 13) - 1;
             int end = start + 13;
             int offset = 4;
@@ -150,6 +153,13 @@ public class DirectoryNode extends DiskNode implements FileFilter {
         return !file.isHidden();
     }
 
+    private void generatePointers(byte[] buffer, int prevBlock, int nextBlock) {
+        // Previous block = 0
+        generateWord(buffer, 0, prevBlock);
+        // Next block
+        generateWord(buffer, 0x02, nextBlock);        
+    }
+    
     /**
      * Generate the directory header found in the base block of a directory
      *
@@ -157,20 +167,16 @@ public class DirectoryNode extends DiskNode implements FileFilter {
      */
     @SuppressWarnings("static-access")
     private void generateHeader(byte[] buffer) {
-        // Previous block = 0
-        generateWord(buffer, 0, 0);
-        // Next block
-        int nextBlock = 0;
-        if (!additionalNodes.isEmpty()) {
-            nextBlock = additionalNodes.get(0).baseBlock;
-        }
-        generateWord(buffer, 0x02, nextBlock);
+        generatePointers(buffer, 0, additionalNodes.size()>1 ? additionalNodes.get(1).getBaseBlock() : 0);
         // Directory header + name length
         // Volumme header = 0x0f0; Subdirectory header = 0x0e0
-        buffer[4] = (byte) ((baseBlock == 0x02 ? 0x0f0 : 0x0E0) + getName().length());
+        buffer[4] = (byte) ((isRoot ? 0x0F0 : 0x0E0) | getName().length());
         generateName(buffer, 5, this);
         for (int i = 0x014; i <= 0x01b; i++) {
             buffer[i] = 0;
+        }
+        if (!isRoot) {
+            buffer[0x014] = 0x075;
         }
         generateTimestamp(buffer, 0x01c, getPhysicalFile().lastModified());
         // Prodos 1.9
@@ -185,10 +191,17 @@ public class DirectoryNode extends DiskNode implements FileFilter {
         buffer[0x024] = (byte) 0x0d;
         // Directory items count
         generateWord(buffer, 0x025, children.size());
-        // Volume bitmap pointer
-        generateWord(buffer, 0x027, ownerFilesystem.freespaceBitmap.baseBlock);
-        // Total number of blocks
-        generateWord(buffer, 0x029, ownerFilesystem.MAX_BLOCK);
+        if (isRoot) {
+            // Volume bitmap pointer
+            generateWord(buffer, 0x027, ownerFilesystem.freespaceBitmap.getBaseBlock());
+            // Total number of blocks
+            generateWord(buffer, 0x029, ownerFilesystem.MAX_BLOCK);
+        } else {
+            // Parent pointer
+            generateWord(buffer, 0x027, getParent().getBaseBlock());
+            buffer[0x029] = (byte) (getParent().getChildren().indexOf(this) + 1);
+            buffer[0x02a] = 0x027;
+        }
     }
 
     /**
@@ -200,7 +213,6 @@ public class DirectoryNode extends DiskNode implements FileFilter {
      */
     private void generateFileEntry(byte[] buffer, int offset, int fileNumber) throws IOException {
         DiskNode child = children.get(fileNumber);
-        child.allocate();
         // Entry Type and length
         buffer[offset] = (byte) ((child.getType().code << 4) + child.getName().length());
         // Name
@@ -261,7 +273,7 @@ public class DirectoryNode extends DiskNode implements FileFilter {
     private void addFile(File file) {
         try {
             if (file.isDirectory()) {
-                addChild(new DirectoryNode(getOwnerFilesystem(), file));
+                addChild(new DirectoryNode(getOwnerFilesystem(), file, false));
             } else {
                 addChild(new FileNode(getOwnerFilesystem(), file));
             }

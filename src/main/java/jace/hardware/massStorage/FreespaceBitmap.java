@@ -27,8 +27,7 @@ import java.io.IOException;
 public class FreespaceBitmap extends DiskNode {
     int size = (ProdosVirtualDisk.MAX_BLOCK + 1) / 8 / ProdosVirtualDisk.BLOCK_SIZE;
     public FreespaceBitmap(ProdosVirtualDisk fs, int start) throws IOException {
-        setBaseBlock(start);
-        setOwnerFilesystem(fs);
+        super(fs, start);
 
         for (int i=1; i < size; i++) {
             SubNode subNode = new SubNode(i, this, start+i);

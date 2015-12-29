@@ -125,7 +125,7 @@ public class FileNode extends DiskNode {
     }
 
     public FileNode(ProdosVirtualDisk ownerFilesystem, File file) throws IOException {
-        setOwnerFilesystem(ownerFilesystem);
+        super(ownerFilesystem);
         setPhysicalFile(file);
         setName(file.getName());
     }
@@ -141,10 +141,9 @@ public class FileNode extends DiskNode {
         if (treeBlocks > 1) {
             treeBlocks++;
         }
-        for (int i = 0; i < dataBlocks + treeBlocks; i++) {
+        for (int i = 1; i < dataBlocks + treeBlocks; i++) {
             new SubNode(i, this);
         }
-        setBaseBlock(additionalNodes.get(0).getBaseBlock());
     }
 
     @Override
@@ -153,6 +152,7 @@ public class FileNode extends DiskNode {
 
     @Override
     public void readBlock(int block, byte[] buffer) throws IOException {
+        allocate();
         int dataBlocks = (int) ((getPhysicalFile().length() + ProdosVirtualDisk.BLOCK_SIZE - 1) / ProdosVirtualDisk.BLOCK_SIZE);
         int treeBlocks = (((dataBlocks * 2) + (ProdosVirtualDisk.BLOCK_SIZE - 2)) / ProdosVirtualDisk.BLOCK_SIZE);
         if (treeBlocks > 1) {
@@ -167,7 +167,7 @@ public class FileNode extends DiskNode {
                     readFile(buffer, (block - 1));
                 } else {
                     // Generate seedling index block
-                    generateIndex(buffer, 1, treeBlocks + dataBlocks);
+                    generateIndex(buffer, 1, dataBlocks+1);
                 }
                 break;
             case TREE:
@@ -193,8 +193,8 @@ public class FileNode extends DiskNode {
 
     private void generateIndex(byte[] buffer, int indexStart, int indexLimit) {
         Arrays.fill(buffer, (byte) 0);
-        for (int i = indexStart, count = 0; count < 256 && i < indexLimit && i < additionalNodes.size(); i++, count++) {
-            int base = additionalNodes.get(i).baseBlock;
+        for (int i = indexStart, count = 0; count < 256 && i < indexLimit && i <= additionalNodes.size(); i++, count++) {
+            int base = additionalNodes.get(i-1).getBaseBlock();
             buffer[count] = (byte) (base & 0x0ff);
             buffer[count + 256] = (byte) (base >> 8);
         }
