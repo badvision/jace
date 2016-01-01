@@ -21,7 +21,6 @@ package jace.hardware.massStorage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * Representation of a prodos file with a known file type and having a known
@@ -30,6 +29,11 @@ import java.util.Arrays;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class FileNode extends DiskNode {
+
+    @Override
+    public int getLength() {
+        return (int) getPhysicalFile().length();
+    }
 
     public enum FileType {
 
@@ -67,6 +71,15 @@ public class FileNode extends DiskNode {
             this.code = code;
             this.defaultLoadAddress = addr;
         }
+
+        public static FileType findByCode(int code) {
+            for (FileType t : FileType.values()) {
+                if (t.code == code) {
+                    return t;
+                }
+            }
+            return UNKNOWN;
+        }
     }
     public int fileType = 0x00;
     public int loadAddress = 0x00;
@@ -90,28 +103,35 @@ public class FileNode extends DiskNode {
 
     @Override
     public void setName(String name) {
-        String[] parts = name.replaceAll("[^A-Za-z0-9#]", ".").split("\\.");
         FileType t = FileType.UNKNOWN;
         int offset = 0;
         String prodosName = name;
-        if (parts.length > 1) {
-            String extension = parts[parts.length - 1].toUpperCase();
-            String[] extParts = extension.split("\\#");
-            if (extParts.length == 2) {
-                offset = Integer.parseInt(extParts[1], 16);
-                extension = extParts[0];
-            }
-            try {
-                t = FileType.valueOf(extension);
-            } catch (IllegalArgumentException ex) {
-                System.out.println("Not sure what extension " + extension + " is!");
-            }
-            prodosName = "";
-            for (int i = 0; i < parts.length - 1; i++) {
-                prodosName += (i > 0 ? "." + parts[i] : parts[i]);
-            }
-            if (extParts[extParts.length - 1].equals("SYSTEM")) {
-                prodosName += ".SYSTEM";
+        if (name.matches("^.*?#[0-9A-Fa-f]{6}$")) {
+            int type = Integer.parseInt(name.substring(name.length() - 6, name.length() - 4), 16);
+            offset = Integer.parseInt(name.substring(name.length() - 4), 16);
+            t = FileType.findByCode(type);
+            prodosName = name.substring(0, name.length()-7).replaceAll("[^A-Za-z0-9#]", ".").toUpperCase();
+        } else {
+            String[] parts = name.replaceAll("[^A-Za-z0-9#]", ".").split("\\.");
+            if (parts.length > 1) {
+                String extension = parts[parts.length - 1].toUpperCase();
+                String[] extParts = extension.split("\\#");
+                if (extParts.length == 2) {
+                    offset = Integer.parseInt(extParts[1], 16);
+                    extension = extParts[0];
+                }
+                try {
+                    t = FileType.valueOf(extension);
+                } catch (IllegalArgumentException ex) {
+                    System.out.println("Not sure what extension " + extension + " is!");
+                }
+                prodosName = "";
+                for (int i = 0; i < parts.length - 1; i++) {
+                    prodosName += (i > 0 ? "." + parts[i] : parts[i]);
+                }
+                if (extParts[extParts.length - 1].equals("SYSTEM")) {
+                    prodosName += ".SYSTEM";
+                }
             }
         }
         if (offset == 0) {
@@ -128,6 +148,7 @@ public class FileNode extends DiskNode {
         super(ownerFilesystem);
         setPhysicalFile(file);
         setName(file.getName());
+        allocate();
     }
 
     @Override
@@ -167,7 +188,7 @@ public class FileNode extends DiskNode {
                     readFile(buffer, (block - 1));
                 } else {
                     // Generate seedling index block
-                    generateIndex(buffer, 1, dataBlocks+1);
+                    generateIndex(buffer, 1, dataBlocks + 1);
                 }
                 break;
             case TREE:
@@ -192,7 +213,6 @@ public class FileNode extends DiskNode {
     }
 
     private void generateIndex(byte[] buffer, int indexStart, int indexLimit) {
-        Arrays.fill(buffer, (byte) 0);
         for (int i = indexStart, count = 0; count < 256 && i < indexLimit && i <= additionalNodes.size(); i++, count++) {
             int base = getNodeSequence(i).getBaseBlock();
             buffer[count] = (byte) (base & 0x0ff);

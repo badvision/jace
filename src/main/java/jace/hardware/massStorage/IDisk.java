@@ -28,7 +28,7 @@ import java.io.IOException;
  */
 public interface IDisk {
     public static int BLOCK_SIZE = 512;
-    public static int MAX_BLOCK = 65535;
+    public static int MAX_BLOCK = 0x07fff;
 
     public void mliFormat() throws IOException;
     public void mliRead(int block, int bufferAddress, RAM memory) throws IOException;

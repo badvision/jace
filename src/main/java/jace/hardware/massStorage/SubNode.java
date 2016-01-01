@@ -69,4 +69,9 @@ public class SubNode extends DiskNode {
     public void readBlock(int sequence, byte[] buffer) throws IOException {
         parent.readBlock(sequenceNumber, buffer);
     }
+
+    @Override
+    public int getLength() {
+        return IDisk.BLOCK_SIZE;
+    }
 }

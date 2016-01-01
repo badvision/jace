@@ -80,7 +80,7 @@ public abstract class ProdosDriver {
         MOS65C02 cpu = (MOS65C02) computer.getCpu();
         cpu.A = returnCode;
         // Clear carry flag if no error, otherwise set carry flag
-        cpu.C = (returnCode == 0x00) ? 00 : 01;        
+        cpu.C = (returnCode == 0x00) ? 00 : 01;
     }
     
     private MLI_RETURN prodosMLI() {

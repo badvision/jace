@@ -22,25 +22,28 @@ import java.io.IOException;
 
 /**
  * Maintain freespace and node allocation
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ *
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class FreespaceBitmap extends DiskNode {
+
     int size = (ProdosVirtualDisk.MAX_BLOCK + 1) / 8 / ProdosVirtualDisk.BLOCK_SIZE;
+
     public FreespaceBitmap(ProdosVirtualDisk fs, int start) throws IOException {
         super(fs, start);
-
-        for (int i=1; i < size; i++) {
-            SubNode subNode = new SubNode(i, this, start+i);
-        }
+        allocate();
     }
+
     @Override
     public void doDeallocate() {
 //
     }
 
     @Override
-    public void doAllocate() {
-///
+    public void doAllocate() throws IOException {
+        for (int i = 1; i < size; i++) {
+            SubNode subNode = new SubNode(i, this, getBaseBlock());
+        }
     }
 
     @Override
@@ -51,22 +54,18 @@ public class FreespaceBitmap extends DiskNode {
     @Override
     public void readBlock(int sequence, byte[] buffer) throws IOException {
         int startBlock = sequence * ProdosVirtualDisk.BLOCK_SIZE * 8;
-        int endBlock = (sequence+1)* ProdosVirtualDisk.BLOCK_SIZE * 8;
-        int bitCounter=0;
-        int pos=0;
-        int value=0;
-        for (int i=startBlock; i < endBlock; i++) {
-            if (!getOwnerFilesystem().isAllocated(i)) {
-                value++;
-            }
-            bitCounter++;
-            if (bitCounter < 8) {
-                value *= 2;
-            } else {
-                bitCounter = 0;
-                buffer[pos++]=(byte) value;
-                value = 0;
+        int endBlock = (sequence + 1) * ProdosVirtualDisk.BLOCK_SIZE * 8;
+        for (int i = startBlock; i < endBlock; i++) {
+            if (!getOwnerFilesystem().isBlockAllocated(i)) {
+                int pos = (i - startBlock) / 8;
+                int bit = 1 << (i % 8);
+                buffer[pos] |= bit;
             }
         }
+    }
+
+    @Override
+    public int getLength() {
+        return (1 + getChildren().size()) * IDisk.BLOCK_SIZE;
     }
 }

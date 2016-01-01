@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Prodos file/directory node abstraction. This provides a lot of the glue for
@@ -60,12 +61,12 @@ public abstract class DiskNode {
 
     public DiskNode(ProdosVirtualDisk fs) throws IOException {
         init(fs);
-        setBaseBlock(fs.getNextFreeBlock());
+        fs.allocateEntry(this);
     }
 
     public DiskNode(ProdosVirtualDisk fs, int blockNumber) throws IOException {
         init(fs);
-        setBaseBlock(blockNumber);
+        fs.allocateEntryNear(this, blockNumber);
     }
     
     private void init(ProdosVirtualDisk fs) throws IOException {
@@ -89,7 +90,6 @@ public abstract class DiskNode {
     public void allocate() throws IOException {
         if (!allocated) {
             doAllocate();
-            getOwnerFilesystem().physicalMap.put(baseBlock, this);
             allocationTime = System.currentTimeMillis();
             allocated = true;
         }
@@ -118,7 +118,7 @@ public abstract class DiskNode {
     public DiskNode getNodeSequence(int num) {
         if (num == 0) {
             return this;
-        } else if (num <= additionalNodes.size()) {
+        } else if (num > 0 && num <= additionalNodes.size()) {
             return additionalNodes.get(num-1);
         } else {
             return null;
@@ -156,9 +156,8 @@ public abstract class DiskNode {
     /**
      * @param baseBlock the baseBlock to set
      */
-    private void setBaseBlock(int baseBlock) {
+    public void setBaseBlock(int baseBlock) {
         this.baseBlock = baseBlock;
-        ownerFilesystem.physicalMap.put(baseBlock, this);
     }
 
     /**
@@ -189,6 +188,7 @@ public abstract class DiskNode {
     public void setPhysicalFile(File physicalFile) {
         this.physicalFile = physicalFile;
         setName(physicalFile.getName());
+        lastCheckTime = physicalFile.lastModified();
     }
 
     /**
@@ -227,6 +227,14 @@ public abstract class DiskNode {
     public void removeChild(DiskNode child) {
         children.remove(child);
     }
+    
+    public boolean hasChildNamed(String name) {
+        return findChildByFilename(name).isPresent();
+    }
+    
+    private Optional<DiskNode> findChildByFilename(String name) {
+        return getChildren().stream().filter((child) -> child.getPhysicalFile().getName().equals(name)).findFirst();
+    }    
 
     /**
      * @return the type
@@ -253,10 +261,7 @@ public abstract class DiskNode {
      * @param name the name to set
      */
     public void setName(String name) {
-        if (name.length() > 15) {
-            name = name.substring(0, 15);
-        }
-        this.name = name.toUpperCase();
+        this.name = (name.length() > 15 ? name.substring(0, 15) : name).toUpperCase();
     }
 
     public abstract void doDeallocate();
@@ -266,6 +271,8 @@ public abstract class DiskNode {
     public abstract void doRefresh();
 
     public abstract void readBlock(int sequence, byte[] buffer) throws IOException;
+    
+    public abstract int getLength();
 
     public void readBlock(byte[] buffer) throws IOException {
         checkFile();
