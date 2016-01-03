@@ -90,22 +90,24 @@ public class VideoNTSC extends VideoDHGR {
 
     @Override
     protected void displayLores(WritableImage screen, int xOffset, int y, int rowAddress) {
+        int data = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         int pos = xOffset >> 1;
         if (rowStart < 0) {
             rowStart = pos;
         }
-        colorActive[xOffset * 2] = colorActive[xOffset * 2 + 1] = true;
-        int data = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        colorActive[xOffset * 2] = true;
+        colorActive[xOffset * 2 + 1] = true;
         if ((xOffset & 1) == 0) {
+            int pat = scanline[pos] & 0x0fffc000;
             if ((y & 7) < 4) {
                 data &= 15;
             } else {
                 data >>= 4;
             }
-            int pat = data | data << 4 | data << 8 | (data & 3) << 12;
+            pat |= data | data << 4 | data << 8 | (data & 3) << 12;
             scanline[pos] = pat;
         } else {
-            int pat = scanline[pos];
+            int pat = scanline[pos] & 0x03fff;
             if ((y & 7) < 4) {
                 data &= 15;
             } else {

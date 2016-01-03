@@ -164,7 +164,7 @@ public abstract class Video extends Device {
                 x = -1;
             }
         } else {
-            if (!isVblank && x < (APPLE_CYCLES_PER_LINE-1)) {
+            if (!isVblank && x < APPLE_CYCLES_PER_LINE) {
                 draw();
             }
             if (x >= APPLE_CYCLES_PER_LINE - 1) {
