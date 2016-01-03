@@ -39,6 +39,7 @@ import java.util.logging.Logger;
 import javafx.event.EventHandler;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.stage.WindowEvent;
 
 /**
  * Keyboard manages all keyboard-related activities. For now, all hotkeys are
@@ -49,6 +50,12 @@ import javafx.scene.input.KeyEvent;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Keyboard implements Reconfigurable {
+
+    public void resetState() {
+        clearStrobe();
+        openApple(false);
+        solidApple(false);
+    }
 
     private Computer computer;
 

@@ -10,6 +10,7 @@ import com.sun.glass.ui.Application;
 import jace.cheat.MetaCheat;
 import jace.core.Card;
 import jace.core.Computer;
+import jace.core.Keyboard;
 import jace.library.MediaCache;
 import jace.library.MediaConsumer;
 import jace.library.MediaConsumerParent;
@@ -43,6 +44,7 @@ import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.stage.Stage;
 
 /**
  *
@@ -79,10 +81,11 @@ public class JaceUIController {
         rootPane.setOnDragExited(this::processDragExitedEvent);
     }
     
-    public void connectComputer(Computer computer) {
+    public void connectComputer(Computer computer, Stage primaryStage) {
         this.computer = computer;
         appleScreen.setImage(computer.getVideo().getFrameBuffer());
         EventHandler<KeyEvent> keyboardHandler = computer.getKeyboard().getListener();
+        primaryStage.setOnShowing(evt->computer.getKeyboard().resetState());
         rootPane.setFocusTraversable(true);
         rootPane.setOnKeyPressed(keyboardHandler);
         rootPane.setOnKeyReleased(keyboardHandler);

@@ -58,7 +58,7 @@ public class JaceApplication extends Application {
             while (Emulator.computer.getVideo() == null || Emulator.computer.getVideo().getFrameBuffer() == null) {
                 Thread.yield();
             }
-            controller.connectComputer(Emulator.computer);
+            controller.connectComputer(Emulator.computer, primaryStage);
             bootWatchdog();
         });
         primaryStage.setOnCloseRequest(event -> {
