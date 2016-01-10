@@ -3,7 +3,7 @@
 # Building Jace requies:
 #
 #   * Maven
-#   * Java 1.8
+#   * Java 1.8 JDK
 #
 # On OSX the easiest way to install Maven is to use brew
 #
@@ -54,13 +54,17 @@
 # http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
 #
 # To download from the command line:
-
+#
 #   For OSX
 #     curl -L -O -H "Cookie: oraclelicense=accept-securebackup-cookie" -k "https://edelivery.oracle.com/otn-pub/java/jdk/8u66-b17/jdk-8u66-macosx-x64.dmg"
 #     open jdk-8u66-macosx-x64.dmg
 #
 #   For Linux
 #     curl -L -O -H "Cookie: oraclelicense=accept-securebackup-cookie" -k "https://edelivery.oracle.com/otn-pub/java/jdk/8u20-b26/jdk-8u20-linux-i586.tar.gz"
+#
+#   Reference:
+#     Commands / shell script to download JDK / JRE / Java binaries from Oracle website from terminal / shell / command line / command prompt.
+#     https://gist.github.com/P7h/9741922
 #
 # lastly, verify what JAVA_HOME is:
 #
@@ -70,7 +74,7 @@
 #
 #   export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
 #
-# Then you can build JACE
+# Then you can (finally)! build JACE.
 #
 # Note: Changing the maven project file 'pom.xml' to use Java 1.7 *won't* work:
 #            <plugin>
