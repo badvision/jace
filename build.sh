@@ -18,22 +18,18 @@
 #  OR  : You probably have Java 1.7 installed but Maven is (trying to) use Java 1.8
 # Reference: http://stackoverflow.com/questions/24705877/cant-get-maven-to-recognize-java-1-8
 #
-# Here is some information to clear up the confusion about Java:
+# 0. Here is some information to clear up the confusion about Java:
 #
 #    The JRE (runtime) is needed to RUN Java programs.
 #    The JDK (compiler) is needed to COMPILTE Java programs.
 #
 # Solution:
 #
-# 1. Install Java 1.8
-#
-# 2. Check JAVA_HOME is set:
-#
-# First, check which version of Java that Maven is using:
+# 1. Check which verison of Java that Maven is using
 #
 #   mvn -version
 #
-# Next, check which version of the Java RUNTIME is installed:
+# 2. Check which version of the Java JRE is installed:
 #
 #   java -version
 #
@@ -42,7 +38,7 @@
 #       java version "1.8.0_66"
 #       Java(TM) SE Runtime Environment (build 1.8.0_66-b17)
 #
-# To check which version of the Java COMPILER is installed:
+# 3. Check which version of the Java JDK is installed:
 #
 #   javac -version
 #
@@ -50,14 +46,19 @@
 #
 #      javac 1.7.0_75
 #
-# Then you will need to install the Java 1.8 JDK via:
-# http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
+# Then you will need to proceed to the next step, else you can skip it.
+#
+# 4. Install Java 1.8 JDK (if necessary)
+#
+# You can download the JDK either via the GUI or the command line:
+#   http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
 #
 # To download from the command line:
 #
 #   For OSX
 #     curl -L -O -H "Cookie: oraclelicense=accept-securebackup-cookie" -k "https://edelivery.oracle.com/otn-pub/java/jdk/8u66-b17/jdk-8u66-macosx-x64.dmg"
 #     open jdk-8u66-macosx-x64.dmg
+#     Double-click on the .pkg
 #
 #   For Linux
 #     curl -L -O -H "Cookie: oraclelicense=accept-securebackup-cookie" -k "https://edelivery.oracle.com/otn-pub/java/jdk/8u20-b26/jdk-8u20-linux-i586.tar.gz"
@@ -66,7 +67,7 @@
 #     Commands / shell script to download JDK / JRE / Java binaries from Oracle website from terminal / shell / command line / command prompt.
 #     https://gist.github.com/P7h/9741922
 #
-# lastly, verify what JAVA_HOME is:
+# 5. Lastly, verify that JAVA_HOME is set:
 #
 #   echo ${JAVA_HOME}
 #
@@ -74,7 +75,7 @@
 #
 #   export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
 #
-# Then you can (finally)! build JACE.
+# Then you can (finally!) build JACE. Whew!
 #
 # Note: Changing the maven project file 'pom.xml' to use Java 1.7 *won't* work:
 #            <plugin>
