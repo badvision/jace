@@ -125,6 +125,32 @@
                     </additionalClasspathElements>
                 </configuration>
             </plugin>
+<!-- BEGIN -->
+<!-- https://ivan-site.com/2012/05/download-oracle-java-jre-jdk-using-a-script/ -->
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                  <execution>
+                    <phase>package</phase>
+                    <goals>
+                      <goal>single</goal>
+                    </goals>
+                  </execution>
+                </executions>
+                <configuration>
+                  <archive>
+                  <manifest>
+                    <addClasspath>true</addClasspath>
+                    <mainClass>jace.JaceApplication</mainClass>
+                  </manifest>
+                  </archive>
+
+                  <descriptorRefs>
+                    <descriptorRef>jar-with-dependencies</descriptorRef>
+                  </descriptorRefs>
+                </configuration>
+            </plugin> 
+<!-- END -->
         </plugins>
     </build>
 
