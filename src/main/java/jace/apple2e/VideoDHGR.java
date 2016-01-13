@@ -389,7 +389,7 @@ public class VideoDHGR extends Video {
         Color color = Palette.color[c1];
         // Unrolled loop, faster
         PixelWriter writer = screen.getPixelWriter();
-        int xx = xOffset * 7;
+        int xx = xOffset * 14;
         writer.setColor(xx++, y, color);
         writer.setColor(xx++, y, color);
         writer.setColor(xx++, y, color);
@@ -418,9 +418,9 @@ public class VideoDHGR extends Video {
         }
         PixelWriter writer = screen.getPixelWriter();
 //        int yOffset = xyOffset[y][times14[xOffset]];
-        Color color = Palette.color[c1];
+        Color color = Palette.color[FLIP_NYBBLE[c1]];
         // Unrolled loop, faster
-        int xx = xOffset * 7;
+        int xx = xOffset * 14;
         writer.setColor(xx++, y, color);
         writer.setColor(xx++, y, color);
         writer.setColor(xx++, y, color);
@@ -615,16 +615,19 @@ public class VideoDHGR extends Video {
     }
 
     protected void showDhgr(WritableImage screen, int xOffset, int y, int dhgrWord) {
-        //Graphics2D g = (Graphics2D) screen.getGraphics();
-        int xx = xOffset * 7;
         PixelWriter writer = screen.getPixelWriter();
         try {
             for (int i = 0; i < 7; i++) {
-                Color color = Palette.color[FLIP_NYBBLE[dhgrWord & 15]];
-                writer.setColor(xx++, y, color);
-                writer.setColor(xx++, y, color);
-                writer.setColor(xx++, y, color);
-                writer.setColor(xx++, y, color);
+                Color color;
+                if (!dhgrMode && hiresMode) {
+                    color = Palette.color[dhgrWord & 15];
+                } else {
+                    color = Palette.color[FLIP_NYBBLE[dhgrWord & 15]];
+                }
+                writer.setColor(xOffset++, y, color);
+                writer.setColor(xOffset++, y, color);
+                writer.setColor(xOffset++, y, color);
+                writer.setColor(xOffset++, y, color);
                 dhgrWord >>= 4;
             }
         } catch (ArrayIndexOutOfBoundsException ex) {
@@ -652,11 +655,13 @@ public class VideoDHGR extends Video {
         // Also, adding xOffset now makes it additionally 5% faster
         //int yOffset = ((y << 4) + (y << 5) + (y << 9))+xOffset;
 
-        int xx = xOffset * 7;
+        int xx = xOffset;
         PixelWriter writer = screen.getPixelWriter();
         for (int i = 0; i < 28; i++) {
+            if (xx < 560) {
             // yOffset++ is used instead of yOffset+i, because it is faster
             writer.setColor(xx++, y, (dhgrWord & 1) == 1 ? WHITE : BLACK);
+            }
             dhgrWord >>= 1;
         }
     }
