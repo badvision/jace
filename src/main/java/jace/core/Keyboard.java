@@ -256,7 +256,6 @@ public class Keyboard implements Reconfigurable {
             if (c == 255) {
                 return;
             }
-            System.out.println("Ctrl: "+(c&0x01f));
             c = (char) (c & 0x01f);
         }
         
