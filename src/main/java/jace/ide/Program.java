@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.web.PromptData;
@@ -116,7 +117,7 @@ public class Program {
                     if (newState == Worker.State.SUCCEEDED) {
                         JSObject document = (JSObject) editor.getEngine().executeScript("window");
                         document.setMember("java", this);
-                        createEditor();
+                        Platform.runLater(this::createEditor);
                     }
                 });
 
@@ -136,7 +137,8 @@ public class Program {
         String optionString = buildOptions();
         editor.getEngine().executeScript("var codeMirror = CodeMirror(document.body, " + optionString + ");");
         codeMirror = (JSObject) editor.getEngine().executeScript("codeMirror");
-        setValue(document);
+        Platform.runLater(() -> setValue(document));
+//        setValue(document);
     }
 
     public String getFileContents(File sourceFile) {
@@ -164,7 +166,6 @@ public class Program {
         }
         return "";
     }
-
 
     public void save(File newTarget) {
         FileWriter writer = null;
@@ -232,18 +233,18 @@ public class Program {
 
     private void manageCompileResult(CompileResult lastResult) {
         editor.getEngine().executeScript("clearHighlights()");
-        lastResult.getWarnings().forEach((line,message) -> 
-            editor.getEngine().executeScript("highlightLine("+line+",false,\""+escapeString(message)+"\");")
+        lastResult.getWarnings().forEach((line, message)
+                -> editor.getEngine().executeScript("highlightLine(" + line + ",false,\"" + escapeString(message) + "\");")
         );
-        lastResult.getErrors().forEach((line,message) -> 
-            editor.getEngine().executeScript("highlightLine("+line+",true,\""+escapeString(message)+"\");")
+        lastResult.getErrors().forEach((line, message)
+                -> editor.getEngine().executeScript("highlightLine(" + line + ",true,\"" + escapeString(message) + "\");")
         );
-    }    
+    }
 
     private String escapeString(Object message) {
         return String.valueOf(message).replaceAll("\\\"", "&quot;");
     }
-    
+
     public void log(String message) {
         System.out.println(message);
     }
