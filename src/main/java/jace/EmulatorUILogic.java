@@ -204,10 +204,10 @@ public class EmulatorUILogic implements Reconfigurable {
             Emulator.computer.resume();
             return;
         }
-        runFile(binary);
+        runFileNamed(binary);
     }
 
-    public static void runFile(File binary) {
+    public static void runFileNamed(File binary) {
         String fileName = binary.getName().toLowerCase();
         try {
             if (fileName.contains("#06")) {
