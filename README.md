@@ -3,24 +3,17 @@ Java Apple Computer Emulator
 
 Download:
 
-* [Version 2.0 Snapshot](target/jace-2.0-SNAPSHOT.jar)
-
-Or:
-
-* [Version 2.0 Snapshot with dependencies](target/jace-2.0-SNAPSHOT-jar-with-dependencies.jar)
+* [Version 2.0 Stable](https://github.com/badvision/jace/releases/tag/2.0-stable)
 
 To Run:
 
 * See [run.sh](run.sh)
 
-or `java -jar target/jace-2.0-SNAPSHOT-jar-with-dependencies.jar`
+or `java -jar Jace.jar`
 
 To Build:
 
 * See [build.sh](build.sh)
-
-
-[Download current version with built-in IDE](https://github.com/badvision/jace/releases/download/v2.0b/jace-2.0-SNAPSHOT.zip)
 
 Jace is a java-based Apple //e emulator with many compelling features:
 * NEW: Built-in IDE for writing basic and assembly programs, using ACME to compile and execute directly without leaving the emulator.
