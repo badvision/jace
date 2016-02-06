@@ -3,7 +3,7 @@ Java Apple Computer Emulator
 
 Download:
 
-* [Version 2.0 Stable](https://github.com/badvision/jace/releases/tag/2.0-stable)
+* [Version 2.0 Stable](https://github.com/badvision/jace/releases/download/2.0-stable/Jace.jar)
 
 To Run:
 
