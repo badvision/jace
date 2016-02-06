@@ -10,7 +10,7 @@ deploy:
   provider: releases
   api_key:
     secure: 2RMnDGnj27q4O9Oyl9NjLMeaGCMhMtnb+nZ5VeR+JBoEgOzl1SycqpXGVo6FOB54OEcg9ykU/dsNEZrB+n4GNOC7zM8otXkW5cJ0qrZJY4U/YLtYqW8BTk1qajDwYlPmFyJWubsTqDz5CwCCK2UjQrb8Fqmo4eZPQ3lK2fKUH0XdXBOzKD9mHNutyjC2Hgj2w5C0NLQPiau/gkv1VhigI2vFUKhPcKooZXfwOHkDeJXasUVA5jTWTJJNWyefWvwl6u1kGsVtgWqV59T6nFopLP3/vWfCnU23+YU7X8F3p5/oKw0tVOUs1QK68P58RGNBVTu6yUgmFx4gZ0aMZqnxYvjfNG/ubaWK7gdOyU70aSN7W3Jrdw8jXkq7QfY5C6IZz/+Fft1qiQculw7sWKHWFMepKTFhZxZG6ebvXvzuUW9iLUWsmWzfytvn93ZWdRhpz6ZCsmb2XN/qTEoF3+JXJwrgSujw3n/4f9SHUDYsgToD15wb8XYOkZZMSa3tIKDNc+Pv7v8jgAxIjgNpgTacNVFqdIyOlkFy41eHJ+v2ArUWv04uIgvmjahSCfXUwMZDiIyb1fYt8SBnBaC4BLTgvjLd2o5jQZpupMKTtSDJetNJHfCQCMWCml9Cy2wDn0758ZMTpiF8P8newR4DFVQNNHlca27d1E/r7kHc3bI17e8=
-  file: /target/Jace.jar
+  file: target/Jace.jar
   on:
     tags: true
     repo: badvision/jace
