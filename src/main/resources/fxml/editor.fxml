@@ -26,7 +26,8 @@
                            </accelerator>
                            <items>
                               <MenuItem mnemonicParsing="false" onAction="#newAssemblyListingClicked" text="Assembly Listing" />
-                              <MenuItem mnemonicParsing="false" onAction="#newApplesoftBasicClicked" text="Applesoft Basic Listing" />
+                              <MenuItem mnemonicParsing="false" onAction="#newApplesoftBasicClicked" text="Applesoft Basic Listing (blank)" />
+                              <MenuItem mnemonicParsing="false" onAction="#newApplesoftBasicFromMemoryClicked" text="Applesoft Basic Listing (from memory)" />
                               <MenuItem mnemonicParsing="false" onAction="#newPlainTextClicked" text="Plain Text" />
                               <MenuItem mnemonicParsing="false" onAction="#newHexdataClicked" text="Data (Hex)" />
                            </items>

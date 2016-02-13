@@ -105,7 +105,7 @@ public class Program {
         return Optional.ofNullable(targetFile);
     }
 
-    public void initEditor(WebView editor, File sourceFile) {
+    public void initEditor(WebView editor, File sourceFile, boolean isBlank) {
         this.editor = editor;
         targetFile = sourceFile;
         if (targetFile != null) {
@@ -117,7 +117,7 @@ public class Program {
                     if (newState == Worker.State.SUCCEEDED) {
                         JSObject document = (JSObject) editor.getEngine().executeScript("window");
                         document.setMember("java", this);
-                        Platform.runLater(this::createEditor);
+                        Platform.runLater(()->createEditor(isBlank));
                     }
                 });
 
@@ -132,8 +132,8 @@ public class Program {
         editor.getEngine().load(getClass().getResource(CODEMIRROR_EDITOR).toExternalForm());
     }
 
-    public void createEditor() {
-        String document = targetFile == null ? getHandler().getNewDocumentContent() : getFileContents(targetFile);
+    public void createEditor(boolean isBlank) {
+        String document = targetFile == null ? isBlank ? "" : getHandler().getNewDocumentContent() : getFileContents(targetFile);
         String optionString = buildOptions();
         editor.getEngine().executeScript("var codeMirror = CodeMirror(document.body, " + optionString + ");");
         codeMirror = (JSObject) editor.getEngine().executeScript("codeMirror");

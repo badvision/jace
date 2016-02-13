@@ -19,6 +19,8 @@ import javafx.collections.ListChangeListener;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
@@ -96,31 +98,42 @@ public class IdeController {
 
     @FXML
     void newApplesoftBasicClicked(ActionEvent event) {
-        Program tab = createTab(DocumentType.applesoft, null);
+        Program tab = createTab(DocumentType.applesoft, null, true);
+    }
+
+    @FXML
+    void newApplesoftBasicFromMemoryClicked(ActionEvent event) {
+        Alert warningAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        warningAlert.setTitle("Is Applesoft running?");
+        warningAlert.setContentText("If you proceed and applesoft is not running or there is no active program then the emulator might freeze.  Press Cancel if you are unsure.");
+        Optional<ButtonType> result = warningAlert.showAndWait();
+        if (result.get() == ButtonType.OK) {
+            Program tab = createTab(DocumentType.applesoft, null, false);
+        }
     }
 
     @FXML
     void newAssemblyListingClicked(ActionEvent event) {
-        createTab(DocumentType.assembly, null);
+        createTab(DocumentType.assembly, null, false);
     }
 
     @FXML
     void newHexdataClicked(ActionEvent event) {
-        createTab(DocumentType.hex, null);
+        createTab(DocumentType.hex, null, false);
     }
 
     @FXML
     void newPlainTextClicked(ActionEvent event) {
-        createTab(DocumentType.plain, null);
+        createTab(DocumentType.plain, null, false);
     }
 
     Map<Tab, Program> openDocuments = new HashMap<>();
     Map<Option, Object> globalOptions = new EnumMap<>(Option.class);
 
-    private Program createTab(DocumentType type, File document) {
+    private Program createTab(DocumentType type, File document, boolean isBlank) {
         WebView editor = new WebView();
         Program proxy = new Program(type, globalOptions);
-        proxy.initEditor(editor, document);
+        proxy.initEditor(editor, document, isBlank);
         Tab t = new Tab(proxy.getName(), editor);
         tabPane.getTabs().add(t);
         openDocuments.put(t, proxy);
@@ -153,7 +166,7 @@ public class IdeController {
         File file = chooser.showOpenDialog(JaceApplication.getApplication().primaryStage);
         if (file != null && file.isFile() && file.exists()) {
             DocumentType type = DocumentType.fromFile(file);
-            createTab(type, file);
+            createTab(type, file, true);
         }
     }
 
