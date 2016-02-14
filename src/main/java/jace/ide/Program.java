@@ -231,7 +231,7 @@ public class Program {
         getHandler().clean(lastResult);
     }
 
-    private void manageCompileResult(CompileResult lastResult) {
+    protected void manageCompileResult(CompileResult lastResult) {
         editor.getEngine().executeScript("clearHighlights()");
         lastResult.getWarnings().forEach((line, message)
                 -> editor.getEngine().executeScript("highlightLine(" + line + ",false,\"" + escapeString(message) + "\");")

@@ -84,7 +84,7 @@ public class CardAppleMouse extends Card {
     public boolean fullscreenFix = true;
     @ConfigurableField(name = "Blazing Paddles fix", shortName = "bpfix", category = "Mouse", description = "Use different clamping values to make Blazing Paddles work more reliably.")
     public boolean blazingPaddles = false;
-    Label mouseActive = Utility.loadIconLabel("input-mouse.png");
+    Label mouseActive = Utility.loadIconLabel("input-mouse.png").orElse(null);
     public boolean movedSinceLastTick = false;
     public boolean movedSinceLastRead = false;
     

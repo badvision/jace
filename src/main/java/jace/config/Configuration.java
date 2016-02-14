@@ -51,6 +51,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.collections.ObservableList;
 import javafx.scene.control.TreeItem;
+import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
 /**
@@ -93,8 +94,13 @@ public class Configuration implements Reconfigurable {
         return null;
     }
 
-    public static ImageView getChangedIcon() {
-        return new ImageView(Utility.loadIcon("icon_exclaim.gif"));
+    public static Optional<ImageView> getChangedIcon() {
+        Optional<Image> icon = Utility.loadIcon("icon_exclaim.gif");
+        if (icon.isPresent()) {
+            return Optional.of(new ImageView(icon.get()));
+        } else {
+            return Optional.empty();
+        }
     }
 
     @Override
@@ -251,7 +257,7 @@ public class Configuration implements Reconfigurable {
             if (!changed) {
                 setGraphic(null);
             } else {
-                setGraphic(getChangedIcon());
+                getChangedIcon().ifPresent(this::setGraphic);
             }
         }
     }

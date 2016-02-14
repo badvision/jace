@@ -47,7 +47,7 @@ public class JaceApplication extends Application {
             Scene s = new Scene(node);
             primaryStage.setScene(s);
             primaryStage.setTitle("Jace");
-            primaryStage.getIcons().add(Utility.loadIcon("woz_figure.gif"));
+            Utility.loadIcon("woz_figure.gif").ifPresent(primaryStage.getIcons()::add);
         } catch (IOException exception) {
             throw new RuntimeException(exception);
         }
@@ -86,7 +86,7 @@ public class JaceApplication extends Application {
                 Scene s = new Scene(node);
                 cheatStage.setScene(s);
                 cheatStage.setTitle("Jace: MetaCheat");
-                cheatStage.getIcons().add(Utility.loadIcon("woz_figure.gif"));
+                Utility.loadIcon("woz_figure.gif").ifPresent(cheatStage.getIcons()::add);
             } catch (IOException exception) {
                 throw new RuntimeException(exception);
             }

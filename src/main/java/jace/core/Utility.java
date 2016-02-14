@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -280,13 +281,24 @@ public class Utility {
         return result;
     }
 
-    public static Image loadIcon(String filename) {
+    private static boolean isHeadless = false;
+    public static void setHeadlessMode(boolean headless) {
+        isHeadless = headless;
+    }
+    
+    public static Optional<Image> loadIcon(String filename) {
+        if (isHeadless) {
+            return Optional.empty();
+        }
         InputStream stream = Utility.class.getClassLoader().getResourceAsStream("jace/data/" + filename);
-        return new Image(stream);
+        return Optional.of(new Image(stream));
     }
 
-    public static Label loadIconLabel(String filename) {
-        Image img = loadIcon(filename);
+    public static Optional<Label> loadIconLabel(String filename) {
+        if (isHeadless) {
+            return Optional.empty();
+        }
+        Image img = loadIcon(filename).get();
         Label label = new Label() {
             @Override
             public boolean equals(Object obj) {
@@ -309,7 +321,7 @@ public class Utility {
         label.setTextFill(Color.WHITE);
         DropShadow shadow = new DropShadow(5.0, Color.BLACK);
         label.setEffect(shadow);
-        return label;
+        return Optional.of(label);
     }
 
 //    public static void runModalProcess(String title, final Runnable runnable) {

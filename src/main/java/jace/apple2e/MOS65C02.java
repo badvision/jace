@@ -77,12 +77,29 @@ public class MOS65C02 extends CPU {
 
     public MOS65C02(Computer computer) {
         super(computer);
+        clearState();
     }
 
     @Override
     public void reconfigure() {
     }
 
+    @Override
+    public void clearState() {
+        A = 0x0ff;
+        X = 0x0ff;
+        Y = 0x0ff;
+        C = 1;
+        interruptSignalled = false;
+        Z = true;
+        I = true;
+        D = true;
+        B = true;
+        V = true;
+        N = true;
+        STACK = 0xff;
+    }
+    
     public enum OPCODE {
         ADC_IMM(0x0069, COMMAND.ADC, MODE.IMMEDIATE, 2),
         ADC_ZP(0x0065, COMMAND.ADC, MODE.ZEROPAGE, 3),
@@ -369,7 +386,7 @@ public class MOS65C02 extends CPU {
             int pc = cpu.getProgramCounter();
             int address = pc + 2 + cpu.getMemory().read(pc + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             // The wait cycles are not added unless the branch actually happens!
-            cpu.setPageBoundaryPenalty((address & 0x00ff00) != (pc & 0x00ff00));
+            cpu.setPageBoundaryPenalty((address & 0x00ff00) != ((pc+2) & 0x00ff00));
             return address;
         }, false),
         IMMEDIATE(2, "#$~1", (cpu) -> cpu.getProgramCounter() + 1),

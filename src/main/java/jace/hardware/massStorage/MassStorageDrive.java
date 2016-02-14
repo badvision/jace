@@ -23,6 +23,7 @@ import jace.library.MediaEntry;
 import jace.library.MediaEntry.MediaFile;
 import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.control.Label;
@@ -33,10 +34,10 @@ import javafx.scene.control.Label;
  */
 public class MassStorageDrive implements MediaConsumer {
     IDisk disk = null;
-    Label icon = null;
+    Optional<Label> icon = null;
     
     @Override
-    public Label getIcon() {
+    public Optional<Label> getIcon() {
         return icon;
     }
 
@@ -45,7 +46,7 @@ public class MassStorageDrive implements MediaConsumer {
      * @param i
      */
     @Override
-    public void setIcon(Label i) {
+    public void setIcon(Optional<Label> i) {
         icon = i;
     }
 

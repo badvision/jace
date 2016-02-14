@@ -24,11 +24,12 @@ import jace.core.Card;
 import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
-import jace.state.Stateful;
 import jace.core.Utility;
+import jace.state.Stateful;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.control.Label;
@@ -62,10 +63,10 @@ public class CardRamFactor extends Card {
     public String getDeviceName() {
         return "RamFactor";
     }
-    Label indicator;
+    Optional<Label> indicator;
     public CardRamFactor(Computer computer) {
         super(computer);
-        indicator=Utility.loadIconLabel("ram.png");
+        indicator = Utility.loadIconLabel("ram.png");
         try {
             loadRom("jace/data/RAMFactor14.rom");
         } catch (IOException ex) {
@@ -204,7 +205,9 @@ public class CardRamFactor extends Card {
     @Override
     public void setSlot(int slot) {
         super.setSlot(slot);
-        indicator.setText("Slot "+getSlot());
+        indicator.ifPresent(icon->
+            icon.setText("Slot "+getSlot())
+        );
         // Rom has different images for each slot
         updateFirmwareMemory();
     }

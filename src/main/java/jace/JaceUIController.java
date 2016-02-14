@@ -3,7 +3,6 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package jace;
 
 import com.sun.glass.ui.Application;
@@ -57,7 +56,7 @@ public class JaceUIController {
 
     @FXML
     private AnchorPane rootPane;
-    
+
     @FXML
     private StackPane stackPane;
 
@@ -68,7 +67,7 @@ public class JaceUIController {
     private ImageView appleScreen;
 
     Computer computer;
-    
+
     @FXML
     void initialize() {
         assert rootPane != null : "fx:id=\"rootPane\" was not injected: check your FXML file 'JaceUI.fxml'.";
@@ -80,18 +79,18 @@ public class JaceUIController {
         rootPane.setOnDragEntered(this::processDragEnteredEvent);
         rootPane.setOnDragExited(this::processDragExitedEvent);
     }
-    
+
     public void connectComputer(Computer computer, Stage primaryStage) {
         this.computer = computer;
         appleScreen.setImage(computer.getVideo().getFrameBuffer());
         EventHandler<KeyEvent> keyboardHandler = computer.getKeyboard().getListener();
-        primaryStage.setOnShowing(evt->computer.getKeyboard().resetState());
+        primaryStage.setOnShowing(evt -> computer.getKeyboard().resetState());
         rootPane.setFocusTraversable(true);
         rootPane.setOnKeyPressed(keyboardHandler);
         rootPane.setOnKeyReleased(keyboardHandler);
         rootPane.requestFocus();
     }
-    
+
     private void processDragEnteredEvent(DragEvent evt) {
         MediaEntry media = null;
         if (evt.getDragboard().hasFiles()) {
@@ -115,63 +114,68 @@ public class JaceUIController {
             startDragEvent(media);
         }
     }
-    
+
     private void processDragExitedEvent(DragEvent evt) {
         endDragEvent();
     }
 
-    
     private File getDraggedFile(List<File> files) {
         if (files == null || files.isEmpty()) {
             return null;
         }
         for (File f : files) {
-            if (f.exists()) return f;
+            if (f.exists()) {
+                return f;
+            }
         }
         return null;
     }
 
     HBox drivePanel;
+
     private void startDragEvent(MediaEntry media) {
         List<MediaConsumer> consumers = getMediaConsumers();
         drivePanel = new HBox();
         consumers.stream()
-            .filter((consumer) -> (consumer.isAccepted(media, media.files.get(0))))
-            .forEach((consumer) -> {
-                Label icon = consumer.getIcon();
-                icon.setTextFill(Color.WHITE);
-                icon.setPadding(new Insets(2.0));
-                drivePanel.getChildren().add(icon);
-                icon.setOnDragOver(event -> {
-                    event.acceptTransferModes(TransferMode.ANY);
-                    event.consume();
-                });
-                icon.setOnDragDropped(event -> {
-                    System.out.println("Dropping media on "+icon.getText());
-                    try {
-                        computer.pause();
-                        consumer.insertMedia(media, media.files.get(0));
-                        computer.resume();
-                        event.setDropCompleted(true);
-                        event.consume();
-                    } catch (IOException ex) {
-                        Logger.getLogger(JaceUIController.class.getName()).log(Level.SEVERE, null, ex);
+                .filter((consumer) -> (consumer.isAccepted(media, media.files.get(0))))
+                .forEach((consumer) -> {
+                    Label icon = consumer.getIcon().orElse(null);
+                    if (icon == null) {
+                        return;
                     }
-                    endDragEvent();
+                    icon.setTextFill(Color.WHITE);
+                    icon.setPadding(new Insets(2.0));
+                    drivePanel.getChildren().add(icon);
+                    icon.setOnDragOver(event -> {
+                        event.acceptTransferModes(TransferMode.ANY);
+                        event.consume();
+                    });
+                    icon.setOnDragDropped(event -> {
+                        System.out.println("Dropping media on " + icon.getText());
+                        try {
+                            computer.pause();
+                            consumer.insertMedia(media, media.files.get(0));
+                            computer.resume();
+                            event.setDropCompleted(true);
+                            event.consume();
+                        } catch (IOException ex) {
+                            Logger.getLogger(JaceUIController.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                        endDragEvent();
+                    });
                 });
-            });
-        stackPane.getChildren().add(drivePanel);        
+        stackPane.getChildren().add(drivePanel);
         drivePanel.setLayoutX(10);
         drivePanel.setLayoutY(10);
     }
-    
+
     private void endDragEvent() {
         stackPane.getChildren().remove(drivePanel);
         drivePanel.getChildren().stream().forEach((n) -> {
             n.setOnDragDropped(null);
         });
     }
-    
+
     private List<MediaConsumer> getMediaConsumers() {
         List<MediaConsumer> consumers = new ArrayList<>();
         for (Optional<Card> card : computer.memory.getAllCards()) {
@@ -181,14 +185,16 @@ public class JaceUIController {
         }
         return consumers;
     }
-    
+
     Map<Label, Long> iconTTL = new ConcurrentHashMap<>();
+
     void addIndicator(Label icon) {
         addIndicator(icon, 250);
     }
+
     void addIndicator(Label icon, long TTL) {
         if (!iconTTL.containsKey(icon)) {
-            Application.invokeLater(()->{
+            Application.invokeLater(() -> {
                 if (!notificationBox.getChildren().contains(icon)) {
                     notificationBox.getChildren().add(icon);
                 }
@@ -198,39 +204,40 @@ public class JaceUIController {
     }
 
     void removeIndicator(Label icon) {
-        Application.invokeLater(()->{
+        Application.invokeLater(() -> {
             notificationBox.getChildren().remove(icon);
             iconTTL.remove(icon);
         });
-    }    
+    }
 
     ScheduledExecutorService notificationExecutor = Executors.newSingleThreadScheduledExecutor();
     ScheduledFuture ttlCleanupTask = null;
+
     private void trackTTL(Label icon, long TTL) {
-        iconTTL.put(icon, System.currentTimeMillis()+TTL);
-        
-        if (ttlCleanupTask == null || ttlCleanupTask.isCancelled()) {        
+        iconTTL.put(icon, System.currentTimeMillis() + TTL);
+
+        if (ttlCleanupTask == null || ttlCleanupTask.isCancelled()) {
             ttlCleanupTask = notificationExecutor.scheduleWithFixedDelay(this::processTTL, 1, 100, TimeUnit.MILLISECONDS);
         }
     }
-    
+
     private void processTTL() {
         Long now = System.currentTimeMillis();
         iconTTL.keySet().stream()
-            .filter((icon) -> (iconTTL.get(icon) <= now))
-            .forEach((icon) -> {
-                removeIndicator(icon);
-            });
+                .filter((icon) -> (iconTTL.get(icon) <= now))
+                .forEach((icon) -> {
+                    removeIndicator(icon);
+                });
         if (iconTTL.isEmpty()) {
             ttlCleanupTask.cancel(true);
             ttlCleanupTask = null;
         }
     }
-    
+
     public void addMouseListener(EventHandler<MouseEvent> handler) {
         appleScreen.addEventHandler(MouseEvent.ANY, handler);
     }
-    
+
     public void removeMouseListener(EventHandler<MouseEvent> handler) {
         appleScreen.removeEventHandler(MouseEvent.ANY, handler);
     }

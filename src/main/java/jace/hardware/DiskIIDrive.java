@@ -27,6 +27,7 @@ import jace.state.Stateful;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.LockSupport;
 import javafx.scene.control.Label;
@@ -225,20 +226,19 @@ public class DiskIIDrive implements MediaConsumer {
 
     void insertDisk(File diskPath) throws IOException {
         disk = new FloppyDisk(diskPath, computer);
-        System.out.println("Inserting "+diskPath.getPath()+" into "+getIcon().getText());
         dirtyTracks = new HashSet<>();
         // Emulator state has changed significantly, reset state manager
         StateManager.getInstance(computer).invalidate();
     }
-    private Label icon;
+    private Optional<Label> icon;
 
     @Override
-    public Label getIcon() {
+    public Optional<Label> getIcon() {
         return icon;
     }
 
     @Override
-    public void setIcon(Label i) {
+    public void setIcon(Optional<Label> i) {
         icon = i;
     }
     private MediaEntry currentMediaEntry;

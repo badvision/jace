@@ -32,7 +32,11 @@ public class AssemblyHandler implements LanguageHandler<File> {
     public void execute(CompileResult<File> lastResult) {
         if (lastResult.isSuccessful()) {
             try {
-                Emulator.computer.pause();
+                boolean resume = false;
+                if (Emulator.computer.isRunning()) {
+                    resume = true;
+                    Emulator.computer.pause();
+                }
                 RAM memory = Emulator.computer.getMemory();
                 FileInputStream input = new FileInputStream(lastResult.getCompiledAsset());
                 int startLSB = input.read();
@@ -43,7 +47,9 @@ public class AssemblyHandler implements LanguageHandler<File> {
                 while ((next=input.read()) != -1) {
                     memory.write(pos++, (byte) next, false, true);
                 }
-                Emulator.computer.resume();
+                if (resume) {
+                    Emulator.computer.resume();
+                }
             } catch (IOException ex) {
                 Logger.getLogger(AssemblyHandler.class.getName()).log(Level.SEVERE, null, ex);
             }

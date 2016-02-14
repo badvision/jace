@@ -116,8 +116,10 @@ public class CardSSC extends Card implements Reconfigurable {
             Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
         }
         super.setSlot(slot);
-        activityIndicator = Utility.loadIconLabel("network-wired.png");
-        activityIndicator.setText("Slot " + slot);
+        Utility.loadIconLabel("network-wired.png").ifPresent(icon->{
+            activityIndicator = icon;
+            activityIndicator.setText("Slot " + slot);
+        });
     }
 
     boolean newInputAvailable = false;

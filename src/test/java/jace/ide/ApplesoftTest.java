@@ -54,14 +54,14 @@ public class ApplesoftTest {
     }
     
     @Test
-    public void deserializeBinary() {
+    public void deserializeBinaryTest() {
         ApplesoftProgram program = ApplesoftProgram.fromBinary(Lists.newArrayList(lemonadeStandBinary), 0x0801);
         assertNotNull(program);
         assertNotSame("", program.toString());
     }
     
     @Test
-    public void roundTripStringComparison() {
+    public void roundTripStringComparisonTest() {
         ApplesoftProgram program = ApplesoftProgram.fromBinary(Lists.newArrayList(lemonadeStandBinary), 0x0801);
         String serialized = program.toString();
         ApplesoftProgram deserialized = ApplesoftProgram.fromString(serialized);

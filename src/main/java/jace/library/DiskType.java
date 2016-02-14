@@ -21,6 +21,7 @@ package jace.library;
 import jace.core.Utility;
 import jace.hardware.FloppyDisk;
 import java.io.File;
+import java.util.Optional;
 import javafx.scene.image.Image;
 
 /**
@@ -40,7 +41,7 @@ public enum DiskType {
     public boolean isProdosOrdered = false;
     public boolean is140kb = false;
     public String description;
-    public Image diskIcon;
+    public Optional<Image> diskIcon;
     DiskType(String desc, boolean is140, boolean po, String iconPath) {
         description = desc;
         is140kb = is140;

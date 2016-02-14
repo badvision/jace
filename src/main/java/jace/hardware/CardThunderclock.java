@@ -32,6 +32,7 @@ import jace.core.Utility;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Calendar;
+import java.util.Optional;
 import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -50,8 +51,7 @@ import javafx.scene.control.Label;
 @Name("ThunderClock Plus")
 public class CardThunderclock extends Card {
 
-    Label clockIcon;
-    Label clockFixIcon;
+    Optional<Label> clockIcon;
     long lastShownIcon = -1;
     // Only mention that the clock is read if it hasn't been checked for over 30 seconds
     // This is to avoid showing it all the time in programs that poll it constantly
@@ -152,12 +152,14 @@ public class CardThunderclock extends Card {
                     performProdosPatch(computer);
                 }
                 getTime();
-                clockIcon.setText("Slot " + getSlot());
-                long now = System.currentTimeMillis();
-                if ((now - lastShownIcon) > MIN_WAIT) {
-                    EmulatorUILogic.addIndicator(this, clockIcon, 3000);
-                }
-                lastShownIcon = now;
+                clockIcon.ifPresent(icon->{
+                    icon.setText("Slot " + getSlot());
+                    long now = System.currentTimeMillis();
+                    if ((now - lastShownIcon) > MIN_WAIT) {
+                        EmulatorUILogic.addIndicator(this, icon, 3000);
+                    }
+                    lastShownIcon = now;
+                });
             }
             shiftMode = isShift;
         }
@@ -324,8 +326,9 @@ public class CardThunderclock extends Card {
         ram.writeByte(patchLoc + 1, (byte) year);
         ram.writeByte(patchLoc + 2, (byte) MOS65C02.OPCODE.NOP.getCode());
         ram.writeByte(patchLoc + 3, (byte) MOS65C02.OPCODE.NOP.getCode());
-        Label clockFixIcon = Utility.loadIconLabel("clock_fix.png");
-        clockFixIcon.setText("Fixed");
-        EmulatorUILogic.addIndicator(CardThunderclock.class, clockFixIcon, 4000);
+        Utility.loadIconLabel("clock_fix.png").ifPresent(clockFixIcon->{
+            clockFixIcon.setText("Fixed");
+            EmulatorUILogic.addIndicator(CardThunderclock.class, clockFixIcon, 4000);
+        });
     }
 }

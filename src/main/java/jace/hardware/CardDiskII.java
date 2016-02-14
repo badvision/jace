@@ -104,13 +104,13 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
             case 0x8:
                 // drive off
                 currentDrive.setOn(false);
-                EmulatorUILogic.removeIndicator(this, currentDrive.getIcon());
+                currentDrive.getIcon().ifPresent(icon->EmulatorUILogic.removeIndicator(this, icon));
                 break;
 
             case 0x9:
                 // drive on
                 currentDrive.setOn(true);
-                EmulatorUILogic.addIndicator(this, currentDrive.getIcon());
+                currentDrive.getIcon().ifPresent(icon->EmulatorUILogic.addIndicator(this, icon));
                 break;
 
             case 0xA:
@@ -128,7 +128,7 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
                 currentDrive.write();
                 e.setNewValue(currentDrive.readLatch());
                 if (currentDrive.isOn()) {
-                    EmulatorUILogic.addIndicator(this, currentDrive.getIcon());
+                    currentDrive.getIcon().ifPresent(icon->EmulatorUILogic.removeIndicator(this, icon));
                 }
                 break;
             case 0xF:
@@ -226,8 +226,8 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     @Override
     public void setSlot(int slot) {
         super.setSlot(slot);
-        drive1.getIcon().setText("S" + slot + "D1");
-        drive2.getIcon().setText("S" + slot + "D2");
+        drive1.getIcon().ifPresent(icon->icon.setText("S" + slot + "D1"));
+        drive2.getIcon().ifPresent(icon->icon.setText("S" + slot + "D2"));
     }
 
     @Override

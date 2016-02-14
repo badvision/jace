@@ -175,4 +175,6 @@ public abstract class CPU extends Device {
         lastTrace = trace;
         singleTraceEnabled = false;
     }
+
+    abstract public void clearState();
 }

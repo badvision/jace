@@ -9,6 +9,7 @@ import jace.core.RAMEvent;
 import jace.core.RAMListener;
 import jace.core.Utility;
 import java.util.Calendar;
+import java.util.Optional;
 import javafx.scene.control.Label;
 
 /**
@@ -28,7 +29,7 @@ public class NoSlotClock extends Device {
     public boolean writeEnabled = false;
     @ConfigurableField(category = "Clock", name = "Patch Prodos", description = "If enabled, prodos clock routines will be patched directly", defaultValue = "false")
     public boolean patchProdosClock = false;
-    Label clockIcon;
+    Optional<Label> clockIcon;
 
     private final RAMListener listener = new RAMListener(RAMEvent.TYPE.ANY, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
         @Override
@@ -89,7 +90,7 @@ public class NoSlotClock extends Device {
     public NoSlotClock(Computer computer) {
         super(computer);
         this.clockIcon = Utility.loadIconLabel("clock.png");
-        this.clockIcon.setText("No Slot Clock");
+        this.clockIcon.ifPresent(icon -> icon.setText("No Slot Clock"));
     }
 
     @Override
@@ -133,7 +134,8 @@ public class NoSlotClock extends Device {
         storeBCD(now.get(Calendar.MONTH) + 1, 6);
         storeBCD(now.get(Calendar.YEAR) % 100, 7);
         clockActive = true;
-        EmulatorUILogic.addIndicator(this, clockIcon, 1000);
+        clockIcon.ifPresent(icon
+                -> EmulatorUILogic.addIndicator(this, icon, 1000));
         if (patchProdosClock) {
             CardThunderclock.performProdosPatch(computer);
         }

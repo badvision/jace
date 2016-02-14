@@ -59,8 +59,8 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
     @Override
     public void setSlot(int slot) {
         super.setSlot(slot);
-        drive1.getIcon().setText("S" + getSlot() + "D1");
-        drive2.getIcon().setText("S" + getSlot() + "D2");
+        drive1.getIcon().ifPresent(icon->icon.setText("S" + getSlot() + "D1"));
+        drive2.getIcon().ifPresent(icon->icon.setText("S" + getSlot() + "D2"));
     }
 
     @Override

@@ -20,6 +20,7 @@ package jace.library;
 
 import jace.library.MediaEntry.MediaFile;
 import java.io.IOException;
+import java.util.Optional;
 import javafx.scene.control.Label;
 
 /**
@@ -27,8 +28,8 @@ import javafx.scene.control.Label;
  * @author brobert
  */
 public interface MediaConsumer {
-    public Label getIcon();
-    public void setIcon(Label i);
+    public Optional<Label> getIcon();
+    public void setIcon(Optional<Label> i);
     public void insertMedia(MediaEntry e, MediaFile f) throws IOException;
     public MediaEntry getMediaEntry();
     public MediaFile getMediaFile();
