@@ -28,6 +28,7 @@ import jace.core.Motherboard;
 import jace.core.RAM;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
+import jace.core.Utility;
 import jace.state.Stateful;
 import jace.core.Video;
 import jace.hardware.CardDiskII;
@@ -193,6 +194,12 @@ public class Apple2e extends Computer {
     @Override
     public final void reconfigure() {
         boolean restart = pause();
+        
+        if (Utility.isHeadlessMode()) {
+            joy1enabled = false;
+            joy2enabled = false;
+            
+        }
 
         super.reconfigure();
 
