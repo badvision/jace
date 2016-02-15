@@ -53,7 +53,6 @@ public class Basic6502FuncationalityTest {
 
     @AfterClass
     public static void teardownClass() {
-        computer.deactivate();
     }
 
     @Before
