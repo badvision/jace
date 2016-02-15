@@ -38,7 +38,11 @@ public abstract class DynamicSelection<T> implements ISelection<T> {
             return currentValue;
         } else {
             Iterator<? extends T> i = getSelections().keySet().iterator();
-            return i.next();
+            if (i.hasNext()) {
+                return i.next();
+            } else {
+                return null;
+            }
         }
     }
     
