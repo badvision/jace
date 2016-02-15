@@ -20,6 +20,7 @@ import jace.apple2e.Apple2e;
 import jace.apple2e.MOS65C02;
 import jace.core.Computer;
 import jace.core.RAM;
+import jace.core.SoundMixer;
 import jace.core.Utility;
 import jace.ide.HeadlessProgram;
 import jace.ide.Program;
@@ -45,10 +46,12 @@ public class Basic6502FuncationalityTest {
     @BeforeClass
     public static void setupClass() {
         Utility.setHeadlessMode(true);
+        SoundMixer.MUTE = true;
         computer = new Apple2e();
         cpu = (MOS65C02) computer.getCpu();
         ram = computer.getMemory();
         Emulator.computer = (Apple2e) computer;
+        computer.pause();
     }
 
     @AfterClass
@@ -57,6 +60,7 @@ public class Basic6502FuncationalityTest {
 
     @Before
     public void setup() {
+        cpu.suspend();
         for (int i = 0; i < 1024; i++) {
             ram.write(i, (byte) 0, false, false);
         }
@@ -74,6 +78,7 @@ public class Basic6502FuncationalityTest {
     public void testAdditionNonDecimal() {
         cpu.A = 0;
         cpu.D = false;
+        cpu.C = 0;
         assemble(" adc #1");
         assertEquals("Nothing should change yet", 0, cpu.A);
         cpu.tick();

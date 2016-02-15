@@ -61,6 +61,9 @@ public class SoundMixer extends Device {
      */
     @ConfigurableField(name = "Playback Rate", shortName = "freq")
     public static int RATE = 48000;
+    @ConfigurableField(name = "Mute", shortName = "mute")
+    public static boolean MUTE = false;
+    
     /**
      * Sound format used for playback
      */
@@ -104,7 +107,9 @@ public class SoundMixer extends Device {
 
     @Override
     public synchronized void reconfigure() {
-        if (isConfigDifferent()) {
+        if (MUTE) {
+            detach();
+        } else if (isConfigDifferent()) {
             detach();
             try {
                 initMixer();

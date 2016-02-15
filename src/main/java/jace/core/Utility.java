@@ -285,6 +285,10 @@ public class Utility {
     public static void setHeadlessMode(boolean headless) {
         isHeadless = headless;
     }
+
+    public static boolean isHeadlessMode() {
+        return isHeadless;
+    }
     
     public static Optional<Image> loadIcon(String filename) {
         if (isHeadless) {
