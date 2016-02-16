@@ -24,8 +24,6 @@ import jace.core.SoundMixer;
 import jace.core.Utility;
 import jace.ide.HeadlessProgram;
 import jace.ide.Program;
-import java.util.Collections;
-import org.junit.After;
 import org.junit.AfterClass;
 import static org.junit.Assert.*;
 import org.junit.Before;
@@ -61,17 +59,7 @@ public class Basic6502FuncationalityTest {
     @Before
     public void setup() {
         cpu.suspend();
-        for (int i = 0; i < 1024; i++) {
-            ram.write(i, (byte) 0, false, false);
-        }
-        cpu.setProgramCounter(0);
-        cpu.setWaitCycles(0);
         cpu.clearState();
-    }
-
-    @After
-    public void teardown() {
-
     }
 
     @Test
@@ -80,15 +68,48 @@ public class Basic6502FuncationalityTest {
         cpu.D = false;
         cpu.C = 0;
         assemble(" adc #1");
-        assertEquals("Nothing should change yet", 0, cpu.A);
-        cpu.tick();
-        assertEquals("0+1 = 1", 1, cpu.A);        
+        assertEquals("0+1 (c=0) = 1", 1, cpu.A);
         assertFalse("Result is not zero", cpu.Z);
     }
 
+    @Test
+    public void testAdditionNonDecimalWithCarry() {
+        cpu.A = 0;
+        cpu.D = false;
+        cpu.C = 1;
+        assemble(" adc #1");
+        assertEquals("0+1 (c=1) = 2", 2, cpu.A);
+        assertFalse("Result is not zero", cpu.Z);
+    }
+    
+    @Test
+    public void testAdditionDecimal() {
+        cpu.A = 9;
+        cpu.D = true;
+        cpu.C = 0;
+        assemble(" adc #1");
+        assertEquals("9+1 (c=0) = 0x10", 0x10, cpu.A);
+        assertFalse("Result is not zero", cpu.Z);
+    }
+    
+    @Test
+    public void testAdditionDecimalWithCarry() {
+        cpu.A = 9;
+        cpu.D = true;
+        cpu.C = 1;
+        assemble(" adc #1");
+        assertEquals("9+1 (c=1) = 0x11", 0x11, cpu.A);
+        assertFalse("Result is not zero", cpu.Z);
+    }
+    
     private void assemble(String code) {
+        assembleAt(code, 0x0300);
+    }
+    
+    private void assembleAt(String code, int addr) {
         HeadlessProgram program = new HeadlessProgram(Program.DocumentType.assembly);
-        program.setValue("*=0\n"+code+"\n BRK");
+        program.setValue("*="+Integer.toHexString(addr)+"\n"+code+"\n BRK");
         program.execute();
+        cpu.tick();
     }
 }

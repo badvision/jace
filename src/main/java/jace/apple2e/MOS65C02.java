@@ -98,6 +98,7 @@ public class MOS65C02 extends CPU {
         V = true;
         N = true;
         STACK = 0xff;
+        setWaitCycles(0);
     }
     
     public enum OPCODE {
@@ -435,21 +436,21 @@ public class MOS65C02 extends CPU {
             }
             return address;
         }),
-        ZP_REL(2, "$~1,$R", new AddressCalculator() {
+        ZP_REL(3, "$~1,$R", new AddressCalculator() {
             @Override
             public int calculateAddress(MOS65C02 cpu) {
                 // Note: This is two's compliment addition and the cpu.getMemory().read() returns a signed 8-bit value
                 int pc = cpu.getProgramCounter();
-                int address = pc + 2 + cpu.getMemory().read(pc + 2, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+                int address = pc + 3 + cpu.getMemory().read(pc + 2, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
                 // The wait cycles are not added unless the branch actually happens!
-                cpu.setPageBoundaryPenalty((address & 0x00ff00) != (pc & 0x00ff00));
+                cpu.setPageBoundaryPenalty((address & 0x00ff00) != ((pc+3) & 0x00ff00));
                 return address;
             }
 
             @Override
             public int getValue(boolean isRead, MOS65C02 cpu) {
                 int pc = cpu.getProgramCounter();
-                int address = cpu.getMemory().read(pc + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+                int address = 0x0ff & cpu.getMemory().read(pc + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
                 return cpu.getMemory().read(address, TYPE.READ_DATA, true, false);
             }
         });
@@ -542,10 +543,7 @@ public class MOS65C02 extends CPU {
 
         @Override
         public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
-            if (((value >> bit) & 1) != 0) {
-                return;
-            }
-            if (cpu.C != 0) {
+            if ((value & (1 << bit)) == 0) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
@@ -562,10 +560,7 @@ public class MOS65C02 extends CPU {
 
         @Override
         public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
-            if (((value >> bit) & 1) == 0) {
-                return;
-            }
-            if (cpu.C != 0) {
+            if ((value & (1 << bit)) != 0) {
                 cpu.setProgramCounter(address);
                 cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
             }
