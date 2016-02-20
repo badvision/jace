@@ -58,7 +58,13 @@ public enum SoftSwitches {
     null, RAMEvent.TYPE.ANY, true)),
     //Renamed as per Sather 5-7
     _80COL(new VideoSoftSwitch("80ColumnVideo (80COL/80VID)", 0x0c00c, 0x0c00d, 0x0c01f, RAMEvent.TYPE.WRITE, false)),
-    ALTCH(new VideoSoftSwitch("Mousetext", 0x0c00e, 0x0c00f, 0x0c01e, RAMEvent.TYPE.WRITE, false)),
+    ALTCH(new VideoSoftSwitch("Mousetext", 0x0c00e, 0x0c00f, 0x0c01e, RAMEvent.TYPE.WRITE, false){
+        @Override
+        public void stateChanged() {
+            super.stateChanged();
+            computer.getVideo().forceRefresh();
+        }
+    }),
     TEXT(new VideoSoftSwitch("Text", 0x0c050, 0x0c051, 0x0c01a, RAMEvent.TYPE.ANY, true)),
     MIXED(new VideoSoftSwitch("Mixed", 0x0c052, 0x0c053, 0x0c01b, RAMEvent.TYPE.ANY, false)),
     PAGE2(new VideoSoftSwitch("Page2", 0x0c054, 0x0c055, 0x0c01c, RAMEvent.TYPE.ANY, false) {
