@@ -241,23 +241,6 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     @InvokableAction(
-            name = "Adjust display",
-            category = "display",
-            description = "Adjusts window size to 1:1 aspect ratio for optimal viewing.",
-            alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;",
-            defaultKeyMapping = "ctrl+shift+a")
-
-    static public void scaleIntegerRatio() {
-//        AbstractEmulatorFrame frame = Emulator.getFrame();
-//        if (frame == null) {
-//            return;
-//        }
-//        Emulator.computer.pause();
-//        frame.enforceIntegerRatio();
-//        Emulator.computer.resume();
-    }
-
-    @InvokableAction(
             name = "Toggle Debug",
             category = "debug",
             description = "Show/hide the debug panel",
@@ -394,6 +377,34 @@ public class EmulatorUILogic implements Reconfigurable {
             editorWindow.show();
         } catch (IOException exception) {
             throw new RuntimeException(exception);
+        }
+    }
+
+    static int size = -1;
+    @InvokableAction(
+            name = "Resize window",
+            category = "UI",
+            description = "Resize the screen to 1x/1.5x/2x video size",
+            alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;",
+            defaultKeyMapping = {"ctrl+shift+a"})
+    public static void scaleIntegerRatio() {
+        JaceApplication.getApplication().primaryStage.setFullScreen(false);
+        size++;
+        if (size > 2) {
+            size = 0;
+        }
+        switch (size) {
+            case 0:
+                JaceApplication.getApplication().primaryStage.setWidth(560);
+                JaceApplication.getApplication().primaryStage.setHeight(384);
+                break;
+            case 1:
+                JaceApplication.getApplication().primaryStage.setWidth(840);
+                JaceApplication.getApplication().primaryStage.setHeight(576);
+                break;
+            default:
+                JaceApplication.getApplication().primaryStage.setWidth(1020);
+                JaceApplication.getApplication().primaryStage.setHeight(768);
         }
     }
 
