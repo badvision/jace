@@ -18,6 +18,7 @@
  */
 package jace.core;
 
+import jace.Emulator;
 import jace.state.Stateful;
 import jace.config.ConfigurableField;
 import jace.config.InvokableAction;
@@ -273,11 +274,13 @@ public abstract class Video extends Device {
     category = "display",
     description = "Marks screen contents as changed, forcing full screen redraw",
     alternatives = "redraw",
-    defaultKeyMapping = "ctrl+shift+r")
-    public final void forceRefresh() {
-        lineDirty = true;
-        screenDirty = true;
-        forceRedrawRowCount = APPLE_SCREEN_LINES + 1;
+    defaultKeyMapping = {"ctrl+shift+r"})
+    public static final void forceRefresh() {
+        if (Emulator.computer != null && Emulator.computer.video != null) {
+            Emulator.computer.video.lineDirty = true;
+            Emulator.computer.video.screenDirty = true;
+            Emulator.computer.video.forceRedrawRowCount = APPLE_SCREEN_LINES + 1;
+        }
     }
 
     @Override

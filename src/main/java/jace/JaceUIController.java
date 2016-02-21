@@ -34,6 +34,7 @@ import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.KeyEvent;
@@ -240,5 +241,29 @@ public class JaceUIController {
 
     public void removeMouseListener(EventHandler<MouseEvent> handler) {
         appleScreen.removeEventHandler(MouseEvent.ANY, handler);
+    }
+    
+    Label currentNotification = null;
+    public void displayNotification(String message) {
+        if (currentNotification != null) {
+            Label remove = currentNotification;
+            Application.invokeLater(() -> {            
+                stackPane.getChildren().remove(remove);
+            });        
+        }
+        Label notification = new Label(message);
+        notification.setEffect(new DropShadow(1.0, Color.DARKGREY));
+        notification.setTextFill(Color.WHITE);
+        Application.invokeLater(() -> {            
+            stackPane.getChildren().add(notification);
+        });
+        currentNotification = notification;
+        
+        notificationExecutor.schedule(()->{
+            Application.invokeLater(() -> {            
+                stackPane.getChildren().remove(notification);
+                currentNotification = null;
+            });                    
+        }, 4, TimeUnit.SECONDS);
     }
 }

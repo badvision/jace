@@ -635,7 +635,7 @@ public class VideoDHGR extends Video {
         }
     }
     static final Color BLACK = Color.BLACK;
-    static final Color WHITE = Color.WHITE;
+    static Color WHITE = Color.WHITE;
     static final int[][] XY_OFFSET;
 
     static {

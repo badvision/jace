@@ -18,8 +18,11 @@
  */
 package jace.apple2e;
 
+import jace.Emulator;
+import jace.EmulatorUILogic;
 import static jace.apple2e.VideoDHGR.BLACK;
 import jace.config.ConfigurableField;
+import jace.config.InvokableAction;
 import jace.core.Computer;
 import jace.core.RAM;
 import jace.core.RAMEvent;
@@ -29,6 +32,7 @@ import java.util.HashSet;
 import java.util.Set;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
+import javafx.scene.paint.Color;
 
 /**
  * Provides a clean color monitor simulation, complete with text-friendly
@@ -68,6 +72,67 @@ public class VideoNTSC extends VideoDHGR {
         registerStateListeners();
     }
 
+    public static enum VideoMode {
+        Color("Color"),
+        TextFriendly("Text-friendly color"),
+        Mode7("Mode7 Mixed RGB"),
+        Mode7TextFriendly("Mode7 with Text-friendly palette"),
+        Monochrome("Mono"),
+        Greenscreen("Green"),
+        Amber("Amber");
+        String name;
+        VideoMode(String n) {
+            name = n;
+        }
+    }
+    
+    static int currentMode = -1;
+    @InvokableAction(name = "Toggle video mode",
+            category = "video",
+            alternatives = "mode,color,b&w,monochrome",
+            defaultKeyMapping = {"ctrl+shift+g"})
+    public static void changeVideoMode() {
+        VideoNTSC thiss = (VideoNTSC) Emulator.computer.video;
+        currentMode++;
+        if (currentMode >= VideoMode.values().length) {
+            currentMode = 0;
+        }
+        thiss.monochomeMode = false;
+        WHITE = Color.WHITE;
+        switch (VideoMode.values()[currentMode]) {
+            case Amber:
+                thiss.monochomeMode = true;
+                WHITE = Color.web("ff8000");
+                break;
+            case Greenscreen:
+                thiss.monochomeMode = true;
+                WHITE = Color.web("0ccc68");
+                break;
+            case Monochrome:
+                thiss.monochomeMode = true;
+                break;
+            case Color:
+                thiss.useTextPalette = false;
+                thiss.enableVideo7 = false;
+                break;
+            case Mode7:
+                thiss.useTextPalette = false;
+                thiss.enableVideo7 = true;
+                break;
+            case Mode7TextFriendly:
+                thiss.useTextPalette = true;
+                thiss.enableVideo7 = true;
+                break;
+            case TextFriendly:
+                thiss.useTextPalette = true;
+                thiss.enableVideo7 = false;
+                break;
+        }
+        thiss.activePalette = thiss.useTextPalette ? TEXT_PALETTE : SOLID_PALETTE;
+        EmulatorUILogic.notify("Video mode: "+VideoMode.values()[currentMode].name);
+        forceRefresh();
+    }
+    
     @Override
     protected void showBW(WritableImage screen, int x, int y, int dhgrWord) {
         int pos = divBy28[x];
@@ -169,6 +234,7 @@ public class VideoNTSC extends VideoDHGR {
         }
     }
 
+    boolean monochomeMode = false;
     private void renderScanline(WritableImage screen, int y) {
         int p = 0;
         if (rowStart != 0) {
@@ -202,7 +268,7 @@ public class VideoNTSC extends VideoDHGR {
             boolean mixed = enableVideo7 && dhgrMode && graphicsMode == rgbMode.MIX;
             for (int i = 0; i < 28; i++) {
                 if (i % 7 == 0) {
-                    isBW = !colorActive[byteCounter] || (mixed && !hiresMode && !useColor[byteCounter]);
+                    isBW = monochomeMode || !colorActive[byteCounter] || (mixed && !hiresMode && !useColor[byteCounter]);
                     byteCounter++;
                 }
                 if (isBW) {

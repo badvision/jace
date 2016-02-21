@@ -18,6 +18,7 @@
  */
 package jace;
 
+import com.sun.javafx.tk.quantum.OverlayWarning;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
@@ -495,6 +496,12 @@ public class EmulatorUILogic implements Reconfigurable {
             }
             computer.keyboard.openApple(false);
         });
+    }
+
+    public static void notify(String message) {
+        if (JaceApplication.singleton != null) {
+            JaceApplication.singleton.controller.displayNotification(message);
+        }
     }
 
     @Override
