@@ -264,9 +264,11 @@ public class EmulatorUILogic implements Reconfigurable {
             alternatives = "fullscreen,maximize",
             defaultKeyMapping = "ctrl+shift+f")
     public static void toggleFullscreen() {
-        Stage stage = JaceApplication.getApplication().primaryStage;
-        stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
-        stage.setFullScreen(!stage.isFullScreen());
+        Platform.runLater(() -> {
+            Stage stage = JaceApplication.getApplication().primaryStage;
+            stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
+            stage.setFullScreen(!stage.isFullScreen());
+        });
     }
 
     @InvokableAction(
@@ -384,6 +386,7 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     static int size = -1;
+
     @InvokableAction(
             name = "Resize window",
             category = "general",
@@ -391,24 +394,26 @@ public class EmulatorUILogic implements Reconfigurable {
             alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;",
             defaultKeyMapping = {"ctrl+shift+a"})
     public static void scaleIntegerRatio() {
-        JaceApplication.getApplication().primaryStage.setFullScreen(false);
-        size++;
-        if (size > 2) {
-            size = 0;
-        }
-        switch (size) {
-            case 0:
-                JaceApplication.getApplication().primaryStage.setWidth(560);
-                JaceApplication.getApplication().primaryStage.setHeight(384);
-                break;
-            case 1:
-                JaceApplication.getApplication().primaryStage.setWidth(840);
-                JaceApplication.getApplication().primaryStage.setHeight(576);
-                break;
-            default:
-                JaceApplication.getApplication().primaryStage.setWidth(1020);
-                JaceApplication.getApplication().primaryStage.setHeight(768);
-        }
+        Platform.runLater(() -> {
+            JaceApplication.getApplication().primaryStage.setFullScreen(false);
+            size++;
+            if (size > 2) {
+                size = 0;
+            }
+            switch (size) {
+                case 0:
+                    JaceApplication.getApplication().primaryStage.setWidth(560);
+                    JaceApplication.getApplication().primaryStage.setHeight(384);
+                    break;
+                case 1:
+                    JaceApplication.getApplication().primaryStage.setWidth(840);
+                    JaceApplication.getApplication().primaryStage.setHeight(576);
+                    break;
+                default:
+                    JaceApplication.getApplication().primaryStage.setWidth(1020);
+                    JaceApplication.getApplication().primaryStage.setHeight(768);
+            }
+        });
     }
 
     public static boolean confirm(String message) {
