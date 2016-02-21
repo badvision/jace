@@ -47,6 +47,7 @@ public class JaceApplication extends Application {
             Scene s = new Scene(node);
             primaryStage.setScene(s);
             primaryStage.setTitle("Jace");
+            EmulatorUILogic.scaleIntegerRatio();
             Utility.loadIcon("woz_figure.gif").ifPresent(primaryStage.getIcons()::add);
         } catch (IOException exception) {
             throw new RuntimeException(exception);

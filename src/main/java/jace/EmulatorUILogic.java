@@ -52,6 +52,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.FileChooser;
@@ -256,14 +257,16 @@ public class EmulatorUILogic implements Reconfigurable {
 //        Emulator.resizeVideo();
     }
 
+    @InvokableAction(
+            name = "Toggle fullscreen",
+            category = "general",
+            description = "Activate/deactivate fullscreen mode",
+            alternatives = "fullscreen,maximize",
+            defaultKeyMapping = "ctrl+shift+f")
     public static void toggleFullscreen() {
-//        AbstractEmulatorFrame frame = Emulator.getFrame();
-//        if (frame == null) {
-//            return;
-//        }
-//        Emulator.computer.pause();
-//        frame.toggleFullscreen();
-//        Emulator.computer.resume();
+        Stage stage = JaceApplication.getApplication().primaryStage;
+        stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
+        stage.setFullScreen(!stage.isFullScreen());
     }
 
     @InvokableAction(
@@ -383,7 +386,7 @@ public class EmulatorUILogic implements Reconfigurable {
     static int size = -1;
     @InvokableAction(
             name = "Resize window",
-            category = "UI",
+            category = "general",
             description = "Resize the screen to 1x/1.5x/2x video size",
             alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;",
             defaultKeyMapping = {"ctrl+shift+a"})
