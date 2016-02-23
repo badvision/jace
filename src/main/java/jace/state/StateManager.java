@@ -21,14 +21,17 @@ package jace.state;
 import jace.Emulator;
 import jace.apple2e.SoftSwitches;
 import jace.config.ConfigurableField;
+import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
 import jace.core.Computer;
 import jace.core.PagedMemory;
+import jace.core.Video;
 import java.awt.image.BufferedImage;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +40,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
+import javafx.scene.input.KeyCode;
 
 /**
  *
@@ -64,12 +68,13 @@ public class StateManager implements Reconfigurable {
     private ObjectGraphNode<BufferedImage> imageGraphNode;
 
     Computer computer;
+
     private StateManager(Computer computer) {
         this.computer = computer;
     }
 
     private void buildStateMap() {
-        allStateVariables = new HashSet<>();
+        allStateVariables = new LinkedHashSet<>();
         objectLookup = new WeakHashMap<>();
         ObjectGraphNode emulator = new ObjectGraphNode(Emulator.instance);
         emulator.name = "Emulator";
@@ -295,7 +300,7 @@ public class StateManager implements Reconfigurable {
 
     public void captureState() {
         // If the state graph is invalidated it means we have to abandon all
-                                // previously captured states.  This helps ensure that rewinding will
+        // previously captured states.  This helps ensure that rewinding will
         // not result in an unintended or invalid state.
         if (!isValid) {
             alphaState = null;
@@ -402,6 +407,17 @@ public class StateManager implements Reconfigurable {
         captureState();
     }
 
+    @InvokableAction(
+            name = "Rewind",
+            alternatives = "Timewarp",
+            description = "Go back 1 second",
+            defaultKeyMapping = {"ctrl+shift+Open Bracket"}
+    )
+    public static void beKindRewind() {
+        StateManager manager = getInstance(Emulator.computer);
+        new Thread(()->manager.rewind(60 / manager.captureFrequency)).start();
+    }
+
     public void rewind(int numStates) {
         boolean resume = computer.pause();
         State state = alphaState.tail;
@@ -412,7 +428,7 @@ public class StateManager implements Reconfigurable {
         state.apply();
         alphaState.tail = state;
         state.nextState = null;
-        computer.getVideo().forceRefresh();
+        Video.forceRefresh();
         System.gc();
         if (resume) {
             computer.resume();

@@ -29,10 +29,9 @@ import javafx.scene.image.WritableImage;
  * Generic abstraction of a 560x192 video output device which renders 40 columns
  * per scanline. This also triggers VBL and updates the physical screen.
  * Subclasses are used to manage actual rendering via ScreenWriter
- * implementations.
- * Created on November 10, 2006, 4:29 PM
+ * implementations. Created on November 10, 2006, 4:29 PM
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Stateful
 public abstract class Video extends Device {
@@ -90,6 +89,7 @@ public abstract class Video extends Device {
 
     /**
      * Creates a new instance of Video
+     *
      * @param computer
      */
     public Video(Computer computer) {
@@ -99,21 +99,21 @@ public abstract class Video extends Device {
         visible = new WritableImage(560, 192);
         vPeriod = 0;
         hPeriod = 0;
-        forceRefresh();
+        _forceRefresh();
     }
 
     public void setWidth(int w) {
         width = w;
     }
-    
+
     public int getWidth() {
         return width;
     }
-    
+
     public void setHeight(int h) {
         height = h;
     }
-    
+
     public int getHeight() {
         return height;
     }
@@ -136,6 +136,7 @@ public abstract class Video extends Device {
             visible.getPixelWriter().setPixels(0, 0, 560, 192, video.getPixelReader(), 0, 0);
         }
     };
+
     public void redraw() {
         screenDirty = false;
         javafx.application.Platform.runLater(redrawScreen);
@@ -209,8 +210,8 @@ public abstract class Video extends Device {
     abstract public void configureVideoMode();
 
     protected static int byteDoubler(byte b) {
-        int num =
-                // Skip hi-bit because it's not used in display
+        int num
+                = // Skip hi-bit because it's not used in display
                 //                ((b&0x080)<<7) |
                 ((b & 0x040) << 6)
                 | ((b & 0x020) << 5)
@@ -271,16 +272,20 @@ public abstract class Video extends Device {
     }
 
     @InvokableAction(name = "Refresh screen",
-    category = "display",
-    description = "Marks screen contents as changed, forcing full screen redraw",
-    alternatives = "redraw",
-    defaultKeyMapping = {"ctrl+shift+r"})
+            category = "display",
+            description = "Marks screen contents as changed, forcing full screen redraw",
+            alternatives = "redraw",
+            defaultKeyMapping = {"ctrl+shift+r"})
     public static final void forceRefresh() {
         if (Emulator.computer != null && Emulator.computer.video != null) {
-            Emulator.computer.video.lineDirty = true;
-            Emulator.computer.video.screenDirty = true;
-            Emulator.computer.video.forceRedrawRowCount = APPLE_SCREEN_LINES + 1;
+            Emulator.computer.video._forceRefresh();
         }
+    }
+
+    private void _forceRefresh() {
+        lineDirty = true;
+        screenDirty = true;
+        forceRedrawRowCount = APPLE_SCREEN_LINES + 1;
     }
 
     @Override

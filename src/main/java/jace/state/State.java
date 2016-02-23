@@ -21,6 +21,7 @@ package jace.state;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import javafx.scene.image.Image;
 
@@ -78,7 +79,7 @@ public class State extends HashMap<ObjectGraphNode, StateValue> implements Seria
     }
 
     public void apply() {
-        Set<ObjectGraphNode> applied = new HashSet<>();
+        Set<ObjectGraphNode> applied = new LinkedHashSet<>();
         State current = this;
         while (current != null) {
             for (StateValue val : current.values()) {

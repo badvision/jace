@@ -46,6 +46,7 @@ public class Emulator {
      * @param args
      */
     public Emulator(List<String> args) {
+        instance = this;
         computer = new Apple2e();
         Configuration.buildTree();
         Configuration.loadSettings();
