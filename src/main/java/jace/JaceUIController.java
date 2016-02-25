@@ -41,6 +41,9 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
@@ -245,24 +248,20 @@ public class JaceUIController {
     
     Label currentNotification = null;
     public void displayNotification(String message) {
-        if (currentNotification != null) {
-            Label remove = currentNotification;
-            Application.invokeLater(() -> {            
-                stackPane.getChildren().remove(remove);
-            });        
-        }
+        Label oldNotification = currentNotification;
         Label notification = new Label(message);
-        notification.setEffect(new DropShadow(1.0, Color.DARKGREY));
+        currentNotification = notification;
+        notification.setEffect(new DropShadow(2.0, Color.BLACK));
         notification.setTextFill(Color.WHITE);
-        Application.invokeLater(() -> {            
+        notification.setBackground(new Background(new BackgroundFill(Color.rgb(0,0,80, 0.7), new CornerRadii(5.0), new Insets(-5.0))));
+        Application.invokeLater(() -> {  
+            stackPane.getChildren().remove(oldNotification);
             stackPane.getChildren().add(notification);
         });
-        currentNotification = notification;
         
         notificationExecutor.schedule(()->{
             Application.invokeLater(() -> {            
                 stackPane.getChildren().remove(notification);
-                currentNotification = null;
             });                    
         }, 4, TimeUnit.SECONDS);
     }
