@@ -401,19 +401,25 @@ public class EmulatorUILogic implements Reconfigurable {
             if (size > 2) {
                 size = 0;
             }
+            int width, height = 0;
             switch (size) {
                 case 0:
-                    JaceApplication.getApplication().primaryStage.setWidth(560);
-                    JaceApplication.getApplication().primaryStage.setHeight(384);
+                    width = 560;
+                    height = 384;
                     break;
                 case 1:
-                    JaceApplication.getApplication().primaryStage.setWidth(840);
-                    JaceApplication.getApplication().primaryStage.setHeight(576);
+                    width = 840;
+                    height = 576;
                     break;
                 default:
-                    JaceApplication.getApplication().primaryStage.setWidth(1020);
-                    JaceApplication.getApplication().primaryStage.setHeight(768);
+                    width = 1120;
+                    height = 768;
             }
+            Stage stage = JaceApplication.getApplication().primaryStage;
+            double vgap = stage.getScene().getY();
+            double hgap = stage.getScene().getX();
+            stage.setWidth(hgap*2 + width);
+            stage.setHeight(vgap + height);
         });
     }
 
