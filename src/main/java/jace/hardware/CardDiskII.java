@@ -56,7 +56,7 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     static public boolean USE_MAX_SPEED = true;
     @ConfigurableField(category = "Disk", defaultValue = "", shortName = "d1", name = "Drive 1 disk image", description = "Path of disk 1")
     public String disk1;
-    @ConfigurableField(category = "Disk", defaultValue = "", shortName = "d2", name = "Drive 2 disk image", description = "Path of disk 1")
+    @ConfigurableField(category = "Disk", defaultValue = "", shortName = "d2", name = "Drive 2 disk image", description = "Path of disk 2")
     public String disk2;
 
     public CardDiskII(Computer computer) {

@@ -284,7 +284,7 @@ public class Configuration implements Reconfigurable {
 //            System.out.println("Evaluating field " + f.getName());
             try {
                 Object o = f.get(node.subject);
-                if (!f.getType().isPrimitive() && visited.contains(o)) {
+                if (!f.getType().isPrimitive() && f.getType() != String.class && visited.contains(o)) {
                     continue;
                 }
                 visited.add(o);
