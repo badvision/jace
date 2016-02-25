@@ -81,7 +81,8 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
         currentDrive = drive1;
         drive1.reset();
         drive2.reset();
-        EmulatorUILogic.removeIndicators(this);
+        EmulatorUILogic.removeIndicators(drive1);
+        EmulatorUILogic.removeIndicators(drive2);
 //        Motherboard.cancelSpeedRequest(this);
     }
 
@@ -104,13 +105,13 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
             case 0x8:
                 // drive off
                 currentDrive.setOn(false);
-                currentDrive.getIcon().ifPresent(icon->EmulatorUILogic.removeIndicator(this, icon));
+                currentDrive.removeIndicator();
                 break;
 
             case 0x9:
                 // drive on
                 currentDrive.setOn(true);
-                currentDrive.getIcon().ifPresent(icon->EmulatorUILogic.addIndicator(this, icon));
+                currentDrive.addIndicator();
                 break;
 
             case 0xA:
@@ -127,9 +128,6 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
                 // read/write latch
                 currentDrive.write();
                 e.setNewValue(currentDrive.readLatch());
-                if (currentDrive.isOn()) {
-                    currentDrive.getIcon().ifPresent(icon->EmulatorUILogic.removeIndicator(this, icon));
-                }
                 break;
             case 0xF:
                 // write mode

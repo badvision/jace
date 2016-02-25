@@ -95,12 +95,7 @@ public class Configuration implements Reconfigurable {
     }
 
     public static Optional<ImageView> getChangedIcon() {
-        Optional<Image> icon = Utility.loadIcon("icon_exclaim.gif");
-        if (icon.isPresent()) {
-            return Optional.of(new ImageView(icon.get()));
-        } else {
-            return Optional.empty();
-        }
+        return Utility.loadIcon("icon_exclaim.gif").map(ImageView::new);
     }
 
     @Override

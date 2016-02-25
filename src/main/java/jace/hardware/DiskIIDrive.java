@@ -18,6 +18,7 @@
  */
 package jace.hardware;
 
+import jace.EmulatorUILogic;
 import jace.core.Computer;
 import jace.library.MediaConsumer;
 import jace.library.MediaEntry;
@@ -241,6 +242,25 @@ public class DiskIIDrive implements MediaConsumer {
     public void setIcon(Optional<Label> i) {
         icon = i;
     }
+    
+    // Optionals make some things easier, but they slow down things considerably when called a lot
+    // This reduces the number of Optional checks when rapidly accessing the disk drive.
+    long lastAdded = 0;
+    public void addIndicator() {
+        long now = System.currentTimeMillis();
+        if (lastAdded == 0 || now - lastAdded >= 500) {
+            EmulatorUILogic.addIndicator(this, icon.get());
+            lastAdded = now;
+        }
+    }
+
+    public void removeIndicator() {
+        if (lastAdded > 0) {
+            EmulatorUILogic.removeIndicator(this, icon.get());
+            lastAdded = 0;
+        }
+    }
+    
     private MediaEntry currentMediaEntry;
     private MediaFile currentMediaFile;
 
