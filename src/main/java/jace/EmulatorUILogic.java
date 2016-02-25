@@ -391,29 +391,37 @@ public class EmulatorUILogic implements Reconfigurable {
     @InvokableAction(
             name = "Resize window",
             category = "general",
-            description = "Resize the screen to 1x/1.5x/2x video size",
+            description = "Resize the screen to 1x/1.5x/2x/3x video size",
             alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;",
             defaultKeyMapping = {"ctrl+shift+a"})
     public static void scaleIntegerRatio() {
         Platform.runLater(() -> {
             JaceApplication.getApplication().primaryStage.setFullScreen(false);
             size++;
-            if (size > 2) {
+            if (size > 3) {
                 size = 0;
             }
-            int width, height = 0;
+            int width = 0, height = 0;
             switch (size) {
-                case 0:
-                    width = 560;
+                case 0: // 1x
+                    width  = 560;
                     height = 384;
                     break;
-                case 1:
-                    width = 840;
+                case 1: // 1.5x
+                    width  = 840;
                     height = 576;
                     break;
-                default:
-                    width = 1120;
-                    height = 768;
+                case 2: // 2x
+                    width  = 560*2;
+                    height = 384*2;
+                    break;
+                case 3: // 3x (retina) 2880x1800
+                    width  = 560*3;
+                    height = 384*3;
+                    break;
+                default: // 2x
+                    width  = 560*2;
+                    height = 384*2;
             }
             Stage stage = JaceApplication.getApplication().primaryStage;
             double vgap = stage.getScene().getY();
