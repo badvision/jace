@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -51,152 +52,10 @@ import javafx.scene.paint.Color;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Utility {
-
-    //--------------- Introspection utilities
-    /*
-    private static Set<Class> findClasses(String pckgname, Class clazz) {
-        Set<Class> output = new HashSet<>();
-        // Code from JWhich
-        // ======
-        // Translate the package name into an absolute path
-        String name = pckgname;
-        if (!name.startsWith("/")) {
-            name = "/" + name;
-        }
-        name = name.replace('.', '/');
-
-        // Get a File object for the package
-        URL url = Utility.class.getResource(name);
-        if (url == null || url.getFile().contains("jre/lib")) {
-            return output;
-        }
-        if (url.getProtocol().equalsIgnoreCase("jar")) {
-            return findClassesInJar(url, clazz);
-        }
-
-        File directory = new File(url.getFile());
-        // New code
-        // ======
-        if (directory.exists()) {
-            // Get the list of the files contained in the package
-            for (String filename : directory.list()) {
-                char firstLetter = filename.charAt(0);
-                if (firstLetter < 'A' || (firstLetter > 'Z' && firstLetter < 'a') || firstLetter > 'z') {
-                    continue;
-                }
-                // we are only interested in .class files
-                if (filename.endsWith(".class")) {
-                    // removes the .class extension
-                    String classname = filename.substring(0, filename.length() - 6);
-                    try {
-                        // Try to create an instance of the object
-                        String className = pckgname + "." + classname;
-                        Class c = Class.forName(className);
-                        if (clazz.isAssignableFrom(c)) {
-                            output.add(c);
-                        }
-                    } catch (Throwable ex) {
-                        System.err.println(ex);
-                    }
-                } else {
-//                    System.out.println("Skipping non class: " + filename);
-                }
-            }
-        }
-        return output;
-    }
-
-    private static Set<Class> findClassesInJar(URL jarLocation, Class clazz) {
-        Set<Class> output = new HashSet<>();
-        JarFile jarFile = null;
-        try {
-            JarURLConnection conn = (JarURLConnection) jarLocation.openConnection();
-            jarFile = conn.getJarFile();
-            Enumeration<JarEntry> entries = jarFile.entries();
-            String last = "";
-            while (entries.hasMoreElements()) {
-                JarEntry jarEntry = entries.nextElement();
-                if (jarEntry.getName().equals(last)) {
-                    return output;
-                }
-                last = jarEntry.getName();
-                if (jarEntry.getName().endsWith(".class")) {
-                    String className = jarEntry.getName();
-                    className = className.substring(0, className.length() - 6);
-                    className = className.replaceAll("/", "\\.");
-                    if (className.startsWith("com.sun")) {
-                        continue;
-                    }
-                    if (className.startsWith("java")) {
-                        continue;
-                    }
-                    if (className.startsWith("javax")) {
-                        continue;
-                    }
-                    if (className.startsWith("com.oracle")) {
-                        continue;
-                    }
-                    // removes the .class extension
-                    try {
-                        // Try to create an instance of the object
-//                        System.out.println("Class: " + className);
-                        Class c = Class.forName(className);
-                        if (clazz.isAssignableFrom(c)) {
-                            output.add(c);
-                        }
-                    } catch (ClassNotFoundException cnfex) {
-                        System.err.println(cnfex);
-                    } catch (Throwable cnfex) {
-//                        System.err.println(cnfex);
-                    }
-                } else {
-//                    System.out.println("Skipping non class: " + jarEntry.getName());
-                }
-            }
-        } catch (IOException ex) {
-            Logger.getLogger(Utility.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            try {
-                if (jarFile != null) {
-                    jarFile.close();
-                }
-            } catch (IOException ex) {
-                Logger.getLogger(Utility.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-        return output;
-    }
-    private static final Map<Class, Collection<Class>> classCache = new HashMap<>();
-*/
     static Reflections reflections = new Reflections("jace");
     public static Set<Class> findAllSubclasses(Class clazz) {
         return reflections.getSubTypesOf(clazz);
     }
-    /*
-    public static List<Class> findAllSubclasses(Class clazz) {
-        if (classCache.containsKey(clazz)) {
-            return (List<Class>) classCache.get(clazz);
-        }
-        TreeMap<String, Class> allClasses = new TreeMap<>();
-        List<Class> values = new ArrayList(allClasses.values());
-        classCache.put(clazz, values);
-        for (Package p : Package.getPackages()) {
-            if (p.getName().startsWith("java")
-                    || p.getName().startsWith("com.sun")
-                    || p.getName().startsWith("sun")
-                    || p.getName().startsWith("com.oracle")) {
-                continue;
-            }
-            findClasses(p.getName(), clazz)
-                    .stream()
-                    .filter((c) -> !(Modifier.isAbstract(c.getModifiers())))
-                    .forEach((c) -> {
-                        allClasses.put(c.getSimpleName(), c);
-                    });
-        }
-        return values;
-    }
-    */
 
     //------------------------------ String comparators
     /**
@@ -271,14 +130,8 @@ public class Utility {
         return score * adjustment * adjustment;
     }
 
-    public static String join(Collection c, String d) {
-        String result = "";
-        boolean isFirst = true;
-        for (Object o : c) {
-            result += (isFirst ? "" : d) + o.toString();
-            isFirst = false;
-        }
-        return result;
+    public static String join(Collection<String> c, String d) {
+        return c.stream().collect(Collectors.joining(d));
     }
 
     private static boolean isHeadless = false;

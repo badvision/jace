@@ -598,7 +598,7 @@ public class Configuration implements Reconfigurable {
                 }
             }
             if (!found) {
-                System.err.println("Unable to find property " + fieldName + " for device " + deviceName + ".  Try one of these :" + Utility.join(shortFieldNames, ", "));
+                System.err.println("Unable to find property " + fieldName + " for device " + deviceName + ".  Try one of these: " + Utility.join(shortFieldNames, ", "));
             }
         }
     }

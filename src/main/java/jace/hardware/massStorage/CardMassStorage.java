@@ -20,6 +20,7 @@ package jace.hardware.massStorage;
 
 import jace.EmulatorUILogic;
 import jace.apple2e.MOS65C02;
+import jace.config.ConfigurableField;
 import jace.config.Name;
 import jace.core.Card;
 import jace.core.Computer;
@@ -28,8 +29,11 @@ import jace.core.RAMEvent.TYPE;
 import jace.core.Utility;
 import jace.hardware.ProdosDriver;
 import jace.hardware.SmartportDriver;
+import jace.library.MediaCache;
 import jace.library.MediaConsumer;
 import jace.library.MediaConsumerParent;
+import jace.library.MediaEntry;
+import java.io.File;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -43,6 +47,10 @@ import java.util.logging.Logger;
 @Name("Mass Storage Device")
 public class CardMassStorage extends Card implements MediaConsumerParent {
 
+    @ConfigurableField(category = "Disk", defaultValue = "", shortName = "d1", name = "Drive 1 disk image", description = "Path of disk 1")
+    public String disk1;
+    @ConfigurableField(category = "Disk", defaultValue = "", shortName = "d2", name = "Drive 2 disk image", description = "Path of disk 2")
+    public String disk2;
     MassStorageDrive drive1;
     MassStorageDrive drive2;
 
@@ -59,8 +67,8 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
     @Override
     public void setSlot(int slot) {
         super.setSlot(slot);
-        drive1.getIcon().ifPresent(icon->icon.setText("S" + getSlot() + "D1"));
-        drive2.getIcon().ifPresent(icon->icon.setText("S" + getSlot() + "D2"));
+        drive1.getIcon().ifPresent(icon -> icon.setText("S" + getSlot() + "D1"));
+        drive2.getIcon().ifPresent(icon -> icon.setText("S" + getSlot() + "D2"));
     }
 
     @Override
@@ -128,10 +136,28 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
     @Override
     public void reconfigure() {
         unregisterListeners();
+        if (disk1 != null && !disk1.isEmpty()) {
+            try {
+                MediaEntry entry = MediaCache.getMediaFromFile(new File(disk1));
+                drive1.insertMedia(entry, entry.files.get(0));
+                disk1 = null;
+            } catch (IOException ex) {
+                Logger.getLogger(CardMassStorage.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        if (disk2 != null && !disk2.isEmpty()) {
+            try {
+                MediaEntry entry = MediaCache.getMediaFromFile(new File(disk2));
+                drive2.insertMedia(entry, entry.files.get(0));
+                disk2 = null;
+            } catch (IOException ex) {
+                Logger.getLogger(CardMassStorage.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
         if (computer.getCpu() != null) {
             int pc = computer.getCpu().getProgramCounter();
             if (drive1.getCurrentDisk() != null && getSlot() == 7 && (pc >= 0x0c65e && pc <= 0x0c66F)) {
-                    // If the computer is in a loop trying to boot from cards 6, fast-boot from here instead
+                // If the computer is in a loop trying to boot from cards 6, fast-boot from here instead
                 // This is a convenience to boot a hard-drive if the emulator has started waiting for a currentDisk
                 currentDrive = drive1;
                 EmulatorUILogic.simulateCtrlAppleReset();
