@@ -139,8 +139,8 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
         if (disk1 != null && !disk1.isEmpty()) {
             try {
                 MediaEntry entry = MediaCache.getMediaFromFile(new File(disk1));
-                drive1.insertMedia(entry, entry.files.get(0));
                 disk1 = null;
+                drive1.insertMedia(entry, entry.files.get(0));
             } catch (IOException ex) {
                 Logger.getLogger(CardMassStorage.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -148,8 +148,8 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
         if (disk2 != null && !disk2.isEmpty()) {
             try {
                 MediaEntry entry = MediaCache.getMediaFromFile(new File(disk2));
-                drive2.insertMedia(entry, entry.files.get(0));
                 disk2 = null;
+                drive2.insertMedia(entry, entry.files.get(0));
             } catch (IOException ex) {
                 Logger.getLogger(CardMassStorage.class.getName()).log(Level.SEVERE, null, ex);
             }
