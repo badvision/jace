@@ -41,6 +41,9 @@ public class ApplesoftProgram {
 
     List<Line> lines = new ArrayList<>();
     public static final int startingAddressPointer = 0x067;
+    public static final int VARIABLE_TABLE = 0x069;
+    public static final int ARRAY_TABLE = 0x06b;
+    public static final int VARIABLE_TABLE_END = 0x06d;
     public static final int BASIC_RUN = 0x0e000;
     int startingAddress = 0x0801;
 
@@ -115,24 +118,26 @@ public class ApplesoftProgram {
         out = lines.stream().map((l) -> l.toString() + "\n").reduce(out, String::concat);
         return out;
     }
-    
+
     public static ApplesoftProgram fromString(String programSource) {
         ApplesoftProgram program = new ApplesoftProgram();
         for (String line : programSource.split("\\n")) {
-            if (line.trim().isEmpty()) continue;
+            if (line.trim().isEmpty()) {
+                continue;
+            }
             program.lines.add(Line.fromString(line));
         }
         //correct line linkage
-        for (int i=0; i < program.lines.size(); i++) {
+        for (int i = 0; i < program.lines.size(); i++) {
             if (i > 0) {
-                program.lines.get(i).setPrevious(program.lines.get(i-1));
+                program.lines.get(i).setPrevious(program.lines.get(i - 1));
             }
-            if (i < program.lines.size()-1) {
-                program.lines.get(i).setNext(program.lines.get(i+1));
+            if (i < program.lines.size() - 1) {
+                program.lines.get(i).setNext(program.lines.get(i + 1));
             }
         }
         return program;
-    };
+    }
 
     public void run() {
         RAM memory = Emulator.computer.memory;
@@ -140,10 +145,10 @@ public class ApplesoftProgram {
         int pos = memory.readWordRaw(startingAddressPointer);
         for (Line line : lines) {
             int nextPos = pos + line.getLength() + 1;
-            memory.write(pos++, (byte) (nextPos & 0x0ff), false, true);
-            memory.write(pos++, (byte) (nextPos>>8 & 0x0ff), false, true);
-            memory.write(pos++, (byte) (line.getNumber() & 0x0ff), false, true);
-            memory.write(pos++, (byte) (line.getNumber() >> 8 & 0x0ff), false, true);
+            memory.writeWord(pos, nextPos, false, true);
+            pos += 2;
+            memory.writeWord(pos, line.getNumber(), false, true);
+            pos += 2;
             boolean isFirst = true;
             for (Command command : line.getCommands()) {
                 if (!isFirst) {
@@ -160,8 +165,20 @@ public class ApplesoftProgram {
         memory.write(pos++, (byte) 0, false, true);
         memory.write(pos++, (byte) 0, false, true);
         memory.write(pos++, (byte) 0, false, true);
-        
+        clearVariables(pos);
 //        Emulator.computer.cpu.setProgramCounter(BASIC_RUN);
         Emulator.computer.resume();
+    }
+
+    /**
+     * Rough approximation of the CLEAR command at $D66A.
+     * http://www.txbobsc.com/scsc/scdocumentor/D52C.html
+     * @param programEnd Program ending address
+     */
+    private void clearVariables(int programEnd) {
+        RAM memory = Emulator.computer.memory;
+        memory.writeWord(ARRAY_TABLE, programEnd, false, true);
+        memory.writeWord(VARIABLE_TABLE, programEnd, false, true);
+        memory.writeWord(VARIABLE_TABLE_END, programEnd, false, true);
     }
 }
