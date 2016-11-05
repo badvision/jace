@@ -85,13 +85,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>javafx-packager</groupId>
-            <artifactId>javafx-packager</artifactId>
-            <version>1.7</version>
-            <systemPath>${java.home}/../lib/ant-javafx.jar</systemPath>
-            <scope>system</scope>
-        </dependency>
-        <dependency>
             <groupId>org.reflections</groupId>
             <artifactId>reflections</artifactId>
             <version>0.9.9</version>
@@ -101,6 +94,11 @@
             <artifactId>junit</artifactId>
             <version>4.10</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.xerial.thirdparty</groupId>
+            <artifactId>nestedvm</artifactId>
+            <version>1.0</version>
         </dependency>
     </dependencies>
 </project>
