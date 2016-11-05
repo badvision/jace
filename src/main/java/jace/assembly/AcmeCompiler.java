@@ -89,6 +89,15 @@ public class AcmeCompiler implements CompileResult<File> {
     ByteArrayOutputStream baosErr;
     PrintStream err;
 
+    private String normalizeWindowsPath(String path) {
+        if (path.contains("\\")) {
+            char firstLetter = path.toLowerCase().charAt(0);
+            return "/"+firstLetter+path.substring(1).replaceAll("\\\\", "/");
+        } else {
+            return path;
+        }
+    }
+    
     private void invokeAcme(File sourceFile, File workingDirectory) throws ClassNotFoundException, SecurityException, NoSuchMethodException, IOException {
         String oldPath = System.getProperty("user.dir");
         redirectSystemOutput();
@@ -96,7 +105,7 @@ public class AcmeCompiler implements CompileResult<File> {
             compiledAsset = File.createTempFile(sourceFile.getName(), "bin", sourceFile.getParentFile());
             System.setProperty("user.dir", workingDirectory.getAbsolutePath());
             AcmeCrossAssembler acme = new AcmeCrossAssembler();
-            String[] params = {"--outfile", compiledAsset.getAbsolutePath(), "-f", "cbm", "--maxerrors","16",sourceFile.getAbsolutePath()};
+            String[] params = {"--outfile", normalizeWindowsPath(compiledAsset.getAbsolutePath()), "-f", "cbm", "--maxerrors","16",normalizeWindowsPath(sourceFile.getAbsolutePath())};
             int status = acme.run("Acme", params);
             successful = status == 0;
             if (!successful) {

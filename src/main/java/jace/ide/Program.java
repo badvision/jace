@@ -221,6 +221,7 @@ public class Program {
         if (lastResult.isSuccessful()) {
             getHandler().execute(lastResult);
         } else {
+            lastResult.getOtherMessages().forEach(System.err::println);
             getHandler().clean(lastResult);
         }
     }

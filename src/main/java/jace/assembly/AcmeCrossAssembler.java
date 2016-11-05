@@ -1,7 +1,9 @@
 package jace.assembly;
+
+import  org.ibex.nestedvm.UnixRuntime;
 /* This file was generated from acme by Mips2Java on Tue Jul 14 00:46:52 CDT 2015 */
 
-public final class AcmeCrossAssembler extends org.ibex.nestedvm.UnixRuntime {
+public final class AcmeCrossAssembler extends UnixRuntime {
     /* program counter */
     private int pc = 0;
 
