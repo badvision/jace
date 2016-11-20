@@ -40,7 +40,8 @@ import java.util.logging.Logger;
 public class ApplesoftProgram {
 
     List<Line> lines = new ArrayList<>();
-    public static final int startingAddressPointer = 0x067;
+    public static final int START_OF_PROG_POINTER = 0x067;
+    public static final int END_OF_PROG_POINTER = 0x0AF;            
     public static final int VARIABLE_TABLE = 0x069;
     public static final int ARRAY_TABLE = 0x06b;
     public static final int VARIABLE_TABLE_END = 0x06d;
@@ -70,7 +71,7 @@ public class ApplesoftProgram {
     }
 
     public static ApplesoftProgram fromMemory(RAM memory) {
-        int startAddress = memory.readWordRaw(startingAddressPointer);
+        int startAddress = memory.readWordRaw(START_OF_PROG_POINTER);
         int nextCheck = memory.readWordRaw(startAddress);
         int pos = startAddress;
         List<Byte> bytes = new ArrayList<>();
@@ -142,7 +143,7 @@ public class ApplesoftProgram {
     public void run() {
         RAM memory = Emulator.computer.memory;
         Emulator.computer.pause();
-        int pos = memory.readWordRaw(startingAddressPointer);
+        int pos = memory.readWordRaw(START_OF_PROG_POINTER);
         for (Line line : lines) {
             int nextPos = pos + line.getLength() + 1;
             memory.writeWord(pos, nextPos, false, true);
@@ -180,5 +181,6 @@ public class ApplesoftProgram {
         memory.writeWord(ARRAY_TABLE, programEnd, false, true);
         memory.writeWord(VARIABLE_TABLE, programEnd, false, true);
         memory.writeWord(VARIABLE_TABLE_END, programEnd, false, true);
+        memory.writeWord(END_OF_PROG_POINTER, programEnd, false, true);
     }
 }
