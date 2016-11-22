@@ -20,6 +20,8 @@ package jace.applesoft;
 
 import jace.Emulator;
 import jace.core.RAM;
+import jace.core.RAMEvent;
+import jace.core.RAMListener;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -29,6 +31,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 /**
  * Decode an applesoft program into a list of program lines Right now this is an
@@ -45,7 +48,12 @@ public class ApplesoftProgram {
     public static final int VARIABLE_TABLE = 0x069;
     public static final int ARRAY_TABLE = 0x06b;
     public static final int VARIABLE_TABLE_END = 0x06d;
+    public static final int STRING_TABLE = 0x06f;
+    public static final int HIMEM = 0x073;
     public static final int BASIC_RUN = 0x0e000;
+    public static final int RUNNING_FLAG = 0x076;
+    public static final int NOT_RUNNING = 0x0FF;
+    public static final int GOTO_CMD = 0x0D944;  //actually starts at D93E
     int startingAddress = 0x0801;
 
     public static void main(String... args) {
@@ -143,9 +151,25 @@ public class ApplesoftProgram {
     public void run() {
         RAM memory = Emulator.computer.memory;
         Emulator.computer.pause();
+        int programStart = memory.readWordRaw(START_OF_PROG_POINTER);
+        int programEnd = programStart + getProgramSize();
+        if (isProgramRunning()) {
+            whenReady(()->{
+                relocateVariables(programEnd);
+                injectProgram();
+            });
+        } else {
+            injectProgram();
+            clearVariables(programEnd);
+        }
+        Emulator.computer.resume();
+    }
+    
+    private void injectProgram() {
+        RAM memory = Emulator.computer.memory;
         int pos = memory.readWordRaw(START_OF_PROG_POINTER);
         for (Line line : lines) {
-            int nextPos = pos + line.getLength() + 1;
+            int nextPos = pos + line.getLength();
             memory.writeWord(pos, nextPos, false, true);
             pos += 2;
             memory.writeWord(pos, line.getNumber(), false, true);
@@ -165,10 +189,31 @@ public class ApplesoftProgram {
         memory.write(pos++, (byte) 0, false, true);
         memory.write(pos++, (byte) 0, false, true);
         memory.write(pos++, (byte) 0, false, true);
-        memory.write(pos++, (byte) 0, false, true);
-        clearVariables(pos);
-//        Emulator.computer.cpu.setProgramCounter(BASIC_RUN);
-        Emulator.computer.resume();
+        memory.write(pos++, (byte) 0, false, true);        
+    }
+    
+    private boolean isProgramRunning() {
+        RAM memory = Emulator.computer.memory;
+        return (memory.readRaw(RUNNING_FLAG) & 0x0FF) != NOT_RUNNING;
+    }
+    
+    /**
+     * If the program is running, wait until it advances to the next line
+     */
+    private void whenReady(Runnable r) {
+        RAM memory = Emulator.computer.memory;
+        memory.addListener(new RAMListener(RAMEvent.TYPE.EXECUTE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+            @Override
+            protected void doConfig() {
+                setScopeStart(GOTO_CMD);
+            }
+
+            @Override
+            protected void doEvent(RAMEvent e) {
+                r.run();
+                memory.removeListener(this);
+            }
+        });
     }
 
     /**
@@ -181,6 +226,32 @@ public class ApplesoftProgram {
         memory.writeWord(ARRAY_TABLE, programEnd, false, true);
         memory.writeWord(VARIABLE_TABLE, programEnd, false, true);
         memory.writeWord(VARIABLE_TABLE_END, programEnd, false, true);
+        memory.writeWord(END_OF_PROG_POINTER, programEnd, false, true);        
+    }
+    
+    /**
+     * Move variables around to accommodate bigger program
+     * @param programEnd Program ending address
+     */
+    private void relocateVariables(int programEnd) {
+        RAM memory = Emulator.computer.memory;
+        int currentEnd = memory.readWordRaw(END_OF_PROG_POINTER);
         memory.writeWord(END_OF_PROG_POINTER, programEnd, false, true);
+        if (programEnd > currentEnd) {
+            int diff = programEnd - currentEnd;
+            int himem = memory.readWordRaw(HIMEM);
+            for (int i=himem - diff; i >= programEnd; i--) {
+                memory.write(i+diff, memory.readRaw(i), false, true);
+            }
+            memory.writeWord(VARIABLE_TABLE, memory.readWordRaw(VARIABLE_TABLE) + diff, false, true);
+            memory.writeWord(ARRAY_TABLE, memory.readWordRaw(ARRAY_TABLE) + diff, false, true);
+            memory.writeWord(VARIABLE_TABLE_END, memory.readWordRaw(VARIABLE_TABLE_END) + diff, false, true);
+            memory.writeWord(STRING_TABLE, memory.readWordRaw(STRING_TABLE) + diff, false, true);
+        }
+    }
+
+    private int getProgramSize() {
+        int size = lines.stream().collect(Collectors.summingInt(Line::getLength)) + 4;
+        return size;
     }
 }

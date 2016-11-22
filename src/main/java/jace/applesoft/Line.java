@@ -153,7 +153,7 @@ public class Line {
         boolean isComment = false;
         Command currentCommand = new Command();
         l.commands.add(currentCommand);
-        l.length = 4;
+        l.length = 5; // 4 pointer bytes + 1 null byte at the end
         String upperLineString = lineString.toUpperCase();
         for (int i = 0; i < lineString.length(); i++) {
             if (!hasLineNumber) {
@@ -211,5 +211,4 @@ public class Line {
         }
         return l;
     }
-
 }

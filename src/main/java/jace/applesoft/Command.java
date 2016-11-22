@@ -20,6 +20,7 @@ package jace.applesoft;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * A command is a list of parts, either raw bytes (ascii text) or tokens. When
@@ -220,14 +221,10 @@ public class Command {
             }
         }
     }
-    List<ByteOrToken> parts = new ArrayList<ByteOrToken>();
+    List<ByteOrToken> parts = new ArrayList<>();
 
     @Override
     public String toString() {
-        String out = "";
-        for (ByteOrToken p : parts) {
-            out += p.toString();
-        }
-        return out;
+        return parts.stream().map(ByteOrToken::toString).collect(Collectors.joining());
     }
 }
