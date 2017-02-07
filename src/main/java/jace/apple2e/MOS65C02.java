@@ -1343,12 +1343,27 @@ public class MOS65C02 extends CPU {
      * Special commands -- these are usually treated as NOP but can be reused for emulator controls
      * !byte $fc, $65, $00 ; Turn off tracing
      * !byte $fc, $65, $01 ; Turn on tracing
+     * !byte $fc, $50, NN ; print number NN to stdout
+     * !byte $fc, $5b, NN ; print number NN to stdout with newline
+     * !byte $fc, $5c, NN ; print character NN to stdout
      * @param param1
      * @param param2 
      */
     public void performExtendedCommand(byte param1, byte param2) {
-        LOG.log(Level.INFO, "Extended command {0},{1}", new Object[]{Integer.toHexString(param1), Integer.toHexString(param2)});
+//        LOG.log(Level.INFO, "Extended command {0},{1}", new Object[]{Integer.toHexString(param1), Integer.toHexString(param2)});
         switch (param1 & 0x0ff) {
+            case 0x50:
+                // System out
+                System.out.print(param2 & 0x0ff);
+                break;
+            case 0x5b:
+                // System out (with line break)
+                System.out.println(param2 & 0x0ff);
+                break;
+            case 0x5c:
+                // System out (with line break)
+                System.out.println((char) (param2 & 0x0ff));           
+                break;
             case 0x65:
                 // CPU functions
                 switch (param2 & 0x0ff) {
