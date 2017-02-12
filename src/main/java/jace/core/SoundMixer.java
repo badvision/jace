@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
@@ -271,7 +272,7 @@ public class SoundMixer extends Device {
         if (oldPreferredMixer == null) {
             changed |= preferredMixer.getValue() != null;
         } else {
-            changed |= !oldPreferredMixer.matches(preferredMixer.getValue());
+            changed |= !oldPreferredMixer.matches(Pattern.quote(preferredMixer.getValue()));
         }
         oldPreferredMixer = preferredMixer.getValue();
         return changed;
