@@ -572,6 +572,20 @@ public class PassportMidiInterface extends Card {
     private void suspendACIA() {
         // TODO: Stop ACIA thread...
         if (midiOut != null) {
+            currentMessage = new ShortMessage();
+            // Send a note-off on every channel
+            for (int channel = 0; channel < 16; channel++) {
+                try {
+                    // All Notes Off
+                    currentMessage.setMessage(0x0B0 | channel, 123, 0);
+                    midiOut.send(currentMessage, 0);                
+                    // All Oscillators Off
+                    currentMessage.setMessage(0x0B0 | channel, 120, 0);
+                    midiOut.send(currentMessage, 0);                
+                } catch (InvalidMidiDataException ex) {
+                    Logger.getLogger(PassportMidiInterface.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
             midiOut.close();
             midiOut = null;
         }
