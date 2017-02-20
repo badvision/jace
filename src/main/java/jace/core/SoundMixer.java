@@ -50,8 +50,8 @@ import javax.sound.sampled.SourceDataLine;
  */
 public class SoundMixer extends Device {
 
-    private final Set<SourceDataLine> availableLines = Collections.synchronizedSet(new HashSet<SourceDataLine>());
-    private final Map<Object, SourceDataLine> activeLines = Collections.synchronizedMap(new HashMap<Object, SourceDataLine>());
+    private final Set<SourceDataLine> availableLines = Collections.synchronizedSet(new HashSet<>());
+    private final Map<Object, SourceDataLine> activeLines = Collections.synchronizedMap(new HashMap<>());
     /**
      * Bits per sample
      */

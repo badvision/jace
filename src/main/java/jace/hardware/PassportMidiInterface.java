@@ -18,17 +18,21 @@
  */
 package jace.hardware;
 
+import jace.config.ConfigurableField;
+import jace.config.DynamicSelection;
 import jace.config.Name;
 import jace.core.Card;
 import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
+import java.util.LinkedHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MidiDevice;
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.MidiUnavailableException;
+import javax.sound.midi.Receiver;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Synthesizer;
 
@@ -43,6 +47,8 @@ import javax.sound.midi.Synthesizer;
 @Name(value = "Passport Midi Interface", description = "MIDI sound card")
 public class PassportMidiInterface extends Card {
 
+    private Receiver midiOut;
+
     public PassportMidiInterface(Computer computer) {
         super(computer);
     }
@@ -56,6 +62,31 @@ public class PassportMidiInterface extends Card {
     public static enum TIMER_MODE {
 
         CONTINUOUS, SINGLE_SHOT, FREQ_COMPARISON, PULSE_COMPARISON
+    };
+    
+    @ConfigurableField(name = "Midi Output Device", description = "Midi output device")
+    public static DynamicSelection<String> preferredMidiDevice = new DynamicSelection<String>(null) {
+        @Override
+        public boolean allowNull() {
+            return false;
+        }
+
+        @Override
+        public LinkedHashMap<? extends String, String> getSelections() {
+            LinkedHashMap<String, String> out = new LinkedHashMap<>();
+            MidiDevice.Info[] devices = MidiSystem.getMidiDeviceInfo();
+            for (MidiDevice.Info dev : devices) {
+                try {
+                    MidiDevice device = MidiSystem.getMidiDevice(dev);
+                    if (device.getMaxReceivers() > 0 || dev instanceof Synthesizer)
+                        System.out.println("MIDI Device found: " + dev);
+                    out.put(dev.getName(), dev.getName());
+                } catch (MidiUnavailableException ex) {
+                    Logger.getLogger(PassportMidiInterface.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            return out;
+        }
     };
 
     public static class PTMTimer {
@@ -168,8 +199,6 @@ public class PassportMidiInterface extends Card {
     private final boolean receiverACIAOverrun = false;
     // True if ACIA generated interrupt request
     private final boolean irqRequestedACIA = false;
-    //--- the synth
-    private Synthesizer synth;
 
     @Override
     public void reset() {
@@ -476,13 +505,13 @@ public class PassportMidiInterface extends Card {
 
         // If we have a command to send, then do it
         if (sendMessage == true) {
-            if (synth != null && synth.isOpen()) {
+            if (midiOut != null) {
                 // Send message
                 try {
 //                    System.out.println("Sending MIDI message "+currentMessageStatus+","+currentMessageData1+","+currentMessageData2);
                     currentMessage.setMessage(currentMessageStatus, currentMessageData1, currentMessageData2);
-                    synth.getReceiver().send(currentMessage, -1L);
-                } catch (InvalidMidiDataException | MidiUnavailableException ex) {
+                    midiOut.send(currentMessage, -1L);
+                } catch (InvalidMidiDataException ex) {
                     Logger.getLogger(PassportMidiInterface.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
@@ -509,30 +538,29 @@ public class PassportMidiInterface extends Card {
 
     @Override
     public void resume() {
-        if (isRunning() && synth != null && synth.isOpen()) {
+        if (isRunning() && midiOut != null) {
             return;
         }
         try {
+            MidiDevice selectedDevice = MidiSystem.getSynthesizer();
             MidiDevice.Info[] devices = MidiSystem.getMidiDeviceInfo();
             if (devices.length == 0) {
                 System.out.println("No MIDI devices found");
             } else {
                 for (MidiDevice.Info dev : devices) {
                     System.out.println("MIDI Device found: " + dev);
-                    if (dev.getName().contains("Java Sound")) {
-                        if (dev instanceof Synthesizer) {
-                            synth = (Synthesizer) dev;
-                            break;
-                        }
+                    if ((preferredMidiDevice.getValue() == null && dev.getName().contains("Java Sound") && dev instanceof Synthesizer) ||
+                            preferredMidiDevice.getValue().equalsIgnoreCase(dev.getName())
+                        ) {
+                        selectedDevice = MidiSystem.getMidiDevice(dev);
+                        break;
                     }
                 }
             }
-            if (synth == null) {
-                synth = MidiSystem.getSynthesizer();
-            }
-            if (synth != null) {
-                System.out.println("Selected MIDI device: " + synth.getDeviceInfo().getName());
-                synth.open();
+            if (selectedDevice != null) {
+                System.out.println("Selected MIDI device: " + selectedDevice.getDeviceInfo().getName());
+                selectedDevice.open();
+                midiOut = selectedDevice.getReceiver();
                 super.resume();
             }
         } catch (MidiUnavailableException ex) {
@@ -543,9 +571,9 @@ public class PassportMidiInterface extends Card {
 
     private void suspendACIA() {
         // TODO: Stop ACIA thread...
-        if (synth != null && synth.isOpen()) {
-            synth.close();
-            synth = null;
+        if (midiOut != null) {
+            midiOut.close();
+            midiOut = null;
         }
     }
 }
