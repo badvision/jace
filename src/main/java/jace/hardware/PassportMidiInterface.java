@@ -548,6 +548,9 @@ public class PassportMidiInterface extends Card {
                 System.out.println("No MIDI devices found");
             } else {
                 for (MidiDevice.Info dev : devices) {
+                    if (MidiSystem.getMidiDevice(dev).getMaxReceivers() == 0) {
+                        continue;
+                    }
                     System.out.println("MIDI Device found: " + dev);
                     if ((preferredMidiDevice.getValue() == null && dev.getName().contains("Java Sound") && dev instanceof Synthesizer) ||
                             preferredMidiDevice.getValue().equalsIgnoreCase(dev.getName())
