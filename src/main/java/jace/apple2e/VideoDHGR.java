@@ -297,23 +297,23 @@ public class VideoDHGR extends Video {
         if ((xOffset & 0x01) == 1) {
             return;
         }
-        int b1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset);
-        int b2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset);
+        int b1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset    );
+        int b2 = ((RAM128k) computer.getMemory()).getMainMemory()    .readByte(rowAddress + xOffset    );
         int b3 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset + 1);
-        int b4 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
+        int b4 = ((RAM128k) computer.getMemory()).getMainMemory()    .readByte(rowAddress + xOffset + 1);
         int useColOffset = xOffset << 1;
         // This shouldn't be necessary but prevents an index bounds exception when graphics modes are flipped (Race condition?)
         if (useColOffset >= 77) {
             useColOffset = 76;
         }
-        useColor[useColOffset] = (b1 & 0x80) != 0;
+        useColor[useColOffset    ] = (b1 & 0x80) != 0;
         useColor[useColOffset + 1] = (b2 & 0x80) != 0;
         useColor[useColOffset + 2] = (b3 & 0x80) != 0;
         useColor[useColOffset + 3] = (b4 & 0x80) != 0;
-        int dhgrWord = 0x07f & b1;
-        dhgrWord |= (0x07f & b2) << 7;
-        dhgrWord |= (0x07f & b3) << 14;
-        dhgrWord |= (0x07f & b4) << 21;
+        int dhgrWord  = (0x07f & b1)      ;
+            dhgrWord |= (0x07f & b2) <<  7;
+            dhgrWord |= (0x07f & b3) << 14;
+            dhgrWord |= (0x07f & b4) << 21;
         showDhgr(screen, TIMES_14[xOffset], y, dhgrWord);
     }
     boolean extraHalfBit = false;
