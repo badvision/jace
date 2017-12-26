@@ -45,7 +45,7 @@ public class Font {
         initialized = true;
         font = new int[256][8];
         Thread fontLoader = new Thread(() -> {
-            InputStream in = ClassLoader.getSystemResourceAsStream("jace/data/font.png");
+            InputStream in = Font.class.getClassLoader().getResourceAsStream("jace/data/font.png");
             Image image = new Image(in);
             PixelReader reader = image.getPixelReader();
             for (int i = 0; i < 256; i++) {
