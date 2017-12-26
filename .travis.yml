@@ -5,7 +5,18 @@ addons:
   apt:
     packages:
     - oracle-java8-installer
-before_deploy: git fetch --tags    
+before_deploy:
+  - | 
+    wget http://bit.ly/packrgdx && java -jar packr.jar 
+     --platform mac 
+     --jdk http://download.oracle.com/otn-pub/java/jdk/8u151-b12/e758a0de34e24606bca991d704f6dcbf/jdk-8u151-macosx-x64.dmg 
+     --executable jace 
+     --classpath jace.jar 
+     --mainclass jace/JaceApplication 
+     --vmargs Xmx1G 
+     --minimizejre soft 
+     --output out-mac
+  - git fetch --tags
 deploy:
   provider: releases
   api_key:
