@@ -7,7 +7,7 @@ addons:
     - oracle-java8-installer
 before_deploy:
   - | 
-    wget http://bit.ly/packrgdx && java -jar packr.jar 
+    wget http://bit.ly/packrgdx && java -jar packrgdx 
      --platform mac 
      --jdk http://download.oracle.com/otn-pub/java/jdk/8u151-b12/e758a0de34e24606bca991d704f6dcbf/jdk-8u151-macosx-x64.dmg 
      --executable jace 
