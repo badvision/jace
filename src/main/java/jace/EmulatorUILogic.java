@@ -18,10 +18,10 @@
  */
 package jace;
 
-import com.sun.javafx.tk.quantum.OverlayWarning;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
+import jace.config.ConfigurableField;
 import jace.config.ConfigurationUIController;
 import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
@@ -81,6 +81,12 @@ public class EmulatorUILogic implements Reconfigurable {
             }
         };
     }
+
+    @ConfigurableField(
+            category = "General",
+            name = "Show Drives"
+    )
+    public boolean showDrives = false;
 
     public static void updateCPURegisters(MOS65C02 cpu) {
 //        DebuggerPanel debuggerPanel = Emulator.getFrame().getDebuggerPanel();
@@ -246,7 +252,7 @@ public class EmulatorUILogic implements Reconfigurable {
             name = "Toggle Debug",
             category = "debug",
             description = "Show/hide the debug panel",
-            alternatives = "Show Debug;Hide Debug",
+            alternatives = "Show Debug;Hide Debug;Inspect",
             defaultKeyMapping = "ctrl+shift+d")
     public static void toggleDebugPanel() {
 //        AbstractEmulatorFrame frame = Emulator.getFrame();
@@ -262,13 +268,14 @@ public class EmulatorUILogic implements Reconfigurable {
             name = "Toggle fullscreen",
             category = "general",
             description = "Activate/deactivate fullscreen mode",
-            alternatives = "fullscreen,maximize",
+            alternatives = "fullscreen;maximize",
             defaultKeyMapping = "ctrl+shift+f")
     public static void toggleFullscreen() {
         Platform.runLater(() -> {
             Stage stage = JaceApplication.getApplication().primaryStage;
             stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
             stage.setFullScreen(!stage.isFullScreen());
+            JaceApplication.getApplication().controller.setAspectRatioEnabled(stage.isFullScreen());
         });
     }
 
@@ -276,7 +283,7 @@ public class EmulatorUILogic implements Reconfigurable {
             name = "Save Raw Screenshot",
             category = "general",
             description = "Save raw (RAM) format of visible screen",
-            alternatives = "screendump, raw screenshot",
+            alternatives = "screendump;raw screenshot",
             defaultKeyMapping = "ctrl+shift+z")
     public static void saveScreenshotRaw() throws FileNotFoundException, IOException {
         SimpleDateFormat df = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
@@ -317,7 +324,7 @@ public class EmulatorUILogic implements Reconfigurable {
             name = "Save Screenshot",
             category = "general",
             description = "Save image of visible screen",
-            alternatives = "Save image,save framebuffer,screenshot",
+            alternatives = "Save image;save framebuffer;screenshot",
             defaultKeyMapping = "ctrl+shift+s")
     public static void saveScreenshot() throws IOException {
         FileChooser select = new FileChooser();
@@ -346,7 +353,7 @@ public class EmulatorUILogic implements Reconfigurable {
             name = "Configuration",
             category = "general",
             description = "Edit emulator configuraion",
-            alternatives = "Reconfigure,Preferences,Settings",
+            alternatives = "Reconfigure;Preferences;Settings;Config",
             defaultKeyMapping = {"f4", "ctrl+shift+c"})
     public static void showConfig() {
         FXMLLoader fxmlLoader = new FXMLLoader(EmulatorUILogic.class.getResource("/fxml/Configuration.fxml"));
@@ -368,7 +375,7 @@ public class EmulatorUILogic implements Reconfigurable {
             name = "Open IDE",
             category = "development",
             description = "Open new IDE window for Basic/Assembly/Plasma coding",
-            alternatives = "dev,development,acme,assembler,editor",
+            alternatives = "IDE;dev;development;acme;assembler;editor",
             defaultKeyMapping = {"ctrl+shift+i"})
     public static void showIDE() {
         FXMLLoader fxmlLoader = new FXMLLoader(EmulatorUILogic.class.getResource("/fxml/editor.fxml"));
@@ -392,44 +399,61 @@ public class EmulatorUILogic implements Reconfigurable {
             name = "Resize window",
             category = "general",
             description = "Resize the screen to 1x/1.5x/2x/3x video size",
-            alternatives = "Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;",
+            alternatives = "Aspect;Adjust screen;Adjust window size;Adjust aspect ratio;Fix screen;Fix window size;Fix aspect ratio;Correct aspect ratio;",
             defaultKeyMapping = {"ctrl+shift+a"})
     public static void scaleIntegerRatio() {
         Platform.runLater(() -> {
-            JaceApplication.getApplication().primaryStage.setFullScreen(false);
+            if (JaceApplication.getApplication() == null
+                    || JaceApplication.getApplication().primaryStage == null) {
+                return;
+            }
+            Stage stage = JaceApplication.getApplication().primaryStage;
             size++;
             if (size > 3) {
                 size = 0;
             }
-            int width = 0, height = 0;
-            switch (size) {
-                case 0: // 1x
-                    width  = 560;
-                    height = 384;
-                    break;
-                case 1: // 1.5x
-                    width  = 840;
-                    height = 576;
-                    break;
-                case 2: // 2x
-                    width  = 560*2;
-                    height = 384*2;
-                    break;
-                case 3: // 3x (retina) 2880x1800
-                    width  = 560*3;
-                    height = 384*3;
-                    break;
-                default: // 2x
-                    width  = 560*2;
-                    height = 384*2;
+            if (stage.isFullScreen()) {
+                JaceApplication.getApplication().controller.toggleAspectRatio();
+            } else {
+                int width = 0, height = 0;
+                switch (size) {
+                    case 0: // 1x
+                        width = 560;
+                        height = 384;
+                        break;
+                    case 1: // 1.5x
+                        width = 840;
+                        height = 576;
+                        break;
+                    case 2: // 2x
+                        width = 560 * 2;
+                        height = 384 * 2;
+                        break;
+                    case 3: // 3x (retina) 2880x1800
+                        width = 560 * 3;
+                        height = 384 * 3;
+                        break;
+                    default: // 2x
+                        width = 560 * 2;
+                        height = 384 * 2;
+                }
+                double vgap = stage.getScene().getY();
+                double hgap = stage.getScene().getX();
+                stage.setWidth(hgap * 2 + width);
+                stage.setHeight(vgap + height);
             }
-            Stage stage = JaceApplication.getApplication().primaryStage;
-            double vgap = stage.getScene().getY();
-            double hgap = stage.getScene().getX();
-            stage.setWidth(hgap*2 + width);
-            stage.setHeight(vgap + height);
         });
     }
+    
+    @InvokableAction(
+            name = "About",
+            category = "general",
+            description = "Display about window",
+            alternatives = "info;credits",
+            defaultKeyMapping = {"ctrl+shift+."})
+    public static void showAboutWindow() {
+        //TODO: Implement
+    }    
 
     public static boolean confirm(String message) {
 //        return JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(Emulator.getFrame(), message);

@@ -132,13 +132,15 @@ public abstract class Video extends Device {
     public static int MIN_SCREEN_REFRESH = 15;
 
     Runnable redrawScreen = () -> {
-        if (computer.getRunningProperty().get()) {
-            visible.getPixelWriter().setPixels(0, 0, 560, 192, video.getPixelReader(), 0, 0);
+        if (visible != null && video != null) {
+//            if (computer.getRunningProperty().get()) {
+                screenDirty = false;
+                visible.getPixelWriter().setPixels(0, 0, 560, 192, video.getPixelReader(), 0, 0);
+//            }
         }
     };
 
     public void redraw() {
-        screenDirty = false;
         javafx.application.Platform.runLater(redrawScreen);
     }
 

@@ -18,6 +18,8 @@
  */
 package jace.core;
 
+import jace.config.Configuration;
+import jace.config.InvokableAction;
 import java.io.File;
 import java.io.InputStream;
 import java.lang.reflect.Field;
@@ -36,15 +38,18 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
+
 /**
  * This is a set of helper functions which do not belong anywhere else.
  * Functions vary from introspection, discovery, and string/pattern matching.
@@ -52,7 +57,9 @@ import javafx.scene.paint.Color;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Utility {
+
     static Reflections reflections = new Reflections("jace");
+
     public static Set<Class> findAllSubclasses(Class clazz) {
         return reflections.getSubTypesOf(clazz);
     }
@@ -65,11 +72,11 @@ public class Utility {
      *
      * @param s
      * @param t
-     * @return Distance (higher is better)
+     * @return Distance (lower means a closer match, zero is identical)
      */
     public static int levenshteinDistance(String s, String t) {
         if (s == null || t == null || s.length() == 0 || t.length() == 0) {
-            return -1;
+            return Integer.MAX_VALUE;
         }
 
         s = s.toLowerCase().replaceAll("[^a-zA-Z0-9\\s]", "");
@@ -95,8 +102,19 @@ public class Utility {
                 }
             }
         }
-        return Math.max(m, n) - dist[m][n];
+        return dist[m][n];
     }
+    
+    /**
+     * Normalize distance based on longest string
+     * @param s
+     * @param t
+     * @return Similarity ranking, higher is better
+     */
+    public static int adjustedLevenshteinDistance(String s, String t) {
+        return Math.max(s.length(), t.length()) - levenshteinDistance(s, t);
+    }
+    
 
     /**
      * Compare strings based on a tally of similar patterns found, using a fixed
@@ -107,7 +125,7 @@ public class Utility {
      * @param c1
      * @param c2
      * @param width Search window size
-     * @return Overall similarity score (higher is beter)
+     * @return Overall similarity score (higher is better)
      */
     public static double rankMatch(String c1, String c2, int width) {
         double score = 0;
@@ -135,6 +153,7 @@ public class Utility {
     }
 
     private static boolean isHeadless = false;
+
     public static void setHeadlessMode(boolean headless) {
         isHeadless = headless;
     }
@@ -142,7 +161,7 @@ public class Utility {
     public static boolean isHeadlessMode() {
         return isHeadless;
     }
-    
+
     public static Optional<Image> loadIcon(String filename) {
         if (isHeadless) {
             return Optional.empty();
@@ -181,6 +200,20 @@ public class Utility {
         return Optional.of(label);
     }
 
+    public static void confirm(String title, String message, Runnable accept) {
+        Platform.runLater(() -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setContentText(message);
+            confirm.setTitle(title);
+            Optional<ButtonType> response = confirm.showAndWait();
+            response.ifPresent(b -> {
+                if (b.getButtonData().isDefaultButton()) {
+                    (new Thread(accept)).start();
+                }
+            });
+        });
+    }
+
 //    public static void runModalProcess(String title, final Runnable runnable) {
 ////        final JDialog frame = new JDialog(Emulator.getFrame());
 //        final JProgressBar progressBar = new JProgressBar();
@@ -201,7 +234,6 @@ public class Utility {
 //            frame.dispose();
 //        }).start();
 //    }
-
     public static class RankingComparator implements Comparator<String> {
 
         String match;
@@ -215,8 +247,8 @@ public class Utility {
 
         @Override
         public int compare(String o1, String o2) {
-            double s1 = levenshteinDistance(match, o1);
-            double s2 = levenshteinDistance(match, o2);
+            double s1 = adjustedLevenshteinDistance(match, o1);
+            double s2 = adjustedLevenshteinDistance(match, o2);
             if (s2 == s1) {
                 s1 = rankMatch(o1, match, 3) + rankMatch(o1, match, 2);
                 s2 = rankMatch(o2, match, 3) + rankMatch(o2, match, 2);
@@ -256,7 +288,7 @@ public class Utility {
 //	    System.out.println(match + "->" + c + ":" + l + " -- "+ m2 + "," + m3 + "," + "(" + (m2 + m3) + ")");
 //	}
 //	double score = rankMatch(match, candidates.get(0), 2);
-        double score = levenshteinDistance(match, candidates.get(0));
+        double score = adjustedLevenshteinDistance(match, candidates.get(0));
         if (score > 1) {
             return candidates.get(0);
         }
@@ -449,5 +481,48 @@ public class Utility {
             }
         }
         return setChild(object, paths[paths.length - 1], value, hex);
+    }
+
+    static Map<InvokableAction, Runnable> allActions = null;
+
+    public static Map<InvokableAction, Runnable> getAllInvokableActions() {
+        if (allActions == null) {
+            allActions = new HashMap<>();
+            Configuration.BASE.getTreeAsStream().forEach((Configuration.ConfigNode node) -> {
+                for (Method m : node.subject.getClass().getMethods()) {
+                    if (m.isAnnotationPresent(InvokableAction.class)) {
+                        allActions.put(m.getAnnotation(InvokableAction.class), () -> {
+                            try {
+                                m.invoke(node.subject);
+                            } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+                                Logger.getLogger(Utility.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        });
+                    }
+                }
+            });
+        }
+        return allActions;
+    }
+
+    public static Runnable getNamedInvokableAction(String action) {
+        Map<InvokableAction, Runnable> actions = getAllInvokableActions();
+        List<InvokableAction> actionsList = new ArrayList(actions.keySet());
+        actionsList.sort((a,b) -> Integer.compare(getActionNameMatch(action, a), getActionNameMatch(action, b)));
+//        for (InvokableAction a : actionsList) {
+//            String actionName = a.alternatives() == null ? a.name() : (a.name() + ";" + a.alternatives());
+//            System.out.println("Score for " + action + " evaluating " + a.name() + ": " + getActionNameMatch(action, a));
+//        }
+        return actions.get(actionsList.get(0));
+    }
+    
+    private static int getActionNameMatch(String str, InvokableAction action) {
+        int nameMatch = levenshteinDistance(str, action.name());
+        if (action.alternatives() != null) {
+            for (String alt : action.alternatives().split(";")) {
+                nameMatch = Math.min(nameMatch, levenshteinDistance(str, alt));
+            }
+        }
+        return nameMatch;
     }
 }

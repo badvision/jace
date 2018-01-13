@@ -18,8 +18,8 @@
  */
 package jace;
 
-import jace.apple2e.Apple2e;
 import jace.config.Configuration;
+import jace.apple2e.Apple2e;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

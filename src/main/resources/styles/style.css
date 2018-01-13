@@ -3,7 +3,7 @@
 }
 
 .setting-row {
-    -fx-padding: 5 0 0 4;        
+    -fx-padding: 5 0 0 4;
 }
 
 .setting-label, .setting-keyboard-shortcut {
@@ -18,4 +18,31 @@
 .codeInspector .list-cell {
     -fx-font-size: 9pt;
     -fx-font-family: "Courier New";
+}
+
+.menuButton {
+    -fx-font-size:16pt;
+    -fx-border-radius: 10px;
+    -fx-background-radius: 10px;
+}
+
+.menuButton, .uiActionButton, .uiSpeedSlider ImageView, .uiSpeedSlider Slider, .uiSpeedSlider AnchorPane {
+    -fx-background-color: rgba(0, 0, 0, 0.75);
+    -fx-text-fill: #a0FFa0
+}
+
+.uiActionButton ImageView, .uiSpeedSlider ImageView {
+    -fx-effect: dropshadow(gaussian , rgba(128,255,128,0.75) , 2,1.0,0,0);
+}
+
+.uiSpeedSlider AnchorPane {
+    -fx-padding: 0 5 0 5
+}
+
+.uiSpeedSlider Slider {
+    -fx-padding: 18 0 10 0    
+}
+
+.uiSpeedSlider Slider NumberAxis {
+    -fx-tick-label-fill: #80ff80
 }

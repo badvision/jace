@@ -36,7 +36,8 @@ public abstract class TimedDevice extends Device {
         super(computer);
         setSpeed(cyclesPerSecond);
     }
-    @ConfigurableField(name = "Speed", description = "(in hertz)")
+    @ConfigurableField(name = "Speed", description = "(Percentage)")
+    public int speedRatio = 100;
     public long cyclesPerSecond = defaultCyclesPerSecond();
     @ConfigurableField(name = "Max speed")
     public boolean maxspeed = false;
@@ -170,6 +171,7 @@ public abstract class TimedDevice extends Device {
 
     @Override
     public void reconfigure() {
+        cyclesPerSecond = defaultCyclesPerSecond() * speedRatio / 100;
         if (cyclesPerSecond == 0) {
             cyclesPerSecond = defaultCyclesPerSecond();
         }

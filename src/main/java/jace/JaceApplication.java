@@ -54,19 +54,24 @@ public class JaceApplication extends Application {
         }
 
         primaryStage.show();
-        Emulator emulator = new Emulator(getParameters().getRaw());
-        javafx.application.Platform.runLater(() -> {
+        new Thread(() -> {
+            new Emulator(getParameters().getRaw());
+            reconnectUIHooks();
+            EmulatorUILogic.scaleIntegerRatio();
             while (Emulator.computer.getVideo() == null || Emulator.computer.getVideo().getFrameBuffer() == null) {
                 Thread.yield();
             }
-            controller.connectComputer(Emulator.computer, primaryStage);
             bootWatchdog();
-        });
+        }).start();
         primaryStage.setOnCloseRequest(event -> {
             Emulator.computer.deactivate();
             Platform.exit();
             System.exit(0);
         });
+    }
+
+    public void reconnectUIHooks() {
+        controller.connectComputer(Emulator.computer, primaryStage);        
     }
 
     public static JaceApplication getApplication() {

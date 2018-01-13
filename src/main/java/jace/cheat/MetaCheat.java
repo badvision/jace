@@ -134,7 +134,7 @@ public class MetaCheat extends Cheats {
     }
 
     @Override
-    void registerListeners() {
+    public void registerListeners() {
     }
 
     public void addCheat(DynamicCheat cheat) {

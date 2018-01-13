@@ -128,10 +128,18 @@ public abstract class Computer implements Reconfigurable {
     }
 
     public void deactivate() {
-        cpu.suspend();
-        motherboard.suspend();
-        video.suspend();
-        mixer.detach();
+        if (cpu != null) {
+            cpu.suspend();
+        }
+        if (motherboard != null) {
+            motherboard.suspend();
+        }
+        if (video != null) {
+            video.suspend();            
+        }
+        if (mixer != null) {
+            mixer.detach();
+        }
     }
 
     @InvokableAction(
@@ -161,7 +169,7 @@ public abstract class Computer implements Reconfigurable {
             name = "Warm boot",
             description = "Process user-initatiated reboot (ctrl+apple+reset)",
             category = "general",
-            alternatives = "reboot;reset;three-finger-salute",
+            alternatives = "reboot;reset;three-finger-salute;restart",
             defaultKeyMapping = {"Ctrl+Ignore Alt+Ignore Meta+Backspace", "Ctrl+Ignore Alt+Ignore Meta+Delete"})
     public void invokeWarmStart() {
         warmStart();
@@ -185,7 +193,7 @@ public abstract class Computer implements Reconfigurable {
         return result;
     }
 
-    @InvokableAction(name = "Resume", description = "Resumes the computer if it was previously paused", alternatives = "unpause;unfreeze;resume", defaultKeyMapping = {"meta+shift+pause", "alt+shift+pause"})
+    @InvokableAction(name = "Resume", description = "Resumes the computer if it was previously paused", alternatives = "unpause;unfreeze;resume;play", defaultKeyMapping = {"meta+shift+pause", "alt+shift+pause"})
     public void resume() {
         doResume();
         getRunningProperty().set(true);

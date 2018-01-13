@@ -49,6 +49,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 import javafx.collections.ObservableList;
 import javafx.scene.control.TreeItem;
 import javafx.scene.image.Image;
@@ -255,6 +256,12 @@ public class Configuration implements Reconfigurable {
                 getChangedIcon().ifPresent(this::setGraphic);
             }
         }
+
+        public Stream<ConfigNode> getTreeAsStream() {
+            return Stream.concat(
+                    Stream.of(this),
+                    children.stream().flatMap(ConfigNode::getTreeAsStream));
+        }
     }
     public static ConfigNode BASE;
     public static EmulatorUILogic ui = Emulator.logic;
@@ -301,7 +308,7 @@ public class Configuration implements Reconfigurable {
                         node.setRawFieldValue(f.getName(), (Serializable) o);
                     }
                     continue;
-                }   
+                }
                 if (o == null) {
                     continue;
                 }
@@ -494,7 +501,9 @@ public class Configuration implements Reconfigurable {
         newRoot.getChildren().stream().forEach((child) -> {
             String childName = child.toString();
             ConfigNode oldChild = oldRoot.findChild(childName);
-            if (oldChild == null) {oldChild = oldRoot.findChild(child.id);}
+            if (oldChild == null) {
+                oldChild = oldRoot.findChild(child.id);
+            }
             //            System.out.println("Applying settings for " + childName);
             applyConfigTree(child, oldChild);
         });

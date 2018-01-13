@@ -19,6 +19,8 @@
 package jace.apple2e;
 
 import jace.Emulator;
+import jace.JaceApplication;
+import jace.apple2e.softswitch.VideoSoftSwitch;
 import jace.cheat.Cheats;
 import jace.config.ClassSelection;
 import jace.config.ConfigurableField;
@@ -40,21 +42,22 @@ import jace.hardware.massStorage.CardMassStorage;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Apple2e is a computer with a 65c02 CPU, 128k of bankswitched ram,
- * double-hires graphics, and up to seven peripheral I/O cards installed. Pause
- * and resume are implemented by the Motherboard class. This class provides
- * overall configuration of the computer, but the actual operation of the
- * computer and its timing characteristics are managed in the Motherboard class.
+ * Apple2e is a computer with a 65c02 CPU, 128k of bankswitched ram, double-hires graphics, and up to seven peripheral
+ * I/O cards installed. Pause and resume are implemented by the Motherboard class. This class provides overall
+ * configuration of the computer, but the actual operation of the computer and its timing characteristics are managed in
+ * the Motherboard class.
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
@@ -121,7 +124,7 @@ public class Apple2e extends Computer {
         return "Computer (Apple //e)";
     }
 
-    private void reinitMotherboard() {
+    protected void reinitMotherboard() {
         if (motherboard != null && motherboard.isRunning()) {
             motherboard.suspend();
         }
@@ -134,16 +137,25 @@ public class Apple2e extends Computer {
     public void coldStart() {
         pause();
         reinitMotherboard();
+        RAM128k ram = (RAM128k) getMemory();
+        ram.initMemoryPattern(ram.mainMemory);
+        ram.initMemoryPattern(ram.getAuxMemory());
         for (SoftSwitches s : SoftSwitches.values()) {
             s.getSwitch().reset();
         }
         getMemory().configureActiveMemory();
         getVideo().configureVideoMode();
-        for (Optional<Card> c : getMemory().getAllCards()) {
-            c.ifPresent(Card::reset);
+        try {
+            for (Optional<Card> c : getMemory().getAllCards()) {
+                c.ifPresent(Card::reset);
+                waitForVBL();
+            }
+        } catch (InterruptedException ex) {
+            Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            getCpu().resume();
+            reboot();            
         }
-        reboot();
-        resume();
     }
 
     public void reboot() {
@@ -158,7 +170,9 @@ public class Apple2e extends Computer {
     public void warmStart() {
         boolean restart = pause();
         for (SoftSwitches s : SoftSwitches.values()) {
-            s.getSwitch().reset();
+            if (!(s.getSwitch() instanceof VideoSoftSwitch)) {
+                s.getSwitch().reset();
+            }
         }
         getMemory().configureActiveMemory();
         getVideo().configureVideoMode();
@@ -194,11 +208,11 @@ public class Apple2e extends Computer {
     @Override
     public final void reconfigure() {
         boolean restart = pause();
-        
+
         if (Utility.isHeadlessMode()) {
             joy1enabled = false;
             joy2enabled = false;
-            
+
         }
 
         super.reconfigure();
@@ -216,9 +230,7 @@ public class Apple2e extends Computer {
         if (getMemory() == null) {
             try {
                 currentMemory = (RAM128k) ramCard.getValue().getConstructor(Computer.class).newInstance(this);
-            } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException ex) {
-                Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IllegalArgumentException | InvocationTargetException ex) {
+            } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException | IllegalArgumentException | InvocationTargetException ex) {
                 Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
@@ -291,6 +303,9 @@ public class Apple2e extends Computer {
                     getVideo().configureVideoMode();
                     getVideo().reconfigure();
                     Emulator.resizeVideo();
+                    if (JaceApplication.getApplication() != null) {
+                        JaceApplication.getApplication().reconnectUIHooks();
+                    }
                     getVideo().resume();
                 } catch (InstantiationException | IllegalAccessException ex) {
                     Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
@@ -377,6 +392,35 @@ public class Apple2e extends Computer {
 //    }
     private List<RAMListener> hints = new ArrayList<>();
 
+    List<Runnable> vblCallbacks = Collections.synchronizedList(new ArrayList<>());
+
+    public void waitForVBL() throws InterruptedException {
+        waitForVBL(0);
+    }
+
+    public void waitForVBL(int count) throws InterruptedException {
+        Semaphore s = new Semaphore(0);
+        onNextVBL(s::release);
+        s.acquire();
+        if (count > 1) {
+            waitForVBL(count - 1);
+        }
+    }
+
+    public void onNextVBL(Runnable r) {
+        vblCallbacks.add(r);
+    }
+
+    @Override
+    public void notifyVBLStateChanged(boolean state) {
+        super.notifyVBLStateChanged(state);
+        if (state) {
+            while (vblCallbacks != null && !vblCallbacks.isEmpty()) {
+                vblCallbacks.remove(0).run();
+            }
+        }
+    }
+
     ScheduledExecutorService animationTimer = new ScheduledThreadPoolExecutor(1);
     Runnable drawHints = () -> {
         if (getCpu().getProgramCounter() >> 8 != 0x0c6) {
@@ -438,10 +482,10 @@ public class Apple2e extends Computer {
 
     private void enableHints() {
         if (hints.isEmpty()) {
-            hints.add(getMemory().observe(RAMEvent.TYPE.EXECUTE, 0x0FB63, (e)->{
-                animationTimer.schedule(drawHints, 1, TimeUnit.SECONDS);                    
-                animationSchedule = 
-                            animationTimer.scheduleAtFixedRate(doAnimation, 1250, 100, TimeUnit.MILLISECONDS);
+            hints.add(getMemory().observe(RAMEvent.TYPE.EXECUTE, 0x0FB63, (e) -> {
+                animationTimer.schedule(drawHints, 1, TimeUnit.SECONDS);
+                animationSchedule
+                        = animationTimer.scheduleAtFixedRate(doAnimation, 1250, 100, TimeUnit.MILLISECONDS);
             }));
             // Latch to the PRODOS SYNTAX CHECK parser
             /*
@@ -475,4 +519,4 @@ public class Apple2e extends Computer {
     public String getShortName() {
         return "computer";
     }
-} 
+}

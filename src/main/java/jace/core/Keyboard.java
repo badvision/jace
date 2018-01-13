@@ -18,6 +18,7 @@
  */
 package jace.core;
 
+import jace.Emulator;
 import jace.apple2e.SoftSwitches;
 import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
@@ -68,6 +69,7 @@ public class Keyboard implements Reconfigurable {
         return "kbd";
     }
     static byte currentKey = 0;
+    public boolean shiftPressed = false;
 
     public static void clearStrobe() {
         currentKey = (byte) (currentKey & 0x07f);
@@ -102,6 +104,7 @@ public class Keyboard implements Reconfigurable {
         registerKeyHandler(new KeyHandler(code) {
             @Override
             public boolean handleKeyUp(KeyEvent e) {
+                Emulator.computer.getKeyboard().shiftPressed = e.isShiftDown();
                 if (action == null || !action.notifyOnRelease()) {
                     return false;
                 }
@@ -125,6 +128,7 @@ public class Keyboard implements Reconfigurable {
             @Override
             public boolean handleKeyDown(KeyEvent e) {
 //                System.out.println("Key down: "+method.toString());
+                Emulator.computer.getKeyboard().shiftPressed = e.isShiftDown();
                 Object returnValue = null;
                 try {
                     if (method.getParameterCount() > 0) {
@@ -248,6 +252,7 @@ public class Keyboard implements Reconfigurable {
             default:
         }
 
+        Emulator.computer.getKeyboard().shiftPressed = e.isShiftDown();
         if (e.isShiftDown()) {
             c = fixShiftedChar(c);
         }

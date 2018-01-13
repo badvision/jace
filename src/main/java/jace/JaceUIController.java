@@ -6,10 +6,10 @@
 package jace;
 
 import com.sun.glass.ui.Application;
-import jace.cheat.MetaCheat;
 import jace.core.Card;
 import jace.core.Computer;
-import jace.core.Keyboard;
+import jace.core.Motherboard;
+import jace.core.Utility;
 import jace.library.MediaCache;
 import jace.library.MediaConsumer;
 import jace.library.MediaConsumerParent;
@@ -30,10 +30,22 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.animation.FadeTransition;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.application.Platform;
+import javafx.beans.binding.NumberBinding;
+import javafx.beans.binding.When;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.DragEvent;
@@ -43,11 +55,14 @@ import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import javafx.util.Duration;
+import javafx.util.StringConverter;
 
 /**
  *
@@ -70,7 +85,21 @@ public class JaceUIController {
     @FXML
     private ImageView appleScreen;
 
+    @FXML
+    private BorderPane controlOverlay;
+
+    @FXML
+    private Slider speedSlider;
+
+    @FXML
+    private AnchorPane menuButtonPane;
+
+    @FXML
+    private Button menuButton;
+
     Computer computer;
+
+    private final BooleanProperty aspectRatioCorrectionEnabled = new SimpleBooleanProperty(false);
 
     @FXML
     void initialize() {
@@ -78,21 +107,175 @@ public class JaceUIController {
         assert stackPane != null : "fx:id=\"stackPane\" was not injected: check your FXML file 'JaceUI.fxml'.";
         assert notificationBox != null : "fx:id=\"notificationBox\" was not injected: check your FXML file 'JaceUI.fxml'.";
         assert appleScreen != null : "fx:id=\"appleScreen\" was not injected: check your FXML file 'JaceUI.fxml'.";
-        appleScreen.fitWidthProperty().bind(rootPane.widthProperty());
+        controlOverlay.setVisible(false);
+        menuButtonPane.setVisible(false);
+        NumberBinding aspectCorrectedWidth = rootPane.heightProperty().multiply(3.0).divide(2.0);
+        NumberBinding width = new When(
+                aspectRatioCorrectionEnabled.and(aspectCorrectedWidth.lessThan(rootPane.widthProperty()))
+        ).then(aspectCorrectedWidth).otherwise(rootPane.widthProperty());
+        appleScreen.fitWidthProperty().bind(width);
         appleScreen.fitHeightProperty().bind(rootPane.heightProperty());
+        appleScreen.setVisible(false);
         rootPane.setOnDragEntered(this::processDragEnteredEvent);
         rootPane.setOnDragExited(this::processDragExitedEvent);
+        rootPane.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
+        rootPane.setOnMouseMoved(this::showMenuButton);
+        rootPane.setOnMouseExited(this::hideControlOverlay);
+        menuButton.setOnMouseClicked(this::showControlOverlay);
+        controlOverlay.setOnMouseClicked(this::hideControlOverlay);
+        delayTimer.getKeyFrames().add(new KeyFrame(Duration.millis(3000), evt -> {
+            hideControlOverlay(null);
+        }));
+    }
+
+    private void showMenuButton(MouseEvent evt) {
+        if (!evt.isPrimaryButtonDown() && !evt.isSecondaryButtonDown() && !controlOverlay.isVisible()) {
+            resetMenuButtonTimer();
+            if (!menuButtonPane.isVisible()) {
+                menuButtonPane.setVisible(true);
+                FadeTransition ft = new FadeTransition(Duration.millis(500), menuButtonPane);
+                ft.setFromValue(0.0);
+                ft.setToValue(1.0);
+                ft.play();
+            }
+        }
+    }
+
+    Timeline delayTimer = new Timeline();
+    private void resetMenuButtonTimer() {
+        delayTimer.playFromStart();
+    }
+
+    private void showControlOverlay(MouseEvent evt) {
+        if (!evt.isPrimaryButtonDown() && !evt.isSecondaryButtonDown()) {
+            delayTimer.stop();
+            menuButtonPane.setVisible(false);
+            controlOverlay.setVisible(true);
+            FadeTransition ft = new FadeTransition(Duration.millis(500), controlOverlay);
+            ft.setFromValue(0.0);
+            ft.setToValue(1.0);
+            ft.play();
+        }
+    }
+
+    private void hideControlOverlay(MouseEvent evt) {
+        if (menuButtonPane.isVisible()) {
+            FadeTransition ft1 = new FadeTransition(Duration.millis(500), menuButtonPane);
+            ft1.setFromValue(1.0);
+            ft1.setToValue(0.0);
+            ft1.setOnFinished(evt1 -> menuButtonPane.setVisible(false));
+            ft1.play();
+        }
+        if (controlOverlay.isVisible()) {
+            FadeTransition ft2 = new FadeTransition(Duration.millis(500), controlOverlay);
+            ft2.setFromValue(1.0);
+            ft2.setToValue(0.0);
+            ft2.setOnFinished(evt1 -> controlOverlay.setVisible(false));
+            ft2.play();
+        }
+    }
+
+    private double convertSpeedToRatio(Double setting) {
+        if (setting < 1.0) {
+            return 0.5;
+        } else if (setting == 1.0) {
+            return 1.0;
+        } else if (setting >= 10) {
+            return Double.MAX_VALUE;
+        } else {
+            double val = Math.pow(2.0, (setting - 1.0) / 1.5);
+            val = Math.floor(val * 2.0) / 2.0;
+            if (val > 2.0) {
+                val = Math.floor(val);
+            }
+            return val;
+        }
+    }
+
+    private void connectControls(Stage primaryStage) {
+        connectButtons(controlOverlay);
+        if (computer.getKeyboard() != null) {
+            EventHandler<KeyEvent> keyboardHandler = computer.getKeyboard().getListener();
+            primaryStage.setOnShowing(evt -> computer.getKeyboard().resetState());
+            rootPane.setOnKeyPressed(keyboardHandler);
+            rootPane.setOnKeyReleased(keyboardHandler);
+            rootPane.setFocusTraversable(true);
+        }
+        speedSlider.setValue(1.0);
+        speedSlider.setMinorTickCount(0);
+        speedSlider.setMajorTickUnit(1);
+        speedSlider.setLabelFormatter(new StringConverter<Double>() {
+            @Override
+            public String toString(Double val) {
+                if (val < 1.0) {
+                    return "Half";
+                } else if (val >= 10.0) {
+                    return "∞";
+                }
+                double v = convertSpeedToRatio(val);
+                if (v != Math.floor(v)) {
+                    return String.valueOf(v) + "x";
+                } else {
+                    return String.valueOf((int) v) + "x";
+                }
+            }
+
+            @Override
+            public Double fromString(String string) {
+                return 1.0;
+            }
+        });
+        speedSlider.valueProperty().addListener((val, oldValue, newValue) -> setSpeed(newValue.doubleValue()));
+    }
+
+    private void connectButtons(Node n) {
+        if (n instanceof Button) {
+            Button button = (Button) n;
+            Runnable action = Utility.getNamedInvokableAction(button.getText());
+            button.setOnMouseClicked(evt -> action.run());
+        } else if (n instanceof Parent) {
+            for (Node child : ((Parent) n).getChildrenUnmodifiable()) {
+                connectButtons(child);
+            }
+        }
+    }
+
+    private void setSpeed(double speed) {
+        double speedRatio = convertSpeedToRatio(speed);
+        if (speedRatio > 100.0) {
+            Emulator.computer.getMotherboard().maxspeed = true;
+            Motherboard.cpuPerClock = 3;
+        } else {
+            if (speedRatio > 25) {
+                Motherboard.cpuPerClock = 2;
+            } else {
+                Motherboard.cpuPerClock = 1;
+            }
+            Emulator.computer.getMotherboard().maxspeed = false;
+            Emulator.computer.getMotherboard().speedRatio = (int) (speedRatio * 100);
+        }
+        Emulator.computer.getMotherboard().reconfigure();
+    }
+
+    public void toggleAspectRatio() {
+        setAspectRatioEnabled(aspectRatioCorrectionEnabled.not().get());
+    }
+
+    public void setAspectRatioEnabled(boolean enabled) {
+        aspectRatioCorrectionEnabled.set(enabled);
     }
 
     public void connectComputer(Computer computer, Stage primaryStage) {
+        if (computer == null) {
+            return;
+        }
         this.computer = computer;
-        appleScreen.setImage(computer.getVideo().getFrameBuffer());
-        EventHandler<KeyEvent> keyboardHandler = computer.getKeyboard().getListener();
-        primaryStage.setOnShowing(evt -> computer.getKeyboard().resetState());
-        rootPane.setFocusTraversable(true);
-        rootPane.setOnKeyPressed(keyboardHandler);
-        rootPane.setOnKeyReleased(keyboardHandler);
-        rootPane.requestFocus();
+        Platform.runLater(() -> {
+            connectControls(primaryStage);
+            appleScreen.setImage(computer.getVideo().getFrameBuffer());
+            appleScreen.setVisible(true);
+            rootPane.requestFocus();
+        });
     }
 
     private void processDragEnteredEvent(DragEvent evt) {
@@ -245,24 +428,25 @@ public class JaceUIController {
     public void removeMouseListener(EventHandler<MouseEvent> handler) {
         appleScreen.removeEventHandler(MouseEvent.ANY, handler);
     }
-    
+
     Label currentNotification = null;
+
     public void displayNotification(String message) {
         Label oldNotification = currentNotification;
         Label notification = new Label(message);
         currentNotification = notification;
         notification.setEffect(new DropShadow(2.0, Color.BLACK));
         notification.setTextFill(Color.WHITE);
-        notification.setBackground(new Background(new BackgroundFill(Color.rgb(0,0,80, 0.7), new CornerRadii(5.0), new Insets(-5.0))));
-        Application.invokeLater(() -> {  
+        notification.setBackground(new Background(new BackgroundFill(Color.rgb(0, 0, 80, 0.7), new CornerRadii(5.0), new Insets(-5.0))));
+        Application.invokeLater(() -> {
             stackPane.getChildren().remove(oldNotification);
             stackPane.getChildren().add(notification);
         });
-        
-        notificationExecutor.schedule(()->{
-            Application.invokeLater(() -> {            
+
+        notificationExecutor.schedule(() -> {
+            Application.invokeLater(() -> {
                 stackPane.getChildren().remove(notification);
-            });                    
+            });
         }, 4, TimeUnit.SECONDS);
     }
 }
