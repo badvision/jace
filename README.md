@@ -14,7 +14,7 @@ or `java -jar Jace.jar`
 Support JACE:
 
 JACE will always be free, but it does take considerable time to refine and add new features.  If you would like to show your support and encourage the author to keep maintaining this emulator, why not throw him some change to buy him a drink?  (The emulator was named for the Jack and Cokes consumed during its inception.)
-![Donate BTC](https://sites.google.com/site/brendanrobert/projects/jace/donate.png)
+![Donate BTC](https://sites.google.com/site/brendanrobert/projects/jace/donate.png | width=100)
 * <a href="bitcoin:1TmP94jrEtJNqz7wrCpViA6musGsiTXEq?amount=0.000721&label=Jace%20Donations">Donate to support JACE! (BTC address: 1TmP94jrEtJNqz7wrCpViA6musGsiTXEq)</a>
 * <a href="https://www.paypal.me/BrendanRobert">Donate to support JACE! (Paypal)</a>
 
