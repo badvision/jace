@@ -11,12 +11,19 @@ To Run:
 
 or `java -jar Jace.jar`
 
+Support JACE:
+
+JACE will always be free, but it does take considerable time to refine and add new features.  If you would like to show your support and encourage the author to keep maintaining this emulator, why not throw him some change to buy him a drink?  (The emulator was named for the Jack and Cokes consumed during its inception.)
+<a href="bitcoin:1TmP94jrEtJNqz7wrCpViA6musGsiTXEq?amount=0.000721&label=Jace%20Donations">Donate to support JACE! (BTC)</a>
+<a href="https://www.paypal.me/BrendanRobert">Donate to support JACE! (Paypal)
+
 To Build:
 
 * See [build.sh](build.sh)
 
 Jace is a java-based Apple //e emulator with many compelling features:
-* NEW: Built-in IDE for writing basic and assembly programs, using ACME to compile and execute directly without leaving the emulator.
+* NEW: UI Control Overlay makes common actions more conveniently available at the click of a button!
+* Built-in IDE for writing basic and assembly programs, using ACME to compile and execute directly without leaving the emulator.
 * Disk and Mass-storage (hard drive, 3.5 floppy) images
 * Joystick and Mouse are fully supported (Joystick can be emulated with either keyboard or mouse, Java doesn't have native joystick support
 * All graphics modes are supported, including Apple RGB "Mixed" and B&W modes.
