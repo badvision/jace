@@ -21,7 +21,7 @@
 # 0. Here is some information to clear up the confusion about Java:
 #
 #    The JRE (runtime) is needed to RUN Java programs.
-#    The JDK (compiler) is needed to COMPILTE Java programs.
+#    The JDK (compiler) is needed to COMPILE Java programs.
 #
 # Solution:
 #
