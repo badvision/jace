@@ -13,6 +13,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.scene.shape.Shape;
 
 /**
  *
@@ -31,10 +32,6 @@ public class MemoryCell implements Comparable<MemoryCell> {
     public ObservableList<Integer> writeInstructions = FXCollections.observableList(new ArrayList<>());
     public ObservableList<String> writeInstructionsDisassembly = FXCollections.observableArrayList(new ArrayList<>());
     public ObservableList<String> execInstructionsDisassembly = FXCollections.observableArrayList(new ArrayList<>());
-    private int x;
-    private int y;
-    private int width;
-    private int height;
 
     public static void setListener(ChangeListener<MemoryCell> l) {
         listener = l;
@@ -49,29 +46,6 @@ public class MemoryCell implements Comparable<MemoryCell> {
         value.addListener(changeListener);
     }
 
-    public void setRect(int x, int y, int w, int h) {
-        this.x = x;
-        this.y = y;
-        this.width = w;
-        this.height = h;
-    }
-
-    public int getX() {
-        return x;
-    }
-
-    public int getY() {
-        return y;
-    }
-
-    public int getWidth() {
-        return width;
-    }
-
-    public int getHeight() {
-        return height;
-    }
-
     @Override
     public int compareTo(MemoryCell o) {
         return address - o.address;
@@ -80,4 +54,14 @@ public class MemoryCell implements Comparable<MemoryCell> {
     public boolean hasCounts() {
         return hasCount.get();
     }    
+
+    private Shape shape;
+    
+    public void setShape(Shape s) {
+        shape = s;
+    }
+
+    public Shape getShape() {
+        return shape;
+    }
 }
