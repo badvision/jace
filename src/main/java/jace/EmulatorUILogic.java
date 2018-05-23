@@ -81,12 +81,18 @@ public class EmulatorUILogic implements Reconfigurable {
             }
         };
     }
+    
+    @ConfigurableField(
+            category = "General",
+            name = "Speed Setting"
+    )
+    public int speedSetting = 3;
 
     @ConfigurableField(
             category = "General",
             name = "Show Drives"
     )
-    public boolean showDrives = false;
+    public boolean showDrives = true;
 
     public static void updateCPURegisters(MOS65C02 cpu) {
 //        DebuggerPanel debuggerPanel = Emulator.getFrame().getDebuggerPanel();
@@ -554,5 +560,6 @@ public class EmulatorUILogic implements Reconfigurable {
 
     @Override
     public void reconfigure() {
+        JaceApplication.getApplication().controller.setSpeed(speedSetting);
     }
 }

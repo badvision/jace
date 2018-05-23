@@ -107,8 +107,11 @@ public class JaceUIController {
         assert stackPane != null : "fx:id=\"stackPane\" was not injected: check your FXML file 'JaceUI.fxml'.";
         assert notificationBox != null : "fx:id=\"notificationBox\" was not injected: check your FXML file 'JaceUI.fxml'.";
         assert appleScreen != null : "fx:id=\"appleScreen\" was not injected: check your FXML file 'JaceUI.fxml'.";
+        speedSlider.setValue(1.0);
         controlOverlay.setVisible(false);
         menuButtonPane.setVisible(false);
+        controlOverlay.setFocusTraversable(false);
+        menuButtonPane.setFocusTraversable(false);
         NumberBinding aspectCorrectedWidth = rootPane.heightProperty().multiply(3.0).divide(2.0);
         NumberBinding width = new When(
                 aspectRatioCorrectionEnabled.and(aspectCorrectedWidth.lessThan(rootPane.widthProperty()))
@@ -125,6 +128,7 @@ public class JaceUIController {
         controlOverlay.setOnMouseClicked(this::hideControlOverlay);
         delayTimer.getKeyFrames().add(new KeyFrame(Duration.millis(3000), evt -> {
             hideControlOverlay(null);
+            rootPane.requestFocus();
         }));
     }
 
@@ -139,9 +143,11 @@ public class JaceUIController {
                 ft.play();
             }
         }
+        rootPane.requestFocus();
     }
 
     Timeline delayTimer = new Timeline();
+
     private void resetMenuButtonTimer() {
         delayTimer.playFromStart();
     }
@@ -155,6 +161,7 @@ public class JaceUIController {
             ft.setFromValue(0.0);
             ft.setToValue(1.0);
             ft.play();
+            rootPane.requestFocus();
         }
     }
 
@@ -175,7 +182,7 @@ public class JaceUIController {
         }
     }
 
-    private double convertSpeedToRatio(Double setting) {
+    protected double convertSpeedToRatio(Double setting) {
         if (setting < 1.0) {
             return 0.5;
         } else if (setting == 1.0) {
@@ -201,7 +208,6 @@ public class JaceUIController {
             rootPane.setOnKeyReleased(keyboardHandler);
             rootPane.setFocusTraversable(true);
         }
-        speedSlider.setValue(1.0);
         speedSlider.setMinorTickCount(0);
         speedSlider.setMajorTickUnit(1);
         speedSlider.setLabelFormatter(new StringConverter<Double>() {
@@ -226,6 +232,11 @@ public class JaceUIController {
             }
         });
         speedSlider.valueProperty().addListener((val, oldValue, newValue) -> setSpeed(newValue.doubleValue()));
+        Platform.runLater(() -> {
+            speedSlider.setValue(Emulator.logic.speedSetting);
+            // Kind of redundant but make sure speed is properly set as if the user did it
+            setSpeed(Emulator.logic.speedSetting);
+        });
     }
 
     private void connectButtons(Node n) {
@@ -240,10 +251,14 @@ public class JaceUIController {
         }
     }
 
-    private void setSpeed(double speed) {
+    protected void setSpeed(double speed) {
+        Emulator.logic.speedSetting = (int) speed;
         double speedRatio = convertSpeedToRatio(speed);
+        if (speedSlider.getValue() != speed) {
+            Platform.runLater(()->speedSlider.setValue(speed));
+        }
         if (speedRatio > 100.0) {
-            Emulator.computer.getMotherboard().maxspeed = true;
+            Emulator.computer.getMotherboard().setMaxSpeed(true);
             Motherboard.cpuPerClock = 3;
         } else {
             if (speedRatio > 25) {
@@ -251,8 +266,8 @@ public class JaceUIController {
             } else {
                 Motherboard.cpuPerClock = 1;
             }
-            Emulator.computer.getMotherboard().maxspeed = false;
-            Emulator.computer.getMotherboard().speedRatio = (int) (speedRatio * 100);
+            Emulator.computer.getMotherboard().setMaxSpeed(false);
+            Emulator.computer.getMotherboard().setSpeedInPercentage((int) (speedRatio * 100));
         }
         Emulator.computer.getMotherboard().reconfigure();
     }
@@ -365,10 +380,12 @@ public class JaceUIController {
 
     private List<MediaConsumer> getMediaConsumers() {
         List<MediaConsumer> consumers = new ArrayList<>();
-        for (Optional<Card> card : computer.memory.getAllCards()) {
-            card.filter(c -> c instanceof MediaConsumerParent).ifPresent(parent -> {
-                consumers.addAll(Arrays.asList(((MediaConsumerParent) parent).getConsumers()));
-            });
+        if (Emulator.logic.showDrives) {
+            for (Optional<Card> card : computer.memory.getAllCards()) {
+                card.filter(c -> c instanceof MediaConsumerParent).ifPresent(parent -> {
+                    consumers.addAll(Arrays.asList(((MediaConsumerParent) parent).getConsumers()));
+                });
+            }
         }
         return consumers;
     }
