@@ -20,13 +20,15 @@ package jace.hardware.mockingboard;
 
 import jace.core.Computer;
 import jace.core.Device;
+import jace.core.TimedDevice;
 
 /**
  * Implementation of 6522 VIA chip
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
-public abstract class R6522 extends Device {
+public abstract class R6522 extends TimedDevice {
+    public static long SPEED = 1020484L; // (NTSC)
     
     public R6522(Computer computer) {
         super(computer);
@@ -34,9 +36,15 @@ public abstract class R6522 extends Device {
         timer1running = true;
         timer1latch = 0x1fff;
         timer1interruptEnabled = false;
+        setSpeedInHz(SPEED);
         setRun(true);
     }
 
+    @Override
+    public long defaultCyclesPerSecond() {
+        return SPEED;
+    }
+    
     // 6522 VIA
     // http://www.applevault.com/twiki/Main/Mockingboard/6522.pdf
     // I/O registers
@@ -133,6 +141,7 @@ public abstract class R6522 extends Device {
     public int timer2latch = 0;
     public int timer2counter = 0;
     public boolean timer2running = false;
+    public boolean unclocked = false;
     
     @Override
     protected String getDeviceName() {
@@ -141,6 +150,16 @@ public abstract class R6522 extends Device {
     
     @Override
     public void tick() {
+        if (!unclocked) {
+            doTick();
+        }
+    }
+    
+    public void setUnclocked(boolean unclocked) {
+        this.unclocked = unclocked;
+    }
+    
+    public void doTick() {
         if (timer1running) {
             timer1counter--;
             if (timer1counter < 0) {

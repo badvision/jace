@@ -27,7 +27,6 @@ import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
 import jace.core.RAMListener;
 import jace.core.SoundMixer;
-import static jace.core.Utility.*;
 import jace.hardware.mockingboard.PSG;
 import jace.hardware.mockingboard.R6522;
 import java.util.concurrent.TimeUnit;
@@ -80,7 +79,7 @@ public class CardMockingboard extends Card implements Runnable {
     Condition playbackFinished = timerSync.newCondition();
     @ConfigurableField(name = "Idle sample threshold", description = "Number of samples to wait before suspending sound")
     private int MAX_IDLE_SAMPLES = SAMPLE_RATE;
-
+    
     @Override
     public String getDeviceName() {
         return "Mockingboard";
@@ -90,7 +89,7 @@ public class CardMockingboard extends Card implements Runnable {
         super(computer);
         controllers = new R6522[2];
         for (int i = 0; i < 2; i++) {
-            //don't ask...
+            // has to be final to be used inside of anonymous class below
             final int j = i;
             controllers[i] = new R6522(computer) {
                 int controller = j;
@@ -131,6 +130,13 @@ public class CardMockingboard extends Card implements Runnable {
                 public String getShortName() {
                     return "timer" + j;
                 }
+                
+                public void doTick() {
+                    super.doTick();
+                    if (controller == 0) {
+                        doSoundTick();
+                    }
+                }
             };
         }
     }
@@ -140,6 +146,18 @@ public class CardMockingboard extends Card implements Runnable {
         suspend();
     }
     RAMListener mainListener = null;
+    
+    boolean heatbeatUnclocked = false;
+    long heartbeatReclockTime = 0L;
+    long unclockTime = 5000L;
+    
+    private void setUnclocked(boolean unclocked) {
+        heatbeatUnclocked = unclocked;
+        for (R6522 controller : controllers) {
+            controller.setUnclocked(unclocked);
+        }
+        heartbeatReclockTime = System.currentTimeMillis() + unclockTime;
+    }
 
     @Override
     protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
@@ -152,7 +170,7 @@ public class CardMockingboard extends Card implements Runnable {
             chip++;
         }
         if (chip >= 2) {
-            System.err.println("Could not determine which PSG to communicate to");
+            System.err.println("Could not determine which PSG to communicate to for access to regsiter + " + Integer.toHexString(register));
             e.setNewValue(computer.getVideo().getFloatingBus());
             return;
         }
@@ -177,13 +195,25 @@ public class CardMockingboard extends Card implements Runnable {
 
     @Override
     public void tick() {
-        for (R6522 c : controllers) {
-            if (c == null || !c.isRunning()) {
-                continue;
+        if (heatbeatUnclocked) {
+            if (System.currentTimeMillis() - heartbeatReclockTime >= unclockTime) {
+                setUnclocked(false);
+            } else {
+                for (R6522 c : controllers) {
+                    if (c == null || !c.isRunning()) {
+                        continue;
+                    }
+                    c.doTick();
+                }
             }
-            c.tick();
         }
-
+    }
+    
+    public boolean isRunning() {
+        return super.isRunning() && playbackThread != null && playbackThread.isAlive();
+    }
+    
+    private void doSoundTick() {
         if (isRunning() && !pause) {
 //            buildMixerTable();
             timerSync.lock();
@@ -194,7 +224,7 @@ public class CardMockingboard extends Card implements Runnable {
                     while (isRunning() && ticksSinceLastPlayback >= ticksBetweenPlayback) {
                         if (!playbackFinished.await(1, TimeUnit.SECONDS)) {
 //                            gripe("The mockingboard playback thread has stalled.  Disabling mockingboard.");
-                            suspend();
+                            suspendSound();
                         }
                     }
                 }
@@ -263,14 +293,15 @@ public class CardMockingboard extends Card implements Runnable {
     @Override
     public void resume() {
         pause = false;
-        if (!isRunning()) {
-            if (chips == null) {
-                initPSG();
-                for (PSG psg : chips) {
-                    psg.setRate(phasorMode ? CLOCK_SPEED * 2 : CLOCK_SPEED, SAMPLE_RATE);
-                    psg.reset();
-                }
+        if (chips == null) {
+            initPSG();
+            for (PSG psg : chips) {
+                psg.setRate(phasorMode ? CLOCK_SPEED * 2 : CLOCK_SPEED, SAMPLE_RATE);
+                psg.reset();
             }
+        }
+        if (!isRunning()) {
+            setUnclocked(true);
             for (R6522 controller : controllers) {
                 controller.attach();
                 controller.resume();
@@ -290,6 +321,10 @@ public class CardMockingboard extends Card implements Runnable {
             controller.suspend();
             controller.detach();
         }
+        return suspendSound();
+    }
+    
+    public boolean suspendSound() {
         if (playbackThread == null || !playbackThread.isAlive()) {
             return false;
         }
@@ -325,11 +360,11 @@ public class CardMockingboard extends Card implements Runnable {
             int zeroSamples = 0;
             setRun(true);
             LockSupport.parkNanos(5000);
-            while (isRunning()) {
+            while (isRunning() && !Thread.interrupted()) {
                 while (isRunning() && !computer.isRunning()) {
-                    Thread.currentThread().yield();
+                    Thread.sleep(1000);
                 }
-                if (isRunning()) {
+                if (isRunning() && !Thread.interrupted()) {
                     playSound(leftBuffer, rightBuffer);
                     int p = 0;
                     for (int idx = 0; idx < BUFFER_LENGTH; idx++) {
@@ -394,6 +429,8 @@ public class CardMockingboard extends Card implements Runnable {
         } catch (LineUnavailableException ex) {
             Logger.getLogger(CardMockingboard.class
                     .getName()).log(Level.SEVERE, null, ex);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(CardMockingboard.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             computer.getMotherboard().cancelSpeedRequest(this);
             System.out.println("Mockingboard playback stopped");

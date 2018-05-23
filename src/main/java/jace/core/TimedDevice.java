@@ -21,24 +21,25 @@ package jace.core;
 import jace.config.ConfigurableField;
 
 /**
- * A timed device is a device which executes so many ticks in a given time
- * interval. This is the core of the emulator timing mechanics.
+ * A timed device is a device which executes so many ticks in a given time interval. This is the core of the emulator
+ * timing mechanics.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public abstract class TimedDevice extends Device {
 
     /**
      * Creates a new instance of TimedDevice
+     *
      * @param computer
      */
     public TimedDevice(Computer computer) {
         super(computer);
-        setSpeed(cyclesPerSecond);
+        setSpeedInHz(cyclesPerSecond);
     }
     @ConfigurableField(name = "Speed", description = "(Percentage)")
     public int speedRatio = 100;
-    public long cyclesPerSecond = defaultCyclesPerSecond();
+    private long cyclesPerSecond = defaultCyclesPerSecond();
     @ConfigurableField(name = "Max speed")
     public boolean maxspeed = false;
 
@@ -57,10 +58,11 @@ public abstract class TimedDevice extends Device {
     public boolean suspend() {
         disableTempMaxSpeed();
         boolean result = super.suspend();
-        if (worker != null && worker.isAlive()) {
+        Thread w = worker;
+        if (w != null && w.isAlive()) {
             try {
-                worker.interrupt();
-                worker.join(1000);
+                w.interrupt();
+                w.join(1000);
             } catch (InterruptedException ex) {
             }
         }
@@ -114,13 +116,44 @@ public abstract class TimedDevice extends Device {
     long cyclesPerInterval; // How many cycles to wait until a pause interval
     long nextSync; // When was the last pause?
 
-    public final void setSpeed(long cyclesPerSecond) {
+    public final int getSpeedRatio() {
+        return speedRatio;
+    }
+
+    public final void setMaxSpeed(boolean enabled) {
+        maxspeed = enabled;
+        if (!enabled) {
+            disableTempMaxSpeed();
+        }
+    }
+
+    public final boolean isMaxSpeed() {
+        return maxspeed;
+    }
+
+    public final long getSpeedInHz() {
+        return cyclesPerInterval * 100L;
+    }
+
+    public final void setSpeedInHz(long cyclesPerSecond) {
+//        System.out.println("Raw set speed for " + getName() + " to " + cyclesPerSecond + "hz");
+        speedRatio = (int) Math.round(cyclesPerSecond * 100.0 / defaultCyclesPerSecond());
         cyclesPerInterval = cyclesPerSecond / 100L;
         nanosPerInterval = (long) (cyclesPerInterval * NANOS_PER_SECOND / cyclesPerSecond);
 //        System.out.println("Will pause " + nanosPerInterval + " nanos every " + cyclesPerInterval + " cycles");
         cycleTimer = 0;
         resetSyncTimer();
     }
+
+    public final void setSpeedInPercentage(int ratio) {
+//        System.out.println("Setting " + getName() + " speed ratio to " + speedRatio);
+        cyclesPerSecond = defaultCyclesPerSecond() * ratio / 100;
+        if (cyclesPerSecond == 0) {
+            cyclesPerSecond = defaultCyclesPerSecond();
+        }
+        setSpeedInHz(cyclesPerSecond);
+    }
+
     long skip = 0;
     long wait = 0;
 
@@ -171,11 +204,6 @@ public abstract class TimedDevice extends Device {
 
     @Override
     public void reconfigure() {
-        cyclesPerSecond = defaultCyclesPerSecond() * speedRatio / 100;
-        if (cyclesPerSecond == 0) {
-            cyclesPerSecond = defaultCyclesPerSecond();
-        }
-        setSpeed(cyclesPerSecond);
     }
 
     public abstract long defaultCyclesPerSecond();

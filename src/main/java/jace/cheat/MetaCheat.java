@@ -305,7 +305,7 @@ public class MetaCheat extends Cheats {
     }
 
     int fadeCounter = 0;
-    int FADE_TIMER_VALUE = (int) (Emulator.computer.getMotherboard().cyclesPerSecond / 60);
+    int FADE_TIMER_VALUE = (int) (Emulator.computer.getMotherboard().getSpeedInHz() / 60);
 
     @Override
     public void tick() {
