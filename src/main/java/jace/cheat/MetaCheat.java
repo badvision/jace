@@ -72,7 +72,7 @@ public class MetaCheat extends Cheats {
     public int historyLength = 10;
 
     private int startAddress = 0;
-    private int endAddress = 0x0ffff;
+    private int endAddress = 0x0AFFF;
     private final StringProperty startAddressProperty = new SimpleStringProperty(Integer.toHexString(startAddress));
     private final StringProperty endAddressProperty = new SimpleStringProperty(Integer.toHexString(endAddress));
     private boolean byteSized = true;
@@ -92,10 +92,10 @@ public class MetaCheat extends Cheats {
         addNumericValidator(searchValueProperty);
         addNumericValidator(changeByProperty);
         startAddressProperty.addListener((prop, oldVal, newVal) -> {
-            startAddress = Math.max(0, Math.min(65535, parseInt(newVal)));
+            startAddress = Math.max(0, Math.min(65535, Integer.parseInt(newVal, 16)));
         });
         endAddressProperty.addListener((prop, oldVal, newVal) -> {
-            endAddress = Math.max(0, Math.min(65535, parseInt(newVal)));
+            endAddress = Math.max(0, Math.min(65535, Integer.parseInt(newVal, 16)));
         });
     }
 

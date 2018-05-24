@@ -119,6 +119,7 @@ public class JaceUIController {
         appleScreen.fitWidthProperty().bind(width);
         appleScreen.fitHeightProperty().bind(rootPane.heightProperty());
         appleScreen.setVisible(false);
+        menuButtonPane.setPickOnBounds(false);
         rootPane.setOnDragEntered(this::processDragEnteredEvent);
         rootPane.setOnDragExited(this::processDragExitedEvent);
         rootPane.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
@@ -255,7 +256,7 @@ public class JaceUIController {
         Emulator.logic.speedSetting = (int) speed;
         double speedRatio = convertSpeedToRatio(speed);
         if (speedSlider.getValue() != speed) {
-            Platform.runLater(()->speedSlider.setValue(speed));
+            Platform.runLater(() -> speedSlider.setValue(speed));
         }
         if (speedRatio > 100.0) {
             Emulator.computer.getMotherboard().setMaxSpeed(true);
