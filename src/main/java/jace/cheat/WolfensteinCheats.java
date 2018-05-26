@@ -175,10 +175,13 @@ public class WolfensteinCheats extends Cheats {
     private void allDead(RAMEvent evt) {
         int type = evt.getNewValue();
         if (_isBeyondWolfenstein) {
-            if (type == GUARD) {
-                evt.setNewValue(CORPSE);
-            } else if (type == SEATED_GUARD && !isFinalRoom()) {
-                computer.getMemory().write(evt.getAddress() + 4, (byte) 4, false, false);
+            int location = computer.getMemory().readRaw(evt.getAddress() + 1);
+            if (!isFinalRoom() || location < 32) {
+                if (type == GUARD) {
+                    evt.setNewValue(CORPSE);
+                } else if (type == SEATED_GUARD) {
+                    computer.getMemory().write(evt.getAddress() + 4, (byte) 4, false, false);
+                }
             }
         } else {
             if (type == GUARD || type == SS) {
