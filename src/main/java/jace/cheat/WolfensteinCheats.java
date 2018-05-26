@@ -93,6 +93,9 @@ public class WolfensteinCheats extends Cheats {
 
     @ConfigurableField(category = "Hack", name = "Legendary (1)", defaultValue = "false", description = "All of them are SS guards!")
     public static boolean legendary = false;
+    
+    @ConfigurableField(category = "Hack", name = "Day at the office (2)", defaultValue = "false", description = "All of them are at desks")
+    public static boolean dayAtTheOffice = false;    
 
     @Override
     public void registerListeners() {
@@ -100,6 +103,11 @@ public class WolfensteinCheats extends Cheats {
             // Only work in Beyond Wolfenstein
             if (rich) {
                 forceValue(MARKS, 255);
+            }
+            if (dayAtTheOffice) {
+                for (int i = 0x04080; i < 0x04100; i += 0x010) {
+                    addCheat(RAMEvent.TYPE.READ, this::allDesks, i);
+                }                
             }
         } else {
             // Only work in the first Wolfenstein game
@@ -170,6 +178,20 @@ public class WolfensteinCheats extends Cheats {
             }
         }
         return false;
+    }
+
+    private void allDesks(RAMEvent evt) {
+        int location = computer.getMemory().readRaw(evt.getAddress() + 1);
+        if (!isFinalRoom() || location < 32) {
+            int type = evt.getNewValue();
+            if (type == GUARD) {
+                evt.setNewValue(SEATED_GUARD);
+                // Reset the status flag to 0 to prevent the boss desk from rendering, but don't revive dead guards!
+                if (computer.getMemory().readRaw(evt.getAddress() + 4) != 4) {
+                    computer.getMemory().write(evt.getAddress() + 4, (byte) 0, false, false);
+                }
+            }
+        }
     }
 
     private void allDead(RAMEvent evt) {
