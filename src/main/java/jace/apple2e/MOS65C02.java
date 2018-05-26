@@ -1326,6 +1326,9 @@ public class MOS65C02 extends CPU {
          */
         StringBuilder out = new StringBuilder(o.getCommand().toString());
         out.append(" ").append(format);
+        if (o.getMode().isIndirect()) {
+            out.append(" >> $").append(Integer.toHexString(o.getMode().getCalculator().calculateAddress(this)));
+        }
         return out.toString();
     }
     private boolean pageBoundaryPenalty = false;

@@ -16,6 +16,7 @@
 package jace.cheat;
 
 import jace.EmulatorUILogic;
+import jace.apple2e.MOS65C02;
 import jace.config.ConfigurableField;
 import jace.core.Computer;
 import jace.core.RAMEvent;
@@ -29,78 +30,124 @@ import javafx.scene.input.MouseEvent;
  */
 public class WolfensteinCheats extends Cheats {
 
+    // Specific to Wolfenstein
+    static final int KEYS = 0x04359;
+    static final int GRENADES = 0x04348;
+    // Object types
+    static final int CHEST = 48;
+    static final int SS = 32;
+
+    // Specific to Beyond Wolfenstein
+    static final int MARKS = 0x0434b;
+    static final int PASSES = 0x04360;
+    static final int CLOSET_CONTENTS_CMP = 0x05FB9; // Only locks by type, so mess up the check
+    // Object types
+    static final int CLOSET = 32;
+    static final int ALARM = 48;
+    static final int SEATED_GUARD = 80;
+    static final int BW_DOOR = 96;
+
+    // Same in both Wolfenstein and Beyond Wolfenstein
+    static final int PLAYER_LOCATION = 0x04343;
+    static final int BULLETS = 0x04347;
+    // Object types
+    static final int CORPSE = 64;
+    static final int GUARD = 16;
+    static final int DOOR = 80;
+    static final int NOTHING = 0;
+
     public WolfensteinCheats(Computer computer) {
         super(computer);
     }
 
     private EventHandler<MouseEvent> mouseListener = this::processMouseEvent;
+    @ConfigurableField(category = "Hack", name = "Beyond Wolfenstein", defaultValue = "false", description = "Make sure cheats work with Beyond Wolfenstein")
+    public static boolean _isBeyondWolfenstein = false;
 
-    @ConfigurableField(category = "Hack", name = "Mouse", defaultValue = "false", description = "Left click kills/opens, Right click teleports")
+    @ConfigurableField(category = "Hack", name = "Mouse (1+2)", defaultValue = "false", description = "Left click kills/opens, Right click teleports")
     public static boolean mouseMode = true;
 
-    @ConfigurableField(category = "Hack", name = "Ammo", defaultValue = "false", description = "All the bullets and grenades you'll need")
+    @ConfigurableField(category = "Hack", name = "Ammo (1+2)", defaultValue = "false", description = "All the bullets and grenades you'll need")
     public static boolean ammo = true;
 
-    @ConfigurableField(category = "Hack", name = "Uniform", defaultValue = "false", description = "PUT SOME CLOTHES ON!")
+    @ConfigurableField(category = "Hack", name = "Rich (2)", defaultValue = "false", description = "All the money")
+    public static boolean rich = true;
+
+    @ConfigurableField(category = "Hack", name = "Uniform (1)", defaultValue = "false", description = "PUT SOME CLOTHES ON!")
     public static boolean uniform = true;
 
-    @ConfigurableField(category = "Hack", name = "Protection", defaultValue = "false", description = "Bulletproof")
+    @ConfigurableField(category = "Hack", name = "Vest (1)", defaultValue = "false", description = "Bulletproof vest")
     public static boolean vest = true;
 
-    @ConfigurableField(category = "Hack", name = "Skeleton Key", defaultValue = "false", description = "Open all things")
+    @ConfigurableField(category = "Hack", name = "Skeleton Key (1+2)", defaultValue = "false", description = "Open all things")
     public static boolean skeletonKey = true;
 
-    @ConfigurableField(category = "Hack", name = "Fast Open", defaultValue = "false", description = "Open all things quickly")
+    @ConfigurableField(category = "Hack", name = "Fast Open (1)", defaultValue = "false", description = "Open all things quickly")
     public static boolean fastOpen = true;
-    
-    @ConfigurableField(category = "Hack", name = "All dead", defaultValue = "false", description = "Everything is dead")
-    public static boolean allDead = false;
-    
-    @ConfigurableField(category = "Hack", name = "Sleepy Time", defaultValue = "false", description = "Nobody move, nobody get hurt")
+
+    @ConfigurableField(category = "Hack", name = "All dead (1+2)", defaultValue = "false", description = "Everything is dead")
+    public static boolean allDead = true;
+
+    @ConfigurableField(category = "Hack", name = "Sleepy Time (1+2)", defaultValue = "false", description = "Nobody move, nobody get hurt")
     public static boolean sleepyTime = false;
-   
-    @ConfigurableField(category = "Hack", name = "Legendary", defaultValue = "false", description = "All of them are SS guards!")
+
+    @ConfigurableField(category = "Hack", name = "Legendary (1)", defaultValue = "false", description = "All of them are SS guards!")
     public static boolean legendary = false;
-    
+
     @Override
     public void registerListeners() {
+        if (_isBeyondWolfenstein) {
+            // Only work in Beyond Wolfenstein
+            if (rich) {
+                forceValue(MARKS, 255);
+            }
+        } else {
+            // Only work in the first Wolfenstein game
+            if (uniform) {
+                forceValue(255, 0x04349);
+            }
+            if (vest) {
+                forceValue(255, 0x0434A);
+            }
+            if (fastOpen) {
+                addCheat(RAMEvent.TYPE.WRITE, this::fastOpenHandler, 0x04351);
+                addCheat(RAMEvent.TYPE.WRITE, this::fastOpenHandler, 0x0587B);
+            }
+        }
         if (ammo) {
-            forceValue(10, 0x04347);
-            forceValue(9, 0x04348);
-        }
-        if (uniform) {
-            forceValue(255, 0x04349);
-        }
-        if (vest) {
-            forceValue(255, 0x0434A);
+            forceValue(10, BULLETS);
+            if (!_isBeyondWolfenstein) {
+                forceValue(9, GRENADES);
+            }
         }
         if (skeletonKey) {
-            forceValue(255, 0x04359);
-        }
-        if (fastOpen) {
-            addCheat(RAMEvent.TYPE.WRITE, this::fastOpenHandler, 0x04351);
-            addCheat(RAMEvent.TYPE.WRITE, this::fastOpenHandler, 0x0587B);
+            if (_isBeyondWolfenstein) {
+                forceValue(255, PASSES);
+                forceValue(64, CLOSET_CONTENTS_CMP); // Fake it out so it thinks all doors are unlocked
+            } else {
+                forceValue(255, KEYS);
+            }
         }
         if (allDead) {
             for (int i = 0x04080; i < 0x04100; i += 0x010) {
                 addCheat(RAMEvent.TYPE.READ, this::allDead, i);
-            }            
-        }        
+            }
+        }
         if (sleepyTime) {
             for (int i = 0x04080; i < 0x04100; i += 0x010) {
-                forceValue(0, i+2);
-                forceValue(0, i+3);
+                forceValue(0, i + 2);
+                forceValue(0, i + 3);
 // This makes them shout ACHTUNG over and over again... so don't do that.                
 //                forceValue(144, i+12);
-                forceValue(0, i+12);
-            }            
-        }        
+                forceValue(0, i + 12);
+            }
+        }
         if (legendary) {
             for (int i = 0x04080; i < 0x04100; i += 0x010) {
                 addCheat(RAMEvent.TYPE.READ, this::legendaryMode, i);
-            }            
+            }
         }
-        
+
         if (mouseMode) {
             EmulatorUILogic.addMouseListener(mouseListener);
         } else {
@@ -114,20 +161,40 @@ public class WolfensteinCheats extends Cheats {
             evt.setNewValue(1);
         }
     }
-    
+
+    private boolean isFinalRoom() {
+        for (int i = 0x04080; i < 0x04100; i += 0x010) {
+            int objectType = computer.getMemory().readRaw(i) & 0x0ff;
+            if (objectType == BW_DOOR) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void allDead(RAMEvent evt) {
         int type = evt.getNewValue();
-        if (type == 16 || type == 32) {
-            evt.setNewValue(64);
-        }        
+        if (_isBeyondWolfenstein) {
+            if (type == GUARD) {
+                evt.setNewValue(CORPSE);
+            } else if (type == SEATED_GUARD && !isFinalRoom()) {
+                computer.getMemory().write(evt.getAddress() + 4, (byte) 4, false, false);
+            }
+        } else {
+            if (type == GUARD || type == SS) {
+                evt.setNewValue(CORPSE);
+            }
+        }
     }
-    
+
+    private int debugTicks = 0;
+
     private void legendaryMode(RAMEvent evt) {
         int type = evt.getNewValue();
         if (type == 16) {
             evt.setNewValue(32);
-        }        
-    }    
+        }
+    }
 
     private void processMouseEvent(MouseEvent evt) {
         if (evt.isPrimaryButtonDown() || evt.isSecondaryButtonDown()) {
@@ -152,30 +219,70 @@ public class WolfensteinCheats extends Cheats {
             System.out.print("Location " + enemyLocation);
             String type = "";
             boolean isAlive = false;
-            switch (computer.getMemory().readRaw(i) & 0x0ff) {
-                case 16:
-                    type = "soldier";
-                    isAlive = true;
-                    break;
-                case 32:
-                    type = "SS";
-                    isAlive = true;
-                    break;
-                case 48:
-                    type = "chest";
-                    break;
-                case 64:
-                    type = "corpse";
-                    break;
-                case 80:
-                    type = "door";
-                    break;
-                default:
-                    type = "unknown type " + (computer.getMemory().readRaw(i) & 0x0ff);
+            boolean isSeatedGuard = false;
+            if (_isBeyondWolfenstein) {
+                switch (computer.getMemory().readRaw(i) & 0x0ff) {
+                    case GUARD:
+                        type = "guard";
+                        isAlive = true;
+                        break;
+                    case SEATED_GUARD:
+                        type = "seated guard";
+                        isAlive = true;
+                        isSeatedGuard = true;
+                        break;
+                    case CLOSET:
+                        type = "closet";
+                        break;
+                    case CORPSE:
+                        type = "corpse";
+                        break;
+                    case NOTHING:
+                        type = "nothing";
+                        break;
+                    default:
+                        type = "unknown type " + (computer.getMemory().readRaw(i) & 0x0ff);
+                }
+            } else {
+                switch (computer.getMemory().readRaw(i) & 0x0ff) {
+                    case GUARD:
+                        type = "guard";
+                        isAlive = true;
+                        break;
+                    case SS:
+                        type = "SS";
+                        isAlive = true;
+                        break;
+                    case CHEST:
+                        type = "chest";
+                        break;
+                    case CORPSE:
+                        type = "corpse";
+                        break;
+                    case DOOR:
+                        type = "door";
+                        break;
+                    case NOTHING:
+                        type = "nothing";
+                        break;
+                    default:
+                        type = "unknown type " + (computer.getMemory().readRaw(i) & 0x0ff);
+                }
             }
             System.out.println(" is a " + type);
+            for (int j = 0x00; j < 0x0f; j++) {
+                int val = computer.getMemory().readRaw(i + j) & 0x0ff;
+                System.out.print(Integer.toHexString(val) + " ");
+            }
+            System.out.println();
+
             if (isAlive && location == enemyLocation) {
-                computer.getMemory().write(i, (byte) 64, false, true);
+                if (isSeatedGuard) {
+                    computer.getMemory().write(i + 4, (byte) 4, false, false);
+                } else {
+                    computer.getMemory().write(i, (byte) CORPSE, false, true);
+                }
+
                 System.out.println("*BLAM*");
             }
         }
@@ -200,6 +307,12 @@ public class WolfensteinCheats extends Cheats {
 
     @Override
     public void tick() {
+        if (debugTicks > 0) {
+            debugTicks--;
+            if (debugTicks == 0) {
+                computer.getCpu().setTraceEnabled(false);
+            }
+        }
     }
 
     /**
