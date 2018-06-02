@@ -38,6 +38,7 @@ import jace.hardware.CardExt80Col;
 import jace.hardware.ConsoleProbe;
 import jace.hardware.Joystick;
 import jace.hardware.NoSlotClock;
+import jace.hardware.ZipWarpAccelerator;
 import jace.hardware.massStorage.CardMassStorage;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -96,6 +97,8 @@ public class Apple2e extends Computer {
     public boolean joy2enabled = false;
     @ConfigurableField(name = "No-Slot Clock Enabled", shortName = "clock", description = "If checked, no-slot clock will be enabled", enablesDevice = true)
     public boolean clockEnabled = true;
+    @ConfigurableField(name = "Accelerator Enabled", shortName = "zip", description = "If checked, add support for Zip/Transwarp", enablesDevice = true)
+    public boolean acceleratorEnabled = true;
 
     public Joystick joystick1;
     public Joystick joystick2;
@@ -103,6 +106,7 @@ public class Apple2e extends Computer {
     public ClassSelection cheatEngine = new ClassSelection(Cheats.class, null);
     public Cheats activeCheatEngine = null;
     public NoSlotClock clock;
+    public ZipWarpAccelerator accelerator;
 
     /**
      * Creates a new instance of Apple2e
@@ -154,7 +158,8 @@ public class Apple2e extends Computer {
             Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             getCpu().resume();
-            reboot();            
+            reboot();
+            resume();
         }
     }
 
@@ -244,39 +249,42 @@ public class Apple2e extends Computer {
         currentMemory.reconfigure();
 
         if (motherboard != null) {
+            if (accelerator == null) {
+                accelerator = new ZipWarpAccelerator(this);
+            }
+            if (acceleratorEnabled) {
+                motherboard.addChildDevice(accelerator);
+            } else {
+                motherboard.removeChildDevice(accelerator);
+            }
+
             if (joy1enabled) {
                 if (joystick1 == null) {
                     joystick1 = new Joystick(0, this);
-                    motherboard.miscDevices.add(joystick1);
-                    joystick1.attach();
+                    motherboard.addChildDevice(joystick1);
                 }
             } else if (joystick1 != null) {
-                joystick1.detach();
-                motherboard.miscDevices.remove(joystick1);
+                motherboard.removeChildDevice(joystick1);
                 joystick1 = null;
             }
 
             if (joy2enabled) {
                 if (joystick2 == null) {
                     joystick2 = new Joystick(1, this);
-                    motherboard.miscDevices.add(joystick2);
-                    joystick2.attach();
+                    motherboard.addChildDevice(joystick2);
                 }
             } else if (joystick2 != null) {
-                joystick2.detach();
-                motherboard.miscDevices.remove(joystick2);
+                motherboard.removeChildDevice(joystick2);
                 joystick2 = null;
             }
 
             if (clockEnabled) {
                 if (clock == null) {
                     clock = new NoSlotClock(this);
-                    motherboard.miscDevices.add(clock);
-                    clock.attach();
+                    motherboard.addChildDevice(clock);
                 }
             } else if (clock != null) {
-                motherboard.miscDevices.remove(clock);
-                clock.detach();
+                motherboard.removeChildDevice(clock);
                 clock = null;
             }
         }
@@ -336,7 +344,7 @@ public class Apple2e extends Computer {
             if (cheatEngine.getValue() == null) {
                 if (activeCheatEngine != null) {
                     activeCheatEngine.detach();
-                    motherboard.miscDevices.remove(activeCheatEngine);
+                    motherboard.addChildDevice(activeCheatEngine);
                 }
                 activeCheatEngine = null;
             } else {
@@ -345,9 +353,8 @@ public class Apple2e extends Computer {
                     if (activeCheatEngine.getClass().equals(cheatEngine.getValue())) {
                         startCheats = false;
                     } else {
-                        activeCheatEngine.detach();
+                        motherboard.removeChildDevice(activeCheatEngine);
                         activeCheatEngine = null;
-                        motherboard.miscDevices.remove(activeCheatEngine);
                     }
                 }
                 if (startCheats) {
@@ -356,8 +363,7 @@ public class Apple2e extends Computer {
                     } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException | IllegalArgumentException | InvocationTargetException ex) {
                         Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    activeCheatEngine.attach();
-                    motherboard.miscDevices.add(activeCheatEngine);
+                    motherboard.addChildDevice(activeCheatEngine);
                 }
             }
         } catch (IOException ex) {

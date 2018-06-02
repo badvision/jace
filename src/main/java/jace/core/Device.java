@@ -20,6 +20,10 @@ package jace.core;
 
 import jace.state.Stateful;
 import jace.config.Reconfigurable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 
@@ -39,9 +43,14 @@ import javafx.beans.property.SimpleBooleanProperty;
 @Stateful
 public abstract class Device implements Reconfigurable {
     protected Computer computer;
-    private Device() {        
+    private List<Device> children;
+    
+    private Device() {
+        children = Collections.synchronizedList(new ArrayList<>());
     }
+    
     public Device(Computer computer) {
+        this();
         this.computer = computer;
     }
     
@@ -52,6 +61,31 @@ public abstract class Device implements Reconfigurable {
     private final BooleanProperty run = new SimpleBooleanProperty(true);
     @Stateful
     public boolean isPaused = false;
+    @Stateful
+    public boolean isAttached = false;
+    
+    public void addChildDevice(Device d) {
+        children.add(d);
+        if (isAttached) {
+            d.attach();
+        }
+    }
+    
+    public void removeChildDevice(Device d) {
+        children.remove(d);
+        d.suspend();
+        if (isAttached) {
+            d.detach();
+        }
+    }
+    
+    public void addAllDevices(Collection<Device> devices) {
+        devices.forEach(this::addChildDevice);
+    }
+    
+    public List<Device> getChildren() {
+        return Collections.unmodifiableList(children);
+    }
 
     public BooleanProperty getRunningProperty() {
         return run;
@@ -86,6 +120,7 @@ public abstract class Device implements Reconfigurable {
             return;
         }
         // Implicit else...
+        children.forEach(Device::doTick);
         tick();
     }
 
@@ -113,17 +148,24 @@ public abstract class Device implements Reconfigurable {
             setRun(false);
             return true;
         }
+        children.forEach(Device::suspend);
         return false;
     }
 
     public void resume() {
         setRun(true);
         waitCycles = 0;
+        children.forEach(Device::resume);
     }
 
-    public abstract void attach();
+    public void attach() {
+        isAttached = true;
+        children.forEach(Device::attach);
+    }
 
     public void detach() {
         Keyboard.unregisterAllHandlers(this);
+        children.forEach(Device::suspend);
+        children.forEach(Device::detach);
     }
 }
