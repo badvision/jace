@@ -21,13 +21,22 @@
 # 0. Here is some information to clear up the confusion about Java:
 #
 #    The JRE (runtime) is needed to RUN Java programs.
-#    The JDK (compiler) is needed to COMPILTE Java programs.
+#    The JDK (compiler) is needed to COMPILE Java programs.
 #
 # Solution:
 #
 # 1. Check which verison of Java that Maven is using
 #
 #   mvn -version
+#
+# NOTE: If this command returns:
+#
+#     -bash: mvn: command not found
+#
+# You either didn't install maven or it isn't in your path
+# i.e.
+#     which mvn
+#     /usr/local/bin/mvn
 #
 # 2. Check which version of the Java JRE is installed:
 #
@@ -87,6 +96,13 @@
 #                    <target>1.7</target>
 #
 # As the source code is using Java 1.8 langauge features.
+
+if [[ -z "$(which mvn)" ]]; then
+    echo "ERROR: Maven isn't installed"
+    echo "Install via:"
+    echo "   brew install maven"
+    exit
+fi
 
 if [[ -z "$JAVA_HOME" ]]; then
     echo "WARNING: JAVA_HOME was not set"
