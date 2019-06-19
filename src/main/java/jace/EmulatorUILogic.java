@@ -30,7 +30,6 @@ import jace.core.Computer;
 import jace.core.Debugger;
 import jace.core.RAM;
 import jace.core.RAMListener;
-import static jace.core.Utility.*;
 import jace.ide.IdeController;
 import java.io.File;
 import java.io.FileInputStream;
@@ -59,6 +58,8 @@ import javafx.scene.layout.AnchorPane;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
+import static jace.core.Utility.*;
+
 /**
  * This class contains miscellaneous user-invoked actions such as debugger
  * operations and running arbitrary files in the emulator. It is possible for
@@ -81,7 +82,7 @@ public class EmulatorUILogic implements Reconfigurable {
             }
         };
     }
-    
+
     @ConfigurableField(
             category = "General",
             name = "Speed Setting"
@@ -450,7 +451,7 @@ public class EmulatorUILogic implements Reconfigurable {
             }
         });
     }
-    
+
     @InvokableAction(
             name = "About",
             category = "general",
@@ -459,7 +460,7 @@ public class EmulatorUILogic implements Reconfigurable {
             defaultKeyMapping = {"ctrl+shift+."})
     public static void showAboutWindow() {
         //TODO: Implement
-    }    
+    }
 
     public static boolean confirm(String message) {
 //        return JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(Emulator.getFrame(), message);
@@ -560,6 +561,8 @@ public class EmulatorUILogic implements Reconfigurable {
 
     @Override
     public void reconfigure() {
-        JaceApplication.getApplication().controller.setSpeed(speedSetting);
+        if (JaceApplication.getApplication() != null) {
+            JaceApplication.getApplication().controller.setSpeed(speedSetting);
+        }
     }
 }

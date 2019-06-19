@@ -18,6 +18,7 @@
  */
 package jace.core;
 
+import jace.Emulator;
 import jace.config.Configuration;
 import jace.config.InvokableAction;
 import java.io.File;
@@ -25,7 +26,6 @@ import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import org.reflections.Reflections;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -38,7 +38,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -49,6 +48,7 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
+import org.reflections.Reflections;
 
 /**
  * This is a set of helper functions which do not belong anywhere else.
@@ -104,7 +104,7 @@ public class Utility {
         }
         return dist[m][n];
     }
-    
+
     /**
      * Normalize distance based on longest string
      * @param s
@@ -114,7 +114,7 @@ public class Utility {
     public static int adjustedLevenshteinDistance(String s, String t) {
         return Math.max(s.length(), t.length()) - levenshteinDistance(s, t);
     }
-    
+
 
     /**
      * Compare strings based on a tally of similar patterns found, using a fixed
@@ -156,6 +156,9 @@ public class Utility {
 
     public static void setHeadlessMode(boolean headless) {
         isHeadless = headless;
+        if (Emulator.instance == null && headless) {
+            Emulator.instance = new Emulator(Collections.emptyList());
+        }
     }
 
     public static boolean isHeadlessMode() {
@@ -515,7 +518,7 @@ public class Utility {
 //        }
         return actions.get(actionsList.get(0));
     }
-    
+
     private static int getActionNameMatch(String str, InvokableAction action) {
         int nameMatch = levenshteinDistance(str, action.name());
         if (action.alternatives() != null) {

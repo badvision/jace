@@ -25,7 +25,7 @@ import jace.core.SoftSwitch;
  * A memory softswitch is a softswitch which triggers a memory reconfiguration
  * after its value is changed.
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class MemorySoftSwitch extends SoftSwitch {
 
@@ -48,11 +48,15 @@ public class MemorySoftSwitch extends SoftSwitch {
     // Todo: Implement floating bus, maybe?
     @Override
     protected byte readSwitch() {
-        byte value = computer.getVideo().getFloatingBus();
-        if (getState()) {
-            return (byte) (value | 0x080);
+        if (computer.getVideo() == null) {
+            return 0x00;
         } else {
-            return (byte) (value & 0x07f);
+            byte value = computer.getVideo().getFloatingBus();
+            if (getState()) {
+                return (byte) (value | 0x080);
+            } else {
+                return (byte) (value & 0x07f);
+            }
         }
     }
 }

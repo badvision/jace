@@ -18,15 +18,15 @@
  */
 package jace;
 
-import jace.config.Configuration;
 import jace.apple2e.Apple2e;
+import jace.config.Configuration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Created on January 15, 2007, 10:10 PM
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Emulator {
 
@@ -51,6 +51,10 @@ public class Emulator {
         Configuration.buildTree();
         Configuration.loadSettings();
         mainThread = Thread.currentThread();
+        applyConfiguration(args);
+    }
+
+    public void applyConfiguration(List<String> args) {
         Map<String, String> settings = new LinkedHashMap<>();
         if (args != null) {
             for (int i = 0; i < args.size(); i++) {

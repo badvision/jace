@@ -52,7 +52,6 @@ import java.util.logging.Logger;
 import java.util.stream.Stream;
 import javafx.collections.ObservableList;
 import javafx.scene.control.TreeItem;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
 /**
@@ -190,16 +189,17 @@ public class Configuration implements Reconfigurable {
         }
 
         public void setFieldValue(String field, Serializable value) {
-            setChanged(true);
             if (value != null) {
                 if (value.equals(getFieldValue(field))) {
                     return;
                 }
             } else {
                 if (getFieldValue(field) == null) {
+                    setChanged(false);
                     return;
                 }
             }
+            setChanged(true);
             setRawFieldValue(field, value);
         }
 
