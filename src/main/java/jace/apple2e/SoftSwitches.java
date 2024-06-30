@@ -1,23 +1,22 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.apple2e;
 
+import jace.Emulator;
 import jace.apple2e.softswitch.IntC8SoftSwitch;
 import jace.apple2e.softswitch.KeyboardSoftSwitch;
 import jace.apple2e.softswitch.Memory2SoftSwitch;
@@ -25,6 +24,7 @@ import jace.apple2e.softswitch.MemorySoftSwitch;
 import jace.apple2e.softswitch.VideoSoftSwitch;
 import jace.core.RAMEvent;
 import jace.core.SoftSwitch;
+import jace.core.Video;
 
 /**
  * Softswitches reside in the addresses C000-C07f and control everything from
@@ -62,7 +62,7 @@ public enum SoftSwitches {
         @Override
         public void stateChanged() {
             super.stateChanged();
-            computer.getVideo().forceRefresh();
+            Video.forceRefresh();
         }
     }),
     TEXT(new VideoSoftSwitch("Text", 0x0c050, 0x0c051, 0x0c01a, RAMEvent.TYPE.ANY, true)),
@@ -70,21 +70,11 @@ public enum SoftSwitches {
     PAGE2(new VideoSoftSwitch("Page2", 0x0c054, 0x0c055, 0x0c01c, RAMEvent.TYPE.ANY, false) {
         @Override
         public void stateChanged() {
-//            if (computer == null) {
-//                return;
-//            }
-//            if (computer == null && computer.getMemory() == null) {
-//                return;
-//            }
-//            if (computer == null && computer.getVideo() == null) {
-//                return;
-//            }
-
             // PAGE2 is a hybrid switch; 80STORE ? memory : video
             if (_80STORE.isOn()) {
-                computer.getMemory().configureActiveMemory();
+                Emulator.withMemory(m->m.configureActiveMemory());
             } else {
-                computer.getVideo().configureVideoMode();
+                Emulator.withVideo(v->v.configureVideoMode());
             }
         }
     }),
@@ -101,7 +91,7 @@ public enum SoftSwitches {
         @Override
         protected byte readSwitch() {
             setState(true);
-            return computer.getVideo().getFloatingBus();
+            return Emulator.withComputer(c->c.getVideo().getFloatingBus(), (byte) 0);
         }
 
         @Override
@@ -128,7 +118,7 @@ public enum SoftSwitches {
     KEYBOARD_STROBE_READ(new SoftSwitch("KeyStrobe_Read", 0x0c010, -1, -1, RAMEvent.TYPE.READ, false) {
         @Override
         protected byte readSwitch() {
-            return computer.getVideo().getFloatingBus();
+            return Emulator.withComputer(c->c.getVideo().getFloatingBus(), (byte) 0);
         }
 
         @Override
@@ -141,10 +131,7 @@ public enum SoftSwitches {
     FLOATING_BUS(new SoftSwitch("FloatingBus", null, null, new int[]{0x0C050, 0x0C051, 0x0C052, 0x0C053, 0x0C054}, RAMEvent.TYPE.READ, null) {
         @Override
         protected byte readSwitch() {
-            if (computer.getVideo() == null) {
-                return 0;
-            }
-            return computer.getVideo().getFloatingBus();
+            return Emulator.withComputer(c->c.getVideo().getFloatingBus(), (byte) 0);
         }
 
         @Override
@@ -167,7 +154,7 @@ public enum SoftSwitches {
     /**
      * Creates a new instance of SoftSwitches
      */
-    private SoftSwitches(SoftSwitch softswitch) {
+    SoftSwitches(SoftSwitch softswitch) {
         this.softswitch = softswitch;
     }
 

@@ -3,8 +3,6 @@ package jace.cheat;
 import jace.Emulator;
 import jace.EmulatorUILogic;
 import jace.config.ConfigurableField;
-import jace.core.Computer;
-import jace.core.RAM;
 import jace.core.RAMEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
@@ -54,10 +52,6 @@ public class MontezumasRevengeCheats extends Cheats {
 
     public static int lastX = 0;
 
-    public MontezumasRevengeCheats(Computer computer) {
-        super(computer);
-    }
-
     double mouseX;
     double mouseY;
     EventHandler<javafx.scene.input.MouseEvent> listener = (event) -> {
@@ -71,54 +65,55 @@ public class MontezumasRevengeCheats extends Cheats {
 
     @Override
     public void registerListeners() {
-        RAM memory = Emulator.computer.memory;
         if (repulsiveHack) {
-            addCheat(RAMEvent.TYPE.WRITE, this::repulsiveBehavior, 0x1508, 0x1518);
+            addCheat("Repulsive", RAMEvent.TYPE.WRITE, this::repulsiveBehavior, 0x1508, 0x1518);
         }
 
         if (featherFall) {
-            addCheat(RAMEvent.TYPE.WRITE, this::featherFallBehavior, PLAYER_Y);
+            addCheat("Feather fall", RAMEvent.TYPE.WRITE, this::featherFallBehavior, PLAYER_Y);
             // Bypass the part that realizes you should die when you hit the floor
-            bypassCode(0x6bb3, 0x6bb4);
+            bypassCode("Feather fall code hack", 0x6bb3, 0x6bb4);
         }
 
         if (moonJump) {
-            addCheat(RAMEvent.TYPE.WRITE, this::moonJumpBehavior, Y_VELOCITY);
+            addCheat("Moon jump", RAMEvent.TYPE.WRITE, this::moonJumpBehavior, Y_VELOCITY);
         }
 
         if (infiniteLives) {
-            forceValue(11, LIVES);
+            forceValue("Infinite lives", 11, LIVES);
         }
 
         if (safePassage) {
-            //blank out pattern for floors/doors
-            for (int addr = 0x0b54; addr <= 0xb5f; addr++) {
-                memory.write(addr, (byte) 0, false, false);
-                memory.write(addr + 0x0400, (byte) 0, false, false);
-            }
-            memory.write(0x0b50, (byte) 0b11010111, false, false);
-            memory.write(0x0b51, (byte) 0b00010000, false, false);
-            memory.write(0x0b52, (byte) 0b10001000, false, false);
-            memory.write(0x0b53, (byte) 0b10101010, false, false);
-            memory.write(0x0f50, (byte) 0b10101110, false, false);
-            memory.write(0x0f51, (byte) 0b00001000, false, false);
-            memory.write(0x0f52, (byte) 0b10000100, false, false);
-            memory.write(0x0f53, (byte) 0b11010101, false, false);            
-            forceValue(32, FLOOR_TIMER);
-            forceValue(32, HAZARD_TIMER);
-            forceValue(1, HAZARD_FLAG);
+            Emulator.withMemory(memory -> {
+                //blank out pattern for floors/doors
+                for (int addr = 0x0b54; addr <= 0xb5f; addr++) {
+                    memory.write(addr, (byte) 0, false, false);
+                    memory.write(addr + 0x0400, (byte) 0, false, false);
+                }
+                memory.write(0x0b50, (byte) 0b11010111, false, false);
+                memory.write(0x0b51, (byte) 0b00010000, false, false);
+                memory.write(0x0b52, (byte) 0b10001000, false, false);
+                memory.write(0x0b53, (byte) 0b10101010, false, false);
+                memory.write(0x0f50, (byte) 0b10101110, false, false);
+                memory.write(0x0f51, (byte) 0b00001000, false, false);
+                memory.write(0x0f52, (byte) 0b10000100, false, false);
+                memory.write(0x0f53, (byte) 0b11010101, false, false);            
+                forceValue("Hack floor timer", 32, FLOOR_TIMER);
+                forceValue("Hack hazard timer", 32, HAZARD_TIMER);
+                forceValue("Hack hazard flag", 1, HAZARD_FLAG);
+            });
         }
 
         if (scoreHack) {
             // Score: 900913
-            forceValue(0x90, SCORE);
-            forceValue(0x09, SCORE + 1);
-            forceValue(0x13, SCORE + 2);
+            forceValue("Hack score 1", 0x90, SCORE);
+            forceValue("Hack score 2", 0x09, SCORE + 1);
+            forceValue("Hack score 3", 0x13, SCORE + 2);
         }
 
         if (snakeCharmer) {
             // Skip the code that determines you're touching an enemy
-            bypassCode(0x07963, 0x07964);
+            bypassCode("Snake charmer", 0x07963, 0x07964);
         }
         if (mouseHack) {
             EmulatorUILogic.addMouseListener(listener);
@@ -132,11 +127,11 @@ public class MontezumasRevengeCheats extends Cheats {
     }
         
     private void repulsiveBehavior(RAMEvent e) {
-        int playerX = computer.getMemory().readRaw(PLAYER_X);
-        int playerY = computer.getMemory().readRaw(PLAYER_Y);
+        int playerX = getMemory().readRaw(PLAYER_X);
+        int playerY = getMemory().readRaw(PLAYER_Y);
         for (int num = 7; num > 0; num--) {
-            int monsterX = computer.getMemory().readRaw(PLAYER_X + num);
-            int monsterY = computer.getMemory().readRaw(PLAYER_Y + num);
+            int monsterX = getMemory().readRaw(PLAYER_X + num);
+            int monsterY = getMemory().readRaw(PLAYER_Y + num);
             if (monsterX != 0 && monsterY != 0) {
                 if (Math.abs(monsterY - playerY) < 19) {
                     if (Math.abs(monsterX - playerX) < 7) {
@@ -149,7 +144,7 @@ public class MontezumasRevengeCheats extends Cheats {
                                 monsterX = 80;
                             }
                         }
-                        computer.getMemory().write(PLAYER_X + num, (byte) monsterX, false, false);
+                        getMemory().write(PLAYER_X + num, (byte) monsterX, false, false);
                     }
                 }
             }
@@ -159,9 +154,9 @@ public class MontezumasRevengeCheats extends Cheats {
 
     private void featherFallBehavior(RAMEvent yCoordChangeEvent) {
         if (yCoordChangeEvent.getNewValue() != yCoordChangeEvent.getOldValue()) {
-            int yVel = computer.getMemory().readRaw(Y_VELOCITY);
+            int yVel = getMemory().readRaw(Y_VELOCITY);
             if (yVel > MAX_VEL) {
-                computer.getMemory().write(Y_VELOCITY, (byte) MAX_VEL, false, false);
+                getMemory().write(Y_VELOCITY, (byte) MAX_VEL, false, false);
             }
         }
     }
@@ -177,7 +172,7 @@ public class MontezumasRevengeCheats extends Cheats {
     }
 
     private boolean inStartingSequence() {
-        int roomLevel = computer.getMemory().readRaw(ROOM_LEVEL);
+        int roomLevel = getMemory().readRaw(ROOM_LEVEL);
         return roomLevel == -1;
     }
 
@@ -198,7 +193,7 @@ public class MontezumasRevengeCheats extends Cheats {
     private void mouseClicked(MouseButton button) {
         byte newX = (byte) (mouseX * X_MAX);
         byte newY = (byte) (mouseY * Y_MAX);
-        computer.memory.write(PLAYER_X, newX, false, false);
-        computer.memory.write(PLAYER_Y, newY, false, false);
+        getMemory().write(PLAYER_X, newX, false, false);
+        getMemory().write(PLAYER_Y, newY, false, false);
     }
 }

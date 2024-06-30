@@ -1,9 +1,10 @@
 package jace.ide;
 
-import jace.core.Keyboard;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import jace.core.Keyboard;
 
 /**
  *
@@ -33,22 +34,22 @@ public class TextHandler implements LanguageHandler<String> {
 
             @Override
             public Map<Integer, String> getErrors() {
-                return Collections.EMPTY_MAP;
+                return Collections.emptyMap();
             }
             
             @Override
             public Map<Integer, String> getWarnings() {
-                return Collections.EMPTY_MAP;
+                return Collections.emptyMap();
             }
 
             @Override
             public List<String> getOtherMessages() {
-                return Collections.EMPTY_LIST;
+                return Collections.emptyList();
             }
 
             @Override
             public List<String> getRawOutput() {
-                return Collections.EMPTY_LIST;
+                return Collections.emptyList();
             }
         };
     }

@@ -1,29 +1,32 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.core;
 
+import java.io.IOException;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+
+import jace.JaceApplication;
+import jace.apple2e.SoftSwitches;
 import jace.config.ConfigurableField;
+import jace.config.Configuration;
 import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
 import jace.state.StateManager;
-import java.io.IOException;
-import java.util.Optional;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.value.ChangeListener;
@@ -44,31 +47,35 @@ public abstract class Computer implements Reconfigurable {
     public Keyboard keyboard;
     public StateManager stateManager;
     public Motherboard motherboard;
-    public boolean romLoaded;
+    public final CompletableFuture<Boolean> romLoaded;
     @ConfigurableField(category = "advanced", name = "State management", shortName = "rewind", description = "This enables rewind support, but consumes a lot of memory when active.")
     public boolean enableStateManager;
-    public final SoundMixer mixer;
+    public final SoundMixer mixer = new SoundMixer();
     final private BooleanProperty runningProperty = new SimpleBooleanProperty(false);
 
     /**
      * Creates a new instance of Computer
      */
     public Computer() {
-        keyboard = new Keyboard(this);
-        mixer = new SoundMixer(this);
-        romLoaded = false;
+        romLoaded = new CompletableFuture<>();    
     }
 
-    public RAM getMemory() {
+    abstract protected RAM createMemory();
+
+    final public RAM getMemory() {
+        if (memory == null) {
+            memory = createMemory();
+            memory.configureActiveMemory();
+        }
         return memory;
     }
 
-    public Motherboard getMotherboard() {
+    final public Motherboard getMotherboard() {
         return motherboard;
     }
 
     ChangeListener<Boolean> runningPropertyListener = (prop, oldVal, newVal) -> runningProperty.set(newVal);
-    public void setMotherboard(Motherboard m) {
+    final public void setMotherboard(Motherboard m) {
         if (motherboard != null && motherboard.isRunning()) {
             motherboard.suspend();
         }
@@ -78,11 +85,11 @@ public abstract class Computer implements Reconfigurable {
     public BooleanProperty getRunningProperty() {
         return runningProperty;
     }
-    
-    public boolean isRunning() {
+
+    final public boolean isRunning() {
         return getRunningProperty().get();
     }
-    
+
     public void notifyVBLStateChanged(boolean state) {
         for (Optional<Card> c : getMemory().cards) {
             c.ifPresent(card -> card.notifyVBLStateChanged(state));
@@ -92,42 +99,63 @@ public abstract class Computer implements Reconfigurable {
         }
     }
 
-    public void setMemory(RAM memory) {
+    final public void setMemory(RAM memory) {
         if (this.memory != memory) {
-            if (this.memory != null) {
-                this.memory.detach();
+            RAM oldMemory = this.memory;
+            if (oldMemory != null) {
+                oldMemory.detach();
             }
-            memory.attach();
+            this.memory = memory;
+            if (memory != null) {
+                if (oldMemory != null) {
+                    memory.copyFrom(oldMemory);
+                    oldMemory.detach();
+                }
+                memory.attach();
+            }
         }
-        this.memory = memory;
     }
 
     public void waitForNextCycle() {
         //@TODO IMPLEMENT TIMER SLEEP CODE!
     }
 
-    public Video getVideo() {
+    final public Video getVideo() {
         return video;
     }
 
-    public void setVideo(Video video) {
+    final public void setVideo(Video video) {
+        if (this.video != null && this.video != video) {
+            getMotherboard().removeChildDevice(this.video);
+        }
         this.video = video;
+        if (video != null) {
+            getMotherboard().addChildDevice(video);
+            video.configureVideoMode();
+            video.reconfigure();
+        }
+        if (JaceApplication.getApplication() != null) {
+            JaceApplication.getApplication().reconnectUIHooks();
+            JaceApplication.getApplication().controller.connectVideo(video);
+        }
     }
 
-    public CPU getCpu() {
+    final public CPU getCpu() {
         return cpu;
     }
 
-    public void setCpu(CPU cpu) {
+    final public void setCpu(CPU cpu) {
         this.cpu = cpu;
     }
 
+    abstract public void loadRom(boolean reload) throws IOException;
+
     public void loadRom(String path) throws IOException {
         memory.loadRom(path);
-        romLoaded = true;
+        romLoaded.complete(true);
     }
 
-    public void deactivate() {
+    final public void deactivate() {
         if (cpu != null) {
             cpu.suspend();
         }
@@ -135,46 +163,44 @@ public abstract class Computer implements Reconfigurable {
             motherboard.suspend();
         }
         if (video != null) {
-            video.suspend();            
+            video.suspend();
         }
         if (mixer != null) {
             mixer.detach();
         }
     }
 
+    /**
+     * If the user wants a full reset, use the coldStart method.
+     * This ensures a more consistent state of the machine.
+     * Some games make bad assumptions about the initial state of the machine
+     * and that fails to work if the machine is not reset to a known state first.
+     */
     @InvokableAction(
-            name = "Cold boot",
-            description = "Process startup sequence from power-up",
-            category = "general",
-            alternatives = "Full reset;reset emulator",
-            consumeKeyEvent = true,
-            defaultKeyMapping = {"Ctrl+Shift+Backspace", "Ctrl+Shift+Delete"})
-    public void invokeColdStart() {
-        if (!romLoaded) {
-            Thread delayedStart = new Thread(() -> {
-                while (!romLoaded) {
-                    Thread.yield();
-                }
-                coldStart();
-            });
-            delayedStart.start();
-        } else {
-            coldStart();
-        }
-    }
-
-    public abstract void coldStart();
-
-    @InvokableAction(
-            name = "Warm boot",
+            name = "Reset",
             description = "Process user-initatiated reboot (ctrl+apple+reset)",
             category = "general",
             alternatives = "reboot;reset;three-finger-salute;restart",
             defaultKeyMapping = {"Ctrl+Ignore Alt+Ignore Meta+Backspace", "Ctrl+Ignore Alt+Ignore Meta+Delete"})
-    public void invokeWarmStart() {
-        warmStart();
+    public void invokeReset() {
+        if (SoftSwitches.PDL0.isOn()) {
+            coldStart();
+        } else {
+            warmStart();
+        }
     }
 
+    /**
+     * In a cold start, memory is reset (either two bytes per page as per Sather 4-15) or full-wipe
+     * Also video softswitches are reset
+     * Otherwise it does the same as warm start
+     **/ 
+    public abstract void coldStart();
+
+    /**
+     * In a warm start, memory is not reset, but the CPU and cards are reset
+     * All but video softswitches are reset, putting the MMU in a known state
+     */
     public abstract void warmStart();
 
     public Keyboard getKeyboard() {
@@ -186,7 +212,7 @@ public abstract class Computer implements Reconfigurable {
     protected abstract void doResume();
 
     @InvokableAction(name = "Pause", description = "Stops the computer, allowing reconfiguration of core elements", alternatives = "freeze;halt", defaultKeyMapping = {"meta+pause", "alt+pause"})
-    public boolean pause() {
+    final public boolean pause() {
         boolean result = getRunningProperty().get();
         doPause();
         getRunningProperty().set(false);
@@ -194,13 +220,16 @@ public abstract class Computer implements Reconfigurable {
     }
 
     @InvokableAction(name = "Resume", description = "Resumes the computer if it was previously paused", alternatives = "unpause;unfreeze;resume;play", defaultKeyMapping = {"meta+shift+pause", "alt+shift+pause"})
-    public void resume() {
+    final public void resume() {
         doResume();
         getRunningProperty().set(true);
     }
 
     @Override
     public void reconfigure() {
+        if (keyboard == null) {
+            keyboard = new Keyboard();
+        }
         mixer.reconfigure();
         if (enableStateManager) {
             stateManager = StateManager.getInstance(this);
@@ -208,5 +237,6 @@ public abstract class Computer implements Reconfigurable {
             stateManager = null;
             StateManager.getInstance(this).invalidate();
         }
+        Configuration.registerKeyHandlers();
     }
 }

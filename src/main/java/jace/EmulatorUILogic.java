@@ -1,39 +1,25 @@
-/**
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace;
 
-import jace.apple2e.MOS65C02;
-import jace.apple2e.RAM128k;
-import jace.apple2e.SoftSwitches;
-import jace.config.ConfigurableField;
-import jace.config.ConfigurationUIController;
-import jace.config.InvokableAction;
-import jace.config.Reconfigurable;
-import jace.core.CPU;
-import jace.core.Computer;
-import jace.core.Debugger;
-import jace.core.RAM;
-import jace.core.RAMListener;
-import jace.ide.IdeController;
+import static jace.core.Utility.gripe;
+
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -46,19 +32,28 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import jace.apple2e.MOS65C02;
+import jace.apple2e.RAM128k;
+import jace.apple2e.SoftSwitches;
+import jace.config.ConfigurableField;
+import jace.config.ConfigurationUIController;
+import jace.config.InvokableAction;
+import jace.config.Reconfigurable;
+import jace.core.Debugger;
+import jace.core.RAM;
+import jace.core.RAMListener;
+import jace.ide.IdeController;
 import javafx.application.Platform;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
-import javafx.scene.image.Image;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-
-import static jace.core.Utility.*;
 
 /**
  * This class contains miscellaneous user-invoked actions such as debugger
@@ -77,18 +72,12 @@ public class EmulatorUILogic implements Reconfigurable {
             @Override
             public void updateStatus() {
                 enableDebug(true);
-                MOS65C02 cpu = (MOS65C02) Emulator.computer.getCpu();
+                MOS65C02 cpu = (MOS65C02) Emulator.withComputer(c->c.getCpu(), null);
                 updateCPURegisters(cpu);
             }
         };
     }
-
-    @ConfigurableField(
-            category = "General",
-            name = "Speed Setting"
-    )
-    public int speedSetting = 3;
-
+    
     @ConfigurableField(
             category = "General",
             name = "Show Drives"
@@ -115,7 +104,7 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     public static void enableTrace(boolean b) {
-        Emulator.computer.getCpu().setTraceEnabled(b);
+        Emulator.withComputer(c->c.getCpu().setTraceEnabled(b));
     }
 
     public static void stepForward() {
@@ -123,7 +112,7 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     static void registerDebugger() {
-        Emulator.computer.getCpu().setDebug(debugger);
+        Emulator.withComputer(c->c.getCpu().setDebug(debugger));
     }
 
     public static Integer getValidAddress(String s) {
@@ -142,7 +131,7 @@ public class EmulatorUILogic implements Reconfigurable {
 //    public static void updateWatchList(final DebuggerPanel panel) {
 //        java.awt.EventQueue.invokeLater(() -> {
 //            watches.stream().forEach((oldWatch) -> {
-//                Emulator.computer.getMemory().removeListener(oldWatch);
+//                Emulator.getComputer().getMemory().removeListener(oldWatch);
 //            });
 //            if (panel == null) {
 //                return;
@@ -169,10 +158,10 @@ public class EmulatorUILogic implements Reconfigurable {
 //                    watchValue.setText(Integer.toHexString(e.getNewValue() & 0x0FF));
 //                }
 //            };
-//            Emulator.computer.getMemory().addListener(newListener);
+//            Emulator.getComputer().getMemory().addListener(newListener);
 //            watches.add(newListener);
 //            // Print out the current value right away
-//            byte b = Emulator.computer.getMemory().readRaw(address);
+//            byte b = Emulator.getComputer().getMemory().readRaw(address);
 //            watchValue.setText(Integer.toString(b & 0x0ff, 16));
 //        } else {
 //            watchValue.setText("00");
@@ -212,14 +201,13 @@ public class EmulatorUILogic implements Reconfigurable {
             alternatives = "Execute program;Load binary;Load program;Load rom;Play single-load game",
             defaultKeyMapping = "ctrl+shift+b")
     public static void runFile() {
-        Emulator.computer.pause();
-        FileChooser select = new FileChooser();
-        File binary = select.showOpenDialog(JaceApplication.getApplication().primaryStage);
-        if (binary == null) {
-            Emulator.computer.resume();
-            return;
-        }
-        runFileNamed(binary);
+        Emulator.whileSuspended(c-> {
+            FileChooser select = new FileChooser();
+            File binary = select.showOpenDialog(JaceApplication.getApplication().primaryStage);
+            if (binary != null) {
+                runFileNamed(binary);
+            }
+        });
     }
 
     public static void runFileNamed(File binary) {
@@ -234,25 +222,22 @@ public class EmulatorUILogic implements Reconfigurable {
             }
         } catch (NumberFormatException | IOException ex) {
         }
-        Emulator.computer.getCpu().resume();
     }
 
-    public static void brun(File binary, int address) throws FileNotFoundException, IOException {
-        // If it was halted already, then it was initiated outside of an opcode execution
-        // If it was not yet halted, then it is the case that the CPU is processing another opcode
-        // So if that is the case, the program counter will need to be decremented here to compensate
-        // TODO: Find a better mousetrap for this one -- it's an ugly hack
-        Emulator.computer.pause();
-        FileInputStream in = new FileInputStream(binary);
-        byte[] data = new byte[in.available()];
-        in.read(data);
-        RAM ram = Emulator.computer.getMemory();
-        for (int i = 0; i < data.length; i++) {
-            ram.write(address + i, data[i], false, true);
+    public static void brun(File binary, int address) throws IOException {
+        byte[] data;
+        try (FileInputStream in = new FileInputStream(binary)) {
+            data = new byte[in.available()];
+            in.read(data);
         }
-        CPU cpu = Emulator.computer.getCpu();
-        Emulator.computer.getCpu().setProgramCounter(address);
-        Emulator.computer.resume();
+
+        Emulator.whileSuspended(c-> {
+            RAM ram = c.getMemory();
+            for (int i = 0; i < data.length; i++) {
+                ram.write(address + i, data[i], false, true);
+            }
+            c.getCpu().setProgramCounter(address);
+        });
     }
 
     @InvokableAction(
@@ -292,11 +277,11 @@ public class EmulatorUILogic implements Reconfigurable {
             description = "Save raw (RAM) format of visible screen",
             alternatives = "screendump;raw screenshot",
             defaultKeyMapping = "ctrl+shift+z")
-    public static void saveScreenshotRaw() throws FileNotFoundException, IOException {
+    public static void saveScreenshotRaw() throws IOException {
         SimpleDateFormat df = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
         String timestamp = df.format(new Date());
         String type;
-        int start = Emulator.computer.getVideo().getCurrentWriter().actualWriter().getYOffset(0);
+        int start = Emulator.withComputer(c->c.getVideo().getCurrentWriter().actualWriter().getYOffset(0), 0);
         int len;
         if (start < 0x02000) {
             // Lo-res or double-lores
@@ -313,16 +298,21 @@ public class EmulatorUILogic implements Reconfigurable {
         }
         File outFile = new File("screen_" + type + "_a" + Integer.toHexString(start) + "_" + timestamp);
         try (FileOutputStream out = new FileOutputStream(outFile)) {
-            RAM128k ram = (RAM128k) Emulator.computer.memory;
-            Emulator.computer.pause();
-            if (dres) {
-                for (int i = 0; i < len; i++) {
-                    out.write(ram.getAuxVideoMemory().readByte(start + i));
+            Emulator.whileSuspended(c -> {
+                RAM128k ram = (RAM128k) c.getMemory();
+                try {
+                    if (dres) {
+                        for (int i = 0; i < len; i++) {
+                            out.write(ram.getAuxVideoMemory().readByte(start + i));
+                        }
+                    }
+                    for (int i = 0; i < len; i++) {
+                        out.write(ram.getMainMemory().readByte(start + i));
+                    }
+                } catch (IOException e) {
+                    Logger.getLogger(EmulatorUILogic.class.getName()).log(Level.SEVERE, "Error writing screenshot", e);
                 }
-            }
-            for (int i = 0; i < len; i++) {
-                out.write(ram.getMainMemory().readByte(start + i));
-            }
+            });
         }
         System.out.println("Wrote screenshot to " + outFile.getAbsolutePath());
     }
@@ -335,8 +325,7 @@ public class EmulatorUILogic implements Reconfigurable {
             defaultKeyMapping = "ctrl+shift+s")
     public static void saveScreenshot() throws IOException {
         FileChooser select = new FileChooser();
-        Emulator.computer.pause();
-        Image i = Emulator.computer.getVideo().getFrameBuffer();
+        // Image i = Emulator.getComputer().getVideo().getFrameBuffer();
 //        BufferedImage bufImageARGB = SwingFXUtils.fromFXImage(i, null);
         File targetFile = select.showSaveDialog(JaceApplication.getApplication().primaryStage);
         if (targetFile == null) {
@@ -344,7 +333,7 @@ public class EmulatorUILogic implements Reconfigurable {
         }
         String filename = targetFile.getName();
         System.out.println("Writing screenshot to " + filename);
-        String extension = filename.substring(filename.lastIndexOf(".") + 1);
+        // String extension = filename.substring(filename.lastIndexOf(".") + 1);
 //        BufferedImage bufImageRGB = new BufferedImage(bufImageARGB.getWidth(), bufImageARGB.getHeight(), BufferedImage.OPAQUE);
 //
 //        Graphics2D graphics = bufImageRGB.createGraphics();
@@ -367,7 +356,7 @@ public class EmulatorUILogic implements Reconfigurable {
         fxmlLoader.setResources(null);
         try {
             Stage configWindow = new Stage();
-            AnchorPane node = (AnchorPane) fxmlLoader.load();
+            AnchorPane node = fxmlLoader.load();
             ConfigurationUIController controller = fxmlLoader.getController();
             controller.initialize();
             Scene s = new Scene(node);
@@ -389,7 +378,7 @@ public class EmulatorUILogic implements Reconfigurable {
         fxmlLoader.setResources(null);
         try {
             Stage editorWindow = new Stage();
-            AnchorPane node = (AnchorPane) fxmlLoader.load();
+            AnchorPane node = fxmlLoader.load();
             IdeController controller = fxmlLoader.getController();
             controller.initialize();
             Scene s = new Scene(node);
@@ -422,27 +411,33 @@ public class EmulatorUILogic implements Reconfigurable {
             if (stage.isFullScreen()) {
                 JaceApplication.getApplication().controller.toggleAspectRatio();
             } else {
-                int width = 0, height = 0;
+                int width, height;
                 switch (size) {
-                    case 0: // 1x
+                    case 0 -> {
+                        // 1x
                         width = 560;
                         height = 384;
-                        break;
-                    case 1: // 1.5x
+                    }
+                    case 1 -> {
+                        // 1.5x
                         width = 840;
                         height = 576;
-                        break;
-                    case 2: // 2x
+                    }
+                    case 2 -> {
+                        // 2x
                         width = 560 * 2;
                         height = 384 * 2;
-                        break;
-                    case 3: // 3x (retina) 2880x1800
+                    }
+                    case 3 -> {
+                        // 3x (retina) 2880x1800
                         width = 560 * 3;
                         height = 384 * 3;
-                        break;
-                    default: // 2x
+                    }
+                    default -> {
+                        // 2x
                         width = 560 * 2;
                         height = 384 * 2;
+                    }
                 }
                 double vgap = stage.getScene().getY();
                 double hgap = stage.getScene().getX();
@@ -451,7 +446,7 @@ public class EmulatorUILogic implements Reconfigurable {
             }
         });
     }
-
+    
     @InvokableAction(
             name = "About",
             category = "general",
@@ -460,7 +455,7 @@ public class EmulatorUILogic implements Reconfigurable {
             defaultKeyMapping = {"ctrl+shift+."})
     public static void showAboutWindow() {
         //TODO: Implement
-    }
+    }    
 
     public static boolean confirm(String message) {
 //        return JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(Emulator.getFrame(), message);
@@ -530,16 +525,17 @@ public class EmulatorUILogic implements Reconfigurable {
     }
 
     public static void simulateCtrlAppleReset() {
-        Computer computer = JaceApplication.singleton.controller.computer;
-        computer.keyboard.openApple(true);
-        computer.warmStart();
-        Platform.runLater(() -> {
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException ex) {
-                Logger.getLogger(EmulatorUILogic.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            computer.keyboard.openApple(false);
+        Emulator.withComputer(c -> {
+            c.getKeyboard().openApple(true);
+            c.warmStart();
+            Platform.runLater(() -> {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(EmulatorUILogic.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                c.getKeyboard().openApple(false);
+            });
         });
     }
 
@@ -561,8 +557,5 @@ public class EmulatorUILogic implements Reconfigurable {
 
     @Override
     public void reconfigure() {
-        if (JaceApplication.getApplication() != null) {
-            JaceApplication.getApplication().controller.setSpeed(speedSetting);
-        }
     }
 }

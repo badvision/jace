@@ -1,28 +1,24 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.cheat;
 
 import jace.EmulatorUILogic;
 import jace.apple2e.RAM128k;
-import jace.apple2e.SoftSwitches;
 import jace.config.ConfigurableField;
-import jace.core.Computer;
 import jace.core.PagedMemory;
 import jace.core.RAMEvent;
 import javafx.event.EventHandler;
@@ -145,17 +141,13 @@ public class PrinceOfPersiaCheats extends Cheats {
     // This is the correct value for an open exit door.
     public static int ExitOpen = 172;
 
-    public PrinceOfPersiaCheats(Computer computer) {
-        super(computer);
-    }
-
     double mouseX;
     double mouseY;
     EventHandler<javafx.scene.input.MouseEvent> listener = (event) -> {
         Node source = (Node) event.getSource();
         mouseX = event.getSceneX() / source.getBoundsInLocal().getWidth();
         mouseY = event.getSceneY() / source.getBoundsInLocal().getHeight();
-        if (event.isPrimaryButtonDown()) {
+        if (event.isPrimaryButtonDown() || event.isSecondaryButtonDown()) {
             mouseClicked(event.getButton());
         }
     };
@@ -173,19 +165,19 @@ public class PrinceOfPersiaCheats extends Cheats {
     @Override
     public void registerListeners() {
         if (velocityHack) {
-            addCheat(RAMEvent.TYPE.READ_DATA, true, this::velocityHackBehavior, CharYVel);
+            addCheat("Hack velocity", RAMEvent.TYPE.READ_DATA, true, this::velocityHackBehavior, CharYVel);
         }
         if (invincibilityHack) {
-            forceValue(3, true, KidStrength);
+            forceValue("Hack invincibility", 3, true, KidStrength);
         }
         if (sleepHack) {
-            forceValue(0, true, EnemyAlert);
+            forceValue("Go to sleep!", 0, true, EnemyAlert);
         }
         if (swordHack) {
-            forceValue(1, true, hasSword);
+            forceValue("Can haz sword", 1, true, hasSword);
         }
         if (timeHack) {
-            forceValue(0x69, true, MinLeft);
+            forceValue("Hack time", 0x69, true, MinLeft);
         }
         if (mouseHack) {
             EmulatorUILogic.addMouseListener(listener);
@@ -234,7 +226,7 @@ public class PrinceOfPersiaCheats extends Cheats {
         // Note: POP uses a 255-pixel horizontal axis, Pixels 0-57 are offscreen to the left
         // and 198-255 offscreen to the right.
 //        System.out.println("Clicked on " + col + "," + row + " -- screen " + (x * 280) + "," + (y * 192));
-        RAM128k mem = (RAM128k) computer.getMemory();
+        RAM128k mem = (RAM128k) getMemory();
         PagedMemory auxMem = mem.getAuxMemory();
 
         if (button == MouseButton.PRIMARY) {
@@ -262,7 +254,7 @@ public class PrinceOfPersiaCheats extends Cheats {
             byte warpX = (byte) (x * 140 + 58);
             // This aliases the Y coordinate so the prince is on the floor at the correct spot.
             byte warpY = (byte) ((row * 63) + 54);
-//            System.out.println("Warping to " + warpX + "," + warpY);
+            // System.out.println("Warping to " + warpX + "," + warpY);
             auxMem.writeByte(KidX, warpX);
             auxMem.writeByte(KidY, warpY);
             auxMem.writeByte(KidBlockX, (byte) col);
@@ -280,7 +272,7 @@ public class PrinceOfPersiaCheats extends Cheats {
      * @param direction
      */
     public void performAction(int row, int col, int direction) {
-        RAM128k mem = (RAM128k) computer.getMemory();
+        RAM128k mem = (RAM128k) getMemory();
         PagedMemory auxMem = mem.getAuxMemory();
         byte currentScrn = auxMem.readByte(KidScrn);
         if (col < 0) {
@@ -291,7 +283,7 @@ public class PrinceOfPersiaCheats extends Cheats {
             }
             currentScrn = (byte) scrnLeft;
             byte prev = auxMem.readByte(PREV + row);
-            byte sprev = auxMem.readByte(SPREV + row);
+            // byte sprev = auxMem.readByte(SPREV + row);
             // If the block to the left is gate, let's lie about it being open... for science
             // This causes odd-looking screen behavior but it gets the job done.
             if (prev == 4) {

@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -20,10 +22,10 @@ import java.util.stream.Collectors;
  *
  * @author blurry
  */
-public class AcmeCompiler implements CompileResult<File> {
+public class AcmeCompiler implements CompileResult<ByteBuffer> {
 
     boolean successful = false;
-    File compiledAsset = null;
+    ByteBuffer compiledAsset = null;
     Map<Integer, String> errors = new LinkedHashMap<>();
     Map<Integer, String> warnings = new LinkedHashMap<>();
     List<String> otherWarnings = new ArrayList<>();
@@ -35,7 +37,7 @@ public class AcmeCompiler implements CompileResult<File> {
     }
 
     @Override
-    public File getCompiledAsset() {
+    public ByteBuffer getCompiledAsset() {
         return compiledAsset;
     }
 
@@ -100,21 +102,26 @@ public class AcmeCompiler implements CompileResult<File> {
     
     private void invokeAcme(File sourceFile, File workingDirectory) throws ClassNotFoundException, SecurityException, NoSuchMethodException, IOException {
         String oldPath = System.getProperty("user.dir");
+        File tempFile = null;
         redirectSystemOutput();
         try {
-            compiledAsset = File.createTempFile(sourceFile.getName(), "bin", sourceFile.getParentFile());
+            tempFile = File.createTempFile(sourceFile.getName(), "bin", sourceFile.getParentFile());
+            tempFile.deleteOnExit();
             System.setProperty("user.dir", workingDirectory.getAbsolutePath());
             AcmeCrossAssembler acme = new AcmeCrossAssembler();
-            String[] params = {"--outfile", normalizeWindowsPath(compiledAsset.getAbsolutePath()), "-f", "cbm", "--maxerrors","16",normalizeWindowsPath(sourceFile.getAbsolutePath())};
+            String[] params = {"--outfile", normalizeWindowsPath(tempFile.getAbsolutePath()), "-f", "cbm", "--maxerrors","16",normalizeWindowsPath(sourceFile.getAbsolutePath())};
             int status = acme.run("Acme", params);
             successful = status == 0;
-            if (!successful) {
-                compiledAsset.delete();
-                compiledAsset = null;
+            if (successful) {
+                compiledAsset = ByteBuffer.wrap(Files.readAllBytes(tempFile.toPath()));
             }
+            tempFile.delete();
         } finally {
             restoreSystemOutput();
             System.setProperty("user.dir", oldPath);
+            if (tempFile != null && tempFile.exists()) {
+                tempFile.delete();
+            }
         }
         rawOutput.add("Error output:");
         extractOutput(baosErr.toString());

@@ -1,21 +1,19 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.core;
 
 import javafx.scene.image.WritableImage;
@@ -32,6 +30,11 @@ import javafx.scene.image.WritableImage;
  */
 public abstract class VideoWriter {
 
+    int currentRow = -1;
+    public void setCurrentRow(int y) {
+        currentRow = y;
+    }
+
     public abstract void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset);
 
     // This is used to support composite mixed-mode writers so that we can talk to the writer being used for a scanline
@@ -44,12 +47,19 @@ public abstract class VideoWriter {
     // Very useful for knowing if we should bother drawing changes
     private final boolean[] dirtyFlags = new boolean[192];
 
+    boolean updatedDuringRaster = false;
     public void markDirty(int y) {
         actualWriter().dirtyFlags[y] = true;
+        if (y == currentRow) {
+            updatedDuringRaster = true;
+        }
     }
 
     public void clearDirty(int y) {
-        actualWriter().dirtyFlags[y] = false;
+        if (!updatedDuringRaster) {
+            actualWriter().dirtyFlags[y] = false;
+        }
+        updatedDuringRaster = false;
     }
 
     public boolean isRowDirty(int y) {

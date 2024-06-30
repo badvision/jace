@@ -1,35 +1,37 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware.massStorage;
 
-import jace.apple2e.MOS65C02;
-import jace.core.Computer;
-import jace.core.RAM;
-import static jace.hardware.ProdosDriver.*;
-import jace.hardware.ProdosDriver.MLI_COMMAND_TYPE;
+import static jace.hardware.ProdosDriver.MLI_COMMAND;
+import static jace.hardware.ProdosDriver.MLI_UNITNUMBER;
+
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import jace.Emulator;
+import jace.apple2e.MOS65C02;
+import jace.apple2e.SoftSwitches;
+import jace.core.RAM;
+import jace.hardware.ProdosDriver.MLI_COMMAND_TYPE;
 
 /**
  * Representation of a hard drive or 800k disk image used by CardMassStorage
@@ -41,7 +43,7 @@ public class LargeDisk implements IDisk {
     // Offset in input file where data can be found
     private int dataOffset = 0;
     private int physicalBlocks = 0;
-    private int logicalBlocks = 0;
+    // private int logicalBlocks;
 
     public LargeDisk(File f) {
         try {
@@ -57,45 +59,84 @@ public class LargeDisk implements IDisk {
     }
 
     @Override
-    public void mliRead(int block, int bufferAddress, RAM memory) throws IOException {
-        if (block < physicalBlocks) {
-            diskImage.seek((block * BLOCK_SIZE) + dataOffset);
-            for (int i = 0; i < BLOCK_SIZE; i++) {
-                memory.write(bufferAddress + i, diskImage.readByte(), true, false);
+    public void mliRead(int block, int bufferAddress) throws IOException {
+        AtomicReference<IOException> error = new AtomicReference<>();
+        Emulator.withMemory(memory -> {
+            try {
+                if (block < physicalBlocks) {
+                    diskImage.seek((block * BLOCK_SIZE) + dataOffset);
+                    for (int i = 0; i < BLOCK_SIZE; i++) {
+                        memory.write(bufferAddress + i, diskImage.readByte(), true, false);
+                    }
+                } else {
+                    for (int i = 0; i < BLOCK_SIZE; i++) {
+                        memory.write(bufferAddress + i, (byte) 0, true, false);
+                    }
+                }
+            } catch (IOException ex) {
+                error.set(ex);
             }
-        } else {
-            for (int i = 0; i < BLOCK_SIZE; i++) {
-                memory.write(bufferAddress + i, (byte) 0, true, false);
-            }
+        });
+        if (error.get() != null) {
+            throw error.get();
         }
     }
 
     @Override
-    public void mliWrite(int block, int bufferAddress, RAM memory) throws IOException {
-        if (block < physicalBlocks) {
-            diskImage.seek((block * BLOCK_SIZE) + dataOffset);
-            byte[] buf = new byte[BLOCK_SIZE];
-            for (int i = 0; i < BLOCK_SIZE; i++) {
-                buf[i]=memory.readRaw(bufferAddress + i);
+    public void mliWrite(int block, int bufferAddress) throws IOException {
+        AtomicReference<IOException> error = new AtomicReference<>();
+        Emulator.withMemory(memory -> {
+            try {
+                if (block < physicalBlocks) {
+                    diskImage.seek((block * BLOCK_SIZE) + dataOffset);
+                    byte[] buf = new byte[BLOCK_SIZE];
+                    for (int i = 0; i < BLOCK_SIZE; i++) {
+                        buf[i]=memory.readRaw(bufferAddress + i);
+                    }
+                    diskImage.write(buf);
+                }
+            } catch (IOException ex) {
+                error.set(ex);
             }
-            diskImage.write(buf);
+        });
+        if (error.get() != null) {
+            throw error.get();
         }
     }
 
     @Override
-    public void boot0(int slot, Computer computer) throws IOException {
-        computer.pause();
-        mliRead(0, 0x0800, computer.getMemory());
-        byte slot16 = (byte) (slot << 4);
-        ((MOS65C02) computer.getCpu()).X = slot16;
-        RAM memory = computer.getMemory();
-        memory.write(CardMassStorage.SLT16, slot16, false, false);
-        memory.write(MLI_COMMAND, (byte) MLI_COMMAND_TYPE.READ.intValue, false, false);
-        memory.write(MLI_UNITNUMBER, slot16, false, false);
-        // Write location to block read routine to zero page
-        memory.writeWord(0x048, 0x0c000 + CardMassStorage.DEVICE_DRIVER_OFFSET + (slot * 0x0100), false, false);
-        computer.getCpu().setProgramCounter(0x0800);
-        computer.resume();
+    public void boot0(int slot) {
+        Emulator.withComputer(c->
+            c.getCpu().whilePaused(()->{
+                try {
+    //                System.out.println("Loading boot0 to $800");
+                    mliRead(0, 0x0800);
+                } catch (IOException ex) {
+                    Logger.getLogger(LargeDisk.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                byte slot16 = (byte) (slot << 4);
+    //            System.out.println("X = "+Integer.toHexString(slot16));
+                ((MOS65C02) c.getCpu()).X = slot16;
+                RAM memory = c.getMemory();
+                SoftSwitches.AUXZP.getSwitch().setState(false);
+                SoftSwitches.LCBANK1.getSwitch().setState(false);
+                SoftSwitches.LCRAM.getSwitch().setState(false);
+                SoftSwitches.LCWRITE.getSwitch().setState(true);
+                SoftSwitches.RAMRD.getSwitch().setState(false);
+                SoftSwitches.RAMWRT.getSwitch().setState(false);
+                SoftSwitches.CXROM.getSwitch().setState(false);
+                SoftSwitches.SLOTC3ROM.getSwitch().setState(false);
+                SoftSwitches.INTC8ROM.getSwitch().setState(false);
+
+                memory.write(CardMassStorage.SLT16, slot16, false, false);
+                memory.write(MLI_COMMAND, (byte) MLI_COMMAND_TYPE.READ.intValue, false, false);
+                memory.write(MLI_UNITNUMBER, slot16, false, false);
+                // Write location to block read routine to zero page
+                memory.writeWord(0x048, 0x0c000 + CardMassStorage.DEVICE_DRIVER_OFFSET + (slot * 0x0100), false, false);
+    //            System.out.println("JMP $800 issued");
+                c.getCpu().setProgramCounter(0x0800);
+            })
+        );
     }
 
     public File getPhysicalPath() {
@@ -116,11 +157,9 @@ public class LargeDisk implements IDisk {
                 // todo: read header
                 dataOffset = 64;
                 physicalBlocks = (int) (f.length() / BLOCK_SIZE);
-                logicalBlocks = physicalBlocks;
+                // logicalBlocks = physicalBlocks;
                 result = true;
             }
-        } catch (FileNotFoundException ex) {
-            Logger.getLogger(LargeDisk.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
             Logger.getLogger(LargeDisk.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -139,10 +178,10 @@ public class LargeDisk implements IDisk {
         System.out.println("Disk is HDV");
         dataOffset = 0;
         physicalBlocks = (int) (f.length() / BLOCK_SIZE);
-        logicalBlocks = physicalBlocks;
+        // logicalBlocks = physicalBlocks;
     }
 
-    private void readDiskImage(File f) throws FileNotFoundException, IOException {
+    private void readDiskImage(File f) throws IOException {
         eject();
         setPhysicalPath(f);
         if (!read2mg(f)) {

@@ -1,39 +1,36 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.apple2e;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import jace.Emulator;
 import jace.EmulatorUILogic;
 import jace.config.ConfigurableField;
 import jace.config.InvokableAction;
 import jace.core.Computer;
-import jace.core.RAM;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import jace.core.Video;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
-
-import static jace.apple2e.VideoDHGR.BLACK;
 
 /**
  * Provides a clean color monitor simulation, complete with text-friendly
@@ -52,35 +49,31 @@ import static jace.apple2e.VideoDHGR.BLACK;
 public class VideoNTSC extends VideoDHGR {
 
     @ConfigurableField(name = "Text palette", shortName = "textPalette", defaultValue = "false", description = "Use text-friendly color palette")
-    public boolean useTextPalette = true;
-    int activePalette[][] = TEXT_PALETTE;
+    public boolean useTextPalette = false;
+    final int[][] SOLID_PALETTE = new int[4][128];
+    final int[][] TEXT_PALETTE = new int[4][128];
+    int[][] activePalette = SOLID_PALETTE;
     @ConfigurableField(name = "Video 7", shortName = "video7", defaultValue = "true", description = "Enable Video 7 RGB rendering support")
     public boolean enableVideo7 = true;
     // Scanline represents 560 bits, divided up into 28-bit words
-    int[] scanline = new int[20];
-    static public int[] divBy28 = new int[560];
+    final int[] scanline = new int[20];
+    final public int[] divBy28 = new int[560];
 
-    @ConfigurableField(name = "Video Mode", category = "video", shortName = "mode", defaultValue = "TextFriendly", description = "Set Video Mode (Color|TextFriendly|Mode7|Mode7TextFriendly|Monochrome|Greenscreen|Amber)")
-    public static VideoMode videoMode = VideoMode.TextFriendly;
-
-    static {
-        for (int i = 0; i < 560; i++) {
-            divBy28[i] = i / 28;
-        }
-    }
     protected boolean[] colorActive = new boolean[80];
     int rowStart = 0;
-
-    public VideoNTSC(Computer computer) {
-        super(computer);
+    
+    public VideoNTSC() {
+        super();
+        initDivideTables();
+        initNtscPalette();
         registerStateListeners();
     }
 
-    public static enum VideoMode {
-        Color("Color"),
+    public enum VideoMode {
         TextFriendly("Text-friendly color"),
-        Mode7("Mode7 Mixed RGB"),
+        Color("Color"),
         Mode7TextFriendly("Mode7 with Text-friendly palette"),
+        Mode7("Mode7 Mixed RGB"),
         Monochrome("Mono"),
         Greenscreen("Green"),
         Amber("Amber");
@@ -91,64 +84,64 @@ public class VideoNTSC extends VideoDHGR {
         }
     }
 
+    static int currentMode = -1;
+
     @InvokableAction(name = "Toggle video mode",
             category = "video",
             alternatives = "Gfx mode;color;b&w;monochrome",
             defaultKeyMapping = {"ctrl+shift+g"})
     public static void changeVideoMode() {
-        VideoNTSC thiss = (VideoNTSC) Emulator.computer.video;
-        int currentMode = Arrays.asList(VideoMode.values()).indexOf(thiss.getVideoMode());
-        currentMode++;
-        if (currentMode >= VideoMode.values().length) {
-            currentMode = 0;
-        }
-        thiss.setVideoMode(VideoMode.values()[currentMode]);
+        currentMode = (currentMode + 1) % VideoMode.values().length;
+        Emulator.withVideo(v->((VideoNTSC) v)._setVideoMode(VideoMode.values()[currentMode], true));
     }
 
-    public void setVideoMode(VideoMode mode) {
-        videoMode = mode;
-        monochomeMode = false;
-        WHITE = Color.WHITE;
-        switch (mode) {
-            case Amber:
-                monochomeMode = true;
-                WHITE = Color.web("ff8000");
-                break;
-            case Greenscreen:
-                monochomeMode = true;
-                WHITE = Color.web("0ccc68");
-                break;
-            case Monochrome:
-                monochomeMode = true;
-                break;
-            case Color:
-                useTextPalette = false;
-                enableVideo7 = false;
-                break;
-            case Mode7:
-                useTextPalette = false;
-                enableVideo7 = true;
-                break;
-            case Mode7TextFriendly:
-                useTextPalette = true;
-                enableVideo7 = true;
-                break;
-            case TextFriendly:
-                useTextPalette = true;
-                enableVideo7 = false;
-                break;
-        }
-        activePalette = useTextPalette ? TEXT_PALETTE : SOLID_PALETTE;
-        EmulatorUILogic.notify("Video mode: " + mode.name);
-        forceRefresh();
+    public static void setVideoMode(VideoMode newMode, boolean showNotification) {
+        Emulator.withVideo(v->((VideoNTSC) v)._setVideoMode(newMode, showNotification));
     }
 
-    public VideoMode getVideoMode() {
-        return videoMode;
+    private void _setVideoMode(VideoMode newMode, boolean showNotification) {
+        Emulator.withVideo(v-> {
+            VideoNTSC thiss = (VideoNTSC) v;
+            thiss.monochomeMode = false;
+            WHITE = Color.WHITE;
+            switch (newMode) {
+                case Amber -> {
+                    thiss.monochomeMode = true;
+                    WHITE = Color.web("ff8000");
+                }
+                case Greenscreen -> {
+                    thiss.monochomeMode = true;
+                    WHITE = Color.web("0ccc68");
+                }
+                case Monochrome -> thiss.monochomeMode = true;
+                case Color -> {
+                    thiss.useTextPalette = false;
+                    thiss.enableVideo7 = false;
+                }
+                case Mode7 -> {
+                    thiss.useTextPalette = false;
+                    thiss.enableVideo7 = true;
+                }
+                case Mode7TextFriendly -> {
+                    thiss.useTextPalette = true;
+                    thiss.enableVideo7 = true;
+                }
+                case TextFriendly -> {
+                    thiss.useTextPalette = true;
+                    thiss.enableVideo7 = false;
+                }
+            }
+            thiss.activePalette = thiss.useTextPalette ? TEXT_PALETTE : SOLID_PALETTE;
+            if (showNotification) {
+                EmulatorUILogic.notify("Video mode: " + newMode.name);
+            }
+            forceRefresh();
+        });
     }
 
     @Override
     protected void showBW(WritableImage screen, int x, int y, int dhgrWord) {
+        if (x < 0) return;
         int pos = divBy28[x];
         if (rowStart < 0) {
             rowStart = pos;
@@ -159,6 +152,7 @@ public class VideoNTSC extends VideoDHGR {
 
     @Override
     protected void showDhgr(WritableImage screen, int x, int y, int dhgrWord) {
+        if (x < 0) return;
         int pos = divBy28[x];
         if (rowStart < 0) {
             rowStart = pos;
@@ -169,7 +163,8 @@ public class VideoNTSC extends VideoDHGR {
 
     @Override
     protected void displayLores(WritableImage screen, int xOffset, int y, int rowAddress) {
-        int data = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        if (xOffset < 0) return;
+        int data = ((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         int pos = xOffset >> 1;
         if (rowStart < 0) {
             rowStart = pos;
@@ -199,33 +194,34 @@ public class VideoNTSC extends VideoDHGR {
 
     @Override
     protected void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
+        if (xOffset < 0) return;
         int pos = xOffset >> 1;
         if (rowStart < 0) {
             rowStart = pos;
         }
         colorActive[xOffset * 2] = colorActive[xOffset * 2 + 1] = true;
-        int c1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        int c1 = ((RAM128k) getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
             c1 &= 15;
         } else {
             c1 >>= 4;
         }
-        int c2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        int c2 = ((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
             c2 &= 15;
         } else {
             c2 >>= 4;
         }
+        int pat;
         if ((xOffset & 0x01) == 0) {
-            int pat = c1 | (c1 & 7) << 4;
+            pat = c1 | (c1 & 7) << 4;
             pat |= c2 << 7 | (c2 & 7) << 11;
-            scanline[pos] = pat;
         } else {
-            int pat = scanline[pos];
+            pat = scanline[pos];
             pat |= (c1 & 12) << 12 | c1 << 16 | (c1 & 1) << 20;
             pat |= (c2 & 12) << 19 | c2 << 23 | (c2 & 1) << 27;
-            scanline[pos] = pat;
         }
+        scanline[pos] = pat;
     }
 
     @Override
@@ -237,7 +233,7 @@ public class VideoNTSC extends VideoDHGR {
     // Offset is based on location in graphics buffer that corresponds with the row and
     // a number (0-20) that represents how much of the scanline was rendered
     // This is based off the xyOffset but is different because of P
-    static int pyOffset[][];
+    static int[][] pyOffset;
 
     static {
         pyOffset = new int[192][21];
@@ -263,6 +259,7 @@ public class VideoNTSC extends VideoDHGR {
         // Reset scanline position
         int byteCounter = 0;
         for (int s = rowStart; s < 20; s++) {
+            if (s < 0) continue;
             int add = 0;
             int bits;
             if (hiresMode) {
@@ -316,8 +313,6 @@ public class VideoNTSC extends VideoDHGR {
     public static final double MAX_I = 0.5957;
     // q Range [-0.5226, 0.5226]
     public static final double MAX_Q = 0.5226;
-    static final int SOLID_PALETTE[][] = new int[4][128];
-    static final int[][] TEXT_PALETTE = new int[4][128];
     static final double[][] YIQ_VALUES = {
         {0.0, 0.0, 0.0}, //0000 0
         {0.25, 0.5, 0.5}, //0001 1
@@ -337,7 +332,26 @@ public class VideoNTSC extends VideoDHGR {
         {1.0, 0.0, 0.0}, //1111 f
     };
 
-    static {
+    public static void CHANGE_BLACK_COLOR(int r, int g, int b) {
+        Emulator.withVideo(v->{
+            VideoNTSC vntsc = (VideoNTSC) v;
+            BLACK = Color.rgb(r, g, b);
+            int c = colorToInt(BLACK);
+            for (int i1 = 0; i1 < 4; i1++) {                
+                vntsc.SOLID_PALETTE[i1][0] = c;
+                vntsc.TEXT_PALETTE[i1][0] = c;
+            }
+        });
+        Video.forceRefresh();
+    }
+
+    private void initDivideTables() {
+        for (int i = 0; i < 560; i++) {
+            divBy28[i] = i / 28;
+        }
+    }
+    
+    private void initNtscPalette() {
         int maxLevel = 10;
         for (int offset = 0; offset < 4; offset++) {
             for (int pattern = 0; pattern < 128; pattern++) {
@@ -361,25 +375,29 @@ public class VideoNTSC extends VideoDHGR {
     }
 
     static public int yiqToRgb(double y, double i, double q) {
+        return colorToInt(yiqToRgbColor(y, i, q));
+    }
+
+    static public Color yiqToRgbColor(double y, double i, double q) {
         int r = (int) (normalize((y + 0.956 * i + 0.621 * q), 0, 1) * 255);
         int g = (int) (normalize((y - 0.272 * i - 0.647 * q), 0, 1) * 255);
         int b = (int) (normalize((y - 1.105 * i + 1.702 * q), 0, 1) * 255);
-        return (255 << 24) | (r << 16) | (g << 8) | b;
+        return Color.rgb(r, g, b);
+    }
+
+    static public int colorToInt(Color c) {
+        return (int) (255 << 24) | (int) (c.getRed() * 255) << 16 | (int) (c.getGreen() * 255) << 8 | (int) (c.getBlue() * 255);
     }
 
     public static double normalize(double x, double minX, double maxX) {
         if (x < minX) {
             return minX;
         }
-        if (x > maxX) {
-            return maxX;
-        }
-        return x;
+        return Math.min(x, maxX);
     }
 
     @Override
     public void reconfigure() {
-        setVideoMode(videoMode);
         activePalette = useTextPalette ? TEXT_PALETTE : SOLID_PALETTE;
         super.reconfigure();
     }
@@ -390,7 +408,7 @@ public class VideoNTSC extends VideoDHGR {
     // http://apple2.info/download/Ext80ColumnAppleColorCardHR.pdf
     rgbMode graphicsMode = rgbMode.MIX;
 
-    public static enum rgbMode {
+    public enum rgbMode {
 
         COLOR(true), MIX(true), BW(false), COL_160(false);
         boolean colorMode = false;
@@ -404,10 +422,6 @@ public class VideoNTSC extends VideoDHGR {
         }
     }
 
-    public static enum ModeStateChanges {
-
-        SET_AN3, CLEAR_AN3, SET_80, CLEAR_80;
-    }
     boolean f1 = true;
     boolean f2 = true;
     boolean an3 = false;
@@ -424,15 +438,14 @@ public class VideoNTSC extends VideoDHGR {
     Set<RAMListener> rgbStateListeners = new HashSet<>();
 
     private void registerStateListeners() {
-        if (!rgbStateListeners.isEmpty() || computer.getVideo() != this) {
+        if (!rgbStateListeners.isEmpty() || Emulator.withComputer(Computer::getVideo, null) != this) {
             return;
         }
-        RAM memory = computer.getMemory();
-        rgbStateListeners.add(memory.observe(RAMEvent.TYPE.ANY, 0x0c05e, (e) -> {
+        rgbStateListeners.add(getMemory().observe("NTSC: AN3 state change", RAMEvent.TYPE.ANY, 0x0c05e, (e) -> {
             an3 = false;
             rgbStateChange();
         }));
-        rgbStateListeners.add(memory.observe(RAMEvent.TYPE.ANY, 0x0c05f, (e) -> {
+        rgbStateListeners.add(getMemory().observe("NTSC: 80COL state change", RAMEvent.TYPE.ANY, 0x0c05f, (e) -> {
             if (!an3) {
                 f2 = f1;
                 f1 = SoftSwitches._80COL.getState();
@@ -440,7 +453,7 @@ public class VideoNTSC extends VideoDHGR {
             an3 = true;
             rgbStateChange();
         }));
-        rgbStateListeners.add(memory.observe(RAMEvent.TYPE.EXECUTE, 0x0fa62, (e) -> {
+        rgbStateListeners.add(getMemory().observe("NTSC: Reset hook for reverting RGB mode", RAMEvent.TYPE.EXECUTE, 0x0fa62, (e) -> {
             // When reset hook is called, reset the graphics mode
             // This is useful in case a program is running that
             // is totally clueless how to set the RGB state correctly.
@@ -456,7 +469,7 @@ public class VideoNTSC extends VideoDHGR {
 
     public void detach() {
         rgbStateListeners.stream().forEach((l) -> {
-            computer.getMemory().removeListener(l);
+            getMemory().removeListener(l);
         });
         rgbStateListeners.clear();
         super.detach();

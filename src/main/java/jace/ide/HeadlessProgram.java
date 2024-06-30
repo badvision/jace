@@ -16,15 +16,15 @@
 package jace.ide;
 
 import java.util.Collections;
-import java.util.Map;
 
 /**
  * This is a program that is intended to be defined and executed outside of a IDE session
  * @author blurry
  */
+@SuppressWarnings("all")
 public class HeadlessProgram extends Program {    
     public HeadlessProgram(DocumentType type) {
-        super(type, Collections.EMPTY_MAP);
+        super(type, Collections.emptyMap());
     }
 
     String program;

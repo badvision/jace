@@ -1,39 +1,37 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware;
 
-import jace.EmulatorUILogic;
-import jace.config.ConfigurableField;
-import jace.config.Name;
-import jace.config.Reconfigurable;
-import jace.core.Card;
-import jace.core.Computer;
-import jace.core.RAMEvent;
-import jace.core.RAMEvent.TYPE;
-import jace.core.Utility;
-import jace.library.MediaConsumer;
-import jace.library.MediaConsumerParent;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import jace.Emulator;
+import jace.EmulatorUILogic;
+import jace.config.ConfigurableField;
+import jace.config.Name;
+import jace.core.Card;
+import jace.core.RAMEvent;
+import jace.core.RAMEvent.TYPE;
+import jace.core.Utility;
+import jace.library.MediaConsumer;
+import jace.library.MediaConsumerParent;
 
 /**
  * Apple Disk ][ interface implementation. This card represents the interface
@@ -45,11 +43,11 @@ import java.util.logging.Logger;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Name("Disk ][ Controller")
-public class CardDiskII extends Card implements Reconfigurable, MediaConsumerParent {
+public class CardDiskII extends Card implements MediaConsumerParent {
 
     DiskIIDrive currentDrive;
-    DiskIIDrive drive1 = new DiskIIDrive(computer);
-    DiskIIDrive drive2 = new DiskIIDrive(computer);
+    DiskIIDrive drive1 = new DiskIIDrive();
+    DiskIIDrive drive2 = new DiskIIDrive();
     @ConfigurableField(category = "Disk", defaultValue = "254", name = "Default volume", description = "Value to use for disk volume number")
     static public int DEFAULT_VOLUME_NUMBER = 0x0FE;
     @ConfigurableField(category = "Disk", defaultValue = "true", name = "Speed boost", description = "If enabled, emulator will run at max speed during disk access")
@@ -59,10 +57,10 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     @ConfigurableField(category = "Disk", defaultValue = "", shortName = "d2", name = "Drive 2 disk image", description = "Path of disk 2")
     public String disk2;
 
-    public CardDiskII(Computer computer) {
-        super(computer);
+    public CardDiskII() {
+        super(false);
         try {
-            loadRom("jace/data/DiskII.rom");
+            loadRom("/jace/data/DiskII.rom");
         } catch (IOException ex) {
             Logger.getLogger(CardDiskII.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -86,18 +84,24 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
 //        Motherboard.cancelSpeedRequest(this);
     }
 
-    @SuppressWarnings("fallthrough")
     @Override
     protected void handleIOAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e) {
         // handle Disk ][ registers
         switch (register) {
             case 0x0:
+                // Fall-through
             case 0x1:
+                // Fall-through
             case 0x2:
+                // Fall-through
             case 0x3:
+                // Fall-through
             case 0x4:
+                // Fall-through
             case 0x5:
+                // Fall-through
             case 0x6:
+                // Fall-through
             case 0x7:
                 currentDrive.step(register);
                 break;
@@ -127,7 +131,8 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
             case 0xC:
                 // read/write latch
                 currentDrive.write();
-                e.setNewValue(currentDrive.readLatch());
+                int latch = currentDrive.readLatch();
+                e.setNewValue(latch);
                 break;
             case 0xF:
                 // write mode
@@ -168,7 +173,10 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     }
 
     public void loadRom(String path) throws IOException {
-        InputStream romFile = CardDiskII.class.getClassLoader().getResourceAsStream(path);
+        InputStream romFile = CardDiskII.class.getResourceAsStream(path);
+        if (romFile == null) {
+            throw new IOException("Cannot find Disk ][ ROM at " + path);
+        }
         final int cxRomLength = 0x100;
         byte[] romData = new byte[cxRomLength];
         try {
@@ -209,10 +217,10 @@ public class CardDiskII extends Card implements Reconfigurable, MediaConsumerPar
     private void tweakTiming() {
         if ((drive1.isOn() && drive1.disk != null) || (drive2.isOn() && drive2.disk != null)) {
             if (USE_MAX_SPEED) {
-                computer.getMotherboard().requestSpeed(this);
+                Emulator.withComputer(c->c.getMotherboard().requestSpeed(this));
             }
         } else {
-            computer.getMotherboard().cancelSpeedRequest(this);
+            Emulator.withComputer(c->c.getMotherboard().cancelSpeedRequest (this));
         }
     }
 

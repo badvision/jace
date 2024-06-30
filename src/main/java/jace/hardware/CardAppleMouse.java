@@ -1,23 +1,22 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware;
 
+import jace.Emulator;
 import jace.EmulatorUILogic;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.RAM128k;
@@ -28,16 +27,16 @@ import jace.core.Computer;
 import jace.core.PagedMemory;
 import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
-import jace.state.Stateful;
 import jace.core.Utility;
+import jace.state.Stateful;
 import javafx.event.EventHandler;
 import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
-import javafx.geometry.Point2D;
-import javafx.geometry.Rectangle2D;
 
 /**
  * Apple Mouse interface implementation. This is fully compatible with several
@@ -74,7 +73,7 @@ public class CardAppleMouse extends Card {
     @Stateful
     public int statusByte;
     @Stateful
-    public Point2D lastMouseLocation;
+    public Point2D lastMouseLocation = new Point2D(0, 0);
     @Stateful
     public Rectangle2D clampWindow = new Rectangle2D(0, 0, 0x03ff, 0x03ff);
     // By default, update 60 times a second -- roughly every VBL period (in theory)
@@ -88,8 +87,8 @@ public class CardAppleMouse extends Card {
     public boolean movedSinceLastTick = false;
     public boolean movedSinceLastRead = false;
     
-    public CardAppleMouse(Computer computer) {
-        super(computer);
+    public CardAppleMouse() {
+        super(false);
     }
 
     @Override
@@ -108,8 +107,16 @@ public class CardAppleMouse extends Card {
     
     private void processMouseEvent(MouseEvent event) {
         if (event.getEventType() == MouseEvent.MOUSE_MOVED || event.getEventType() == MouseEvent.MOUSE_DRAGGED) {
-            Node source = (Node) event.getSource();
-            updateLocation(event.getSceneX(), event.getSceneY(), source.getBoundsInLocal());
+            double x = 0.0;
+            double y = 0.0;
+            if (event.getSource() != null && event.getSource() instanceof Node) {
+                // This is a bit of a hack to get the mouse position in the local coordinate system of the source (the emulator screen
+                Node source = (Node) event.getSource();
+                Bounds bounds = source.getBoundsInLocal();
+                x=event.getSceneX() / bounds.getWidth();
+                y=event.getSceneY() / bounds.getHeight();
+            }
+            updateLocation(x, y);
             event.consume();
         }
         if (event.getEventType() == MouseEvent.MOUSE_PRESSED || event.getEventType() == MouseEvent.MOUSE_DRAGGED) {
@@ -121,10 +128,8 @@ public class CardAppleMouse extends Card {
         }
     }
 
-    private void updateLocation(double x, double y, Bounds bounds) {
-        double scaledX = x / bounds.getWidth();
-        double scaledY = y / bounds.getHeight();
-        lastMouseLocation = new Point2D(scaledX, scaledY);
+    private void updateLocation(double x, double y) {
+        lastMouseLocation = new Point2D(x, y);
         movedSinceLastTick = true;
         movedSinceLastRead = true;
     }
@@ -175,33 +180,15 @@ public class CardAppleMouse extends Card {
         if (type == RAMEvent.TYPE.EXECUTE) {
             // This means the CPU is calling firmware at this location
             switch (offset - 0x080) {
-                case 0:
-                    setMouse();
-                    break;
-                case 1:
-                    serveMouse();
-                    break;
-                case 2:
-                    readMouse();
-                    break;
-                case 3:
-                    clearMouse();
-                    break;
-                case 4:
-                    posMouse();
-                    break;
-                case 5:
-                    clampMouse();
-                    break;
-                case 6:
-                    homeMouse();
-                    break;
-                case 7:
-                    initMouse();
-                    break;
-                case 8:
-                    getMouseClamp();
-                    break;
+                case 0 -> setMouse();
+                case 1 -> serveMouse();
+                case 2 -> readMouse();
+                case 3 -> clearMouse();
+                case 4 -> posMouse();
+                case 5 -> clampMouse();
+                case 6 -> homeMouse();
+                case 7 -> initMouse();
+                case 8 -> getMouseClamp();
             }
             // Always pass back RTS
             e.setNewValue(0x060);
@@ -229,6 +216,7 @@ public class CardAppleMouse extends Card {
                 case 0x08:
                     // Pascal signature byte
                     e.setNewValue(0x001);
+                    break;
                 case 0x011:
                     e.setNewValue(0x000);
                     break;
@@ -268,7 +256,7 @@ public class CardAppleMouse extends Card {
     }
 
     private MOS65C02 getCPU() {
-        return (MOS65C02) computer.getCpu();
+        return (MOS65C02) Emulator.withComputer(Computer::getCpu, null);
     }
 
     /*
@@ -359,7 +347,7 @@ public class CardAppleMouse extends Card {
      *      //gs homes mouse to low address, but //c and //e do not
      */
     private void clampMouse() {
-        RAM128k memory = (RAM128k) computer.memory;
+        RAM128k memory = (RAM128k) getMemory();
         byte clampMinLo = memory.getMainMemory().readByte(0x0478);
         byte clampMaxLo = memory.getMainMemory().readByte(0x04F8);
         byte clampMinHi = memory.getMainMemory().readByte(0x0578);
@@ -395,7 +383,9 @@ public class CardAppleMouse extends Card {
      *      Screen holes are updated
      */
     private void initMouse() {
-        mouseActive.setText("Active");
+        if (mouseActive != null) {
+            mouseActive.setText("Active");
+        }
         EmulatorUILogic.addIndicator(this, mouseActive, 2000);
         setClampWindowX(0, 0x3ff);
         setClampWindowY(0, 0x3ff);
@@ -436,40 +426,24 @@ public class CardAppleMouse extends Card {
      * Described in Apple Mouse technical note #7
      * Cn1A: Read mouse clamping values
      * Register number is stored in $478 and ranges from x47 to x4e
-     * Return value should be stored in $5782
+     * Return value should be stored in $578
      * Values should be returned in this order:
      * MinXH, MinYH, MinXL, MinYL, MaxXH, MaxYH, MaxXL, MaxYL
      */
     private void getMouseClamp() {
-        byte reg = computer.getMemory().readRaw(0x0478);
+        byte reg = getMemory().readRaw(0x0478);
         byte val = 0;
         switch (reg - 0x047) {
-            case 0:
-                val = (byte) ((int) clampWindow.getMinX() >> 8);
-                break;
-            case 1:
-                val = (byte) ((int) clampWindow.getMinY() >> 8);
-                break;
-            case 2:
-                val = (byte) ((int) clampWindow.getMinX() & 255);
-                break;
-            case 3:
-                val = (byte) ((int) clampWindow.getMinY() & 255);
-                break;
-            case 4:
-                val = (byte) ((int) clampWindow.getMaxX() >> 8);
-                break;
-            case 5:
-                val = (byte) ((int) clampWindow.getMaxY() >> 8);
-                break;
-            case 6:
-                val = (byte) ((int) clampWindow.getMaxX() & 255);
-                break;
-            case 7:
-                val = (byte) ((int) clampWindow.getMaxY() & 255);
-                break;
+            case 0 -> val = (byte) ((int) clampWindow.getMinX() >> 8);
+            case 1 -> val = (byte) ((int) clampWindow.getMinY() >> 8);
+            case 2 -> val = (byte) ((int) clampWindow.getMinX() & 255);
+            case 3 -> val = (byte) ((int) clampWindow.getMinY() & 255);
+            case 4 -> val = (byte) ((int) clampWindow.getMaxX() >> 8);
+            case 5 -> val = (byte) ((int) clampWindow.getMaxY() >> 8);
+            case 6 -> val = (byte) ((int) clampWindow.getMaxX() & 255);
+            case 7 -> val = (byte) ((int) clampWindow.getMaxY() & 255);
         }
-        computer.getMemory().write(0x0578, val, false, false);
+        getMemory().write(0x0578, val, false, false);
     }
 
     /*
@@ -550,7 +524,7 @@ public class CardAppleMouse extends Card {
         y += clampWindow.getMinY();
         y = Math.min(Math.max(y, clampWindow.getMinY()), clampWindow.getMaxY());
 
-        PagedMemory m = ((RAM128k) computer.getMemory()).getMainMemory();
+        PagedMemory m = ((RAM128k) getMemory()).getMainMemory();
         int s = getSlot();
         /*
          * $0478 + slot Low byte of absolute X position 

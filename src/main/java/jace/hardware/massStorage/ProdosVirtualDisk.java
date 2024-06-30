@@ -1,35 +1,36 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware.massStorage;
+
+import static jace.hardware.ProdosDriver.MLI_COMMAND;
+import static jace.hardware.ProdosDriver.MLI_UNITNUMBER;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import jace.Emulator;
 import jace.EmulatorUILogic;
 import jace.apple2e.MOS65C02;
-import jace.core.Computer;
 import jace.core.RAM;
-import static jace.hardware.ProdosDriver.*;
 import jace.hardware.ProdosDriver.MLI_COMMAND_TYPE;
-import java.io.File;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Representation of a Prodos Volume which maps to a physical folder on the
@@ -57,17 +58,27 @@ public class ProdosVirtualDisk implements IDisk {
     }
 
     @Override
-    public void mliRead(int block, int bufferAddress, RAM memory) throws IOException {
+    public void mliRead(int block, int bufferAddress) throws IOException {
 //        System.out.println("Read block " + block + " to " + Integer.toHexString(bufferAddress));
-        DiskNode node = physicalMap[block];
-        Arrays.fill(ioBuffer, (byte) 0);
-        if (node == null) {
-            System.out.println("Unknown block " + Integer.toHexString(block));
-        } else {
-            node.readBlock(ioBuffer);
-        }
-        for (int i = 0; i < ioBuffer.length; i++) {
-            memory.write(bufferAddress + i, ioBuffer[i], false, false);
+        AtomicReference<IOException> error = new AtomicReference<>();
+        Emulator.withMemory(memory -> {
+            try {
+                DiskNode node = physicalMap[block];
+                Arrays.fill(ioBuffer, (byte) 0);
+                if (node == null) {
+                    System.out.println("Unknown block " + Integer.toHexString(block));
+                } else {
+                    node.readBlock(ioBuffer);
+                }
+                for (int i = 0; i < ioBuffer.length; i++) {
+                    memory.write(bufferAddress + i, ioBuffer[i], false, false);
+                }
+            } catch (IOException ex) {
+                error.set(ex);
+            }
+        });
+        if (error.get() != null) {
+            throw error.get();
         }
 //        System.out.println("Block " + Integer.toHexString(block));
 //        for (int i = 0; i < 32; i++) {
@@ -84,11 +95,11 @@ public class ProdosVirtualDisk implements IDisk {
     }
 
     @Override
-    public void mliWrite(int block, int bufferAddress, RAM memory) throws IOException {
+    public void mliWrite(int block, int bufferAddress) throws IOException {
         System.out.println("Write block " + block + " to " + Integer.toHexString(bufferAddress));
         throw new IOException("Write not implemented yet!");
 //        DiskNode node = physicalMap.get(block);
-//        RAM memory = computer.getMemory();
+//        RAM memory = getMemory();
 //        if (node == null) {
 //            // CAPTURE WRITES TO UNUSED BLOCKS
 //        } else {
@@ -168,22 +179,31 @@ public class ProdosVirtualDisk implements IDisk {
     }
 
     @Override
-    public void boot0(int slot, Computer computer) throws IOException {
-        File prodos = locateFile(physicalRoot, "PRODOS.SYS");
-        if (prodos == null || !prodos.exists()) {
-            throw new IOException("Unable to locate PRODOS.SYS");
+    public void boot0(int slot) throws IOException {
+        AtomicReference<IOException> error = new AtomicReference<>();
+        Emulator.whileSuspended(computer -> {
+            File prodos = locateFile(physicalRoot, "PRODOS.SYS");
+            if (prodos == null || !prodos.exists()) {
+                error.set(new IOException("Unable to locate PRODOS.SYS"));
+                return;
+            }
+            byte slot16 = (byte) (slot << 4);
+            ((MOS65C02) computer.getCpu()).X = slot16;
+            RAM memory = computer.getMemory();
+            memory.write(CardMassStorage.SLT16, slot16, false, false);
+            memory.write(MLI_COMMAND, (byte) MLI_COMMAND_TYPE.READ.intValue, false, false);
+            memory.write(MLI_UNITNUMBER, slot16, false, false);
+            // Write location to block read routine to zero page
+            memory.writeWord(0x048, 0x0c000 + CardMassStorage.DEVICE_DRIVER_OFFSET + (slot * 0x0100), false, false);
+            try {
+                EmulatorUILogic.brun(prodos, 0x02000);
+            } catch (IOException e) {
+                error.set(e);
+            }
+        });
+        if (error.get() != null) {
+            throw error.get();
         }
-        computer.getCpu().suspend();
-        byte slot16 = (byte) (slot << 4);
-        ((MOS65C02) computer.getCpu()).X = slot16;
-        RAM memory = computer.getMemory();
-        memory.write(CardMassStorage.SLT16, slot16, false, false);
-        memory.write(MLI_COMMAND, (byte) MLI_COMMAND_TYPE.READ.intValue, false, false);
-        memory.write(MLI_UNITNUMBER, slot16, false, false);
-        // Write location to block read routine to zero page
-        memory.writeWord(0x048, 0x0c000 + CardMassStorage.DEVICE_DRIVER_OFFSET + (slot * 0x0100), false, false);
-        EmulatorUILogic.brun(prodos, 0x02000);
-        computer.getCpu().resume();
     }
 
     public File getPhysicalPath() {

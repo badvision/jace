@@ -17,9 +17,7 @@ package jace.hardware;
 
 import jace.Emulator;
 import jace.config.ConfigurableField;
-import jace.core.Computer;
 import jace.core.Device;
-import jace.core.Motherboard;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
 
@@ -39,8 +37,14 @@ public class ZipWarpAccelerator extends Device {
     public static final double UNLOCK_PENALTY_PER_TICK = 0.19;
     public static final double UNLOCK_MIN = 4.0;
 
+    /**
+     * Valid values for C074 are:
+     * 0: Enable full speed
+     * 1: Set speed to 1mhz (temporarily disable)
+     * 3: Disable completely (requres cold-start to re-enable -- this isn't implemented)
+     */
     public static final int TRANSWARP = 0x0c074;
-    public static final int TRANSWARP_ON = 1; // Any other value written disables acceleration
+    public static final int TRANSWARP_ON = 0; // Any other value written disables acceleration
 
     boolean zipLocked = true;
     double zipUnlockCount = 0;
@@ -50,10 +54,10 @@ public class ZipWarpAccelerator extends Device {
     RAMListener zipListener;
     RAMListener transwarpListener;
 
-    public ZipWarpAccelerator(Computer computer) {
-        super(computer);
-        zipListener = computer.memory.observe(RAMEvent.TYPE.ANY, ENABLE_ADDR, SET_SPEED, this::handleZipChipEvent);
-        transwarpListener = computer.memory.observe(RAMEvent.TYPE.ANY, TRANSWARP, this::handleTranswarpEvent);
+    public ZipWarpAccelerator() {
+        super();
+        zipListener = getMemory().observe("Zip chip access", RAMEvent.TYPE.ANY, ENABLE_ADDR, SET_SPEED, this::handleZipChipEvent);
+        transwarpListener = getMemory().observe("Transwarp access", RAMEvent.TYPE.ANY, TRANSWARP, this::handleTranswarpEvent);
     }
 
     private void handleZipChipEvent(RAMEvent e) {
@@ -85,24 +89,22 @@ public class ZipWarpAccelerator extends Device {
             }
         } else if (!zipLocked && isWrite) {
             switch (e.getAddress()) {
-                case MAX_SPEED:
+                case MAX_SPEED -> {
                     setSpeed(SPEED.MAX);
                     if (debugMessagesEnabled) {
                         System.out.println("MAXIMUM WARP!");
                     }
-                    break;
-                case SET_SPEED:
+                }
+                case SET_SPEED -> {
                     SPEED s = lookupSpeedSetting(e.getNewValue());
                     setSpeed(s);
                     if (debugMessagesEnabled) {
                         System.out.println("Set speed to " + s.ratio);
                     }
-                    break;
-                case REGISTERS:
-                    zipRegisters = e.getNewValue();
-                    break;
-                default:
-                    break;
+                }
+                case REGISTERS -> zipRegisters = e.getNewValue();
+                default -> {
+                }
             }
         } else if (!zipLocked && e.getAddress() == REGISTERS) {
             e.setNewValue(zipRegisters);
@@ -132,8 +134,8 @@ public class ZipWarpAccelerator extends Device {
         return "ZipChip Accelerator";
     }
 
-    public static enum SPEED {
-        MAX(4.0, 0b000000000, 0b011111100),
+    public enum SPEED {
+        MAX(8.0, 0b000000000, 0b011111100),
         _2_667(2.6667, 0b000000100, 0b011111100),
         _3(3.0, 0b000001000, 0b011111000),
         _3_2(3.2, 0b000010000, 0b011110000),
@@ -177,40 +179,43 @@ public class ZipWarpAccelerator extends Device {
 
     private void setSpeed(SPEED speed) {
         speedValue = speed.val;
-        if (speed.max) {
-            Emulator.computer.getMotherboard().setMaxSpeed(true);
-            Motherboard.cpuPerClock = 3;
-        } else {
-            Emulator.computer.getMotherboard().setMaxSpeed(false);
-            Emulator.computer.getMotherboard().setSpeedInPercentage((int) (speed.ratio * 100));
-            Motherboard.cpuPerClock = 1;
-        }
-        Emulator.computer.getMotherboard().reconfigure();
+        Emulator.withComputer(c -> {
+            if (speed.max) {
+                c.getMotherboard().setMaxSpeed(true);
+            } else {
+                c.getMotherboard().setMaxSpeed(false);
+                c.getMotherboard().setSpeedInPercentage((int) (speed.ratio * 100));
+            }
+            c.getMotherboard().reconfigure();            
+        });
     }
 
     private void turnOffAcceleration() {
         // The UI Logic retains the user's desired normal speed, reset to that
-        Emulator.logic.reconfigure();
+        Emulator.withComputer(c -> {
+            c.getMotherboard().setMaxSpeed(false);
+            c.getMotherboard().setSpeedInPercentage(100);
+        });
     }
     
     @Override
     public void tick() {
-        if (zipUnlockCount > 0) {
+        if (zipUnlockCount > 0.0) {
             zipUnlockCount -= UNLOCK_PENALTY_PER_TICK;
         }
     }
 
     @Override
     public void attach() {
-        computer.memory.addListener(zipListener);
-        computer.memory.addListener(transwarpListener);
+        getMemory().addListener(zipListener);
+        getMemory().addListener(transwarpListener);
     }
 
     @Override
     public void detach() {
         super.detach();
-        computer.memory.removeListener(zipListener);
-        computer.memory.removeListener(transwarpListener);
+        getMemory().removeListener(zipListener);
+        getMemory().removeListener(transwarpListener);
     }
 
     @Override

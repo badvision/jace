@@ -1,23 +1,8 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package jace;
 
-import com.sun.glass.ui.Application;
-import jace.core.Card;
-import jace.core.Computer;
-import jace.core.Motherboard;
-import jace.core.Utility;
-import jace.library.MediaCache;
-import jace.library.MediaConsumer;
-import jace.library.MediaConsumerParent;
-import jace.library.MediaEntry;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -28,8 +13,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import jace.core.Card;
+import jace.core.Motherboard;
+import jace.core.Utility;
+import jace.core.Video;
+import jace.apple2e.Apple2e;
+import jace.library.MediaCache;
+import jace.library.MediaConsumer;
+import jace.library.MediaConsumerParent;
+import jace.library.MediaEntry;
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -44,6 +40,7 @@ import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.effect.DropShadow;
@@ -71,9 +68,6 @@ import javafx.util.StringConverter;
 public class JaceUIController {
 
     @FXML
-    private URL location;
-
-    @FXML
     private AnchorPane rootPane;
 
     @FXML
@@ -97,9 +91,13 @@ public class JaceUIController {
     @FXML
     private Button menuButton;
 
-    Computer computer;
+    @FXML
+    private Slider speakerToggle;
 
     private final BooleanProperty aspectRatioCorrectionEnabled = new SimpleBooleanProperty(false);
+
+    public static final double MIN_SPEED = 0.5;
+    public static final double MAX_SPEED = 5.0;
 
     @FXML
     void initialize() {
@@ -111,7 +109,7 @@ public class JaceUIController {
         controlOverlay.setVisible(false);
         menuButtonPane.setVisible(false);
         controlOverlay.setFocusTraversable(false);
-        menuButtonPane.setFocusTraversable(false);
+        menuButtonPane.setFocusTraversable(true);
         NumberBinding aspectCorrectedWidth = rootPane.heightProperty().multiply(3.0).divide(2.0);
         NumberBinding width = new When(
                 aspectRatioCorrectionEnabled.and(aspectCorrectedWidth.lessThan(rootPane.widthProperty()))
@@ -119,19 +117,38 @@ public class JaceUIController {
         appleScreen.fitWidthProperty().bind(width);
         appleScreen.fitHeightProperty().bind(rootPane.heightProperty());
         appleScreen.setVisible(false);
-        menuButtonPane.setPickOnBounds(false);
         rootPane.setOnDragEntered(this::processDragEnteredEvent);
         rootPane.setOnDragExited(this::processDragExitedEvent);
         rootPane.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
         rootPane.setOnMouseMoved(this::showMenuButton);
         rootPane.setOnMouseExited(this::hideControlOverlay);
+        rootPane.setOnMouseClicked((evt)->{
+            rootPane.requestFocus();
+        });
         menuButton.setOnMouseClicked(this::showControlOverlay);
         controlOverlay.setOnMouseClicked(this::hideControlOverlay);
         delayTimer.getKeyFrames().add(new KeyFrame(Duration.millis(3000), evt -> {
             hideControlOverlay(null);
             rootPane.requestFocus();
         }));
+        rootPane.requestFocus();
+        speakerToggle.setValue(1.0);
+        speakerToggle.setOnMouseClicked(evt -> {
+            speakerEnabled = !speakerEnabled;
+            int desiredValue = speakerEnabled ? 1 : 0;
+            speakerToggle.setValue(desiredValue);
+            Emulator.withComputer(computer -> {
+                Motherboard.enableSpeaker = speakerEnabled;
+                computer.motherboard.reconfigure();
+                if (!speakerEnabled) {
+                    computer.motherboard.speaker.detach();
+                } else {
+                    computer.motherboard.speaker.attach();                    
+                }
+            });
+        });
     }
+    boolean speakerEnabled = true;
 
     private void showMenuButton(MouseEvent evt) {
         if (!evt.isPrimaryButtonDown() && !evt.isSecondaryButtonDown() && !controlOverlay.isVisible()) {
@@ -188,42 +205,48 @@ public class JaceUIController {
             return 0.5;
         } else if (setting == 1.0) {
             return 1.0;
-        } else if (setting >= 10) {
+        } else if (setting >= 5) {
             return Double.MAX_VALUE;
         } else {
-            double val = Math.pow(2.0, (setting - 1.0) / 1.5);
-            val = Math.floor(val * 2.0) / 2.0;
-            if (val > 2.0) {
-                val = Math.floor(val);
-            }
-            return val;
+            return setting;
         }
     }
 
-    private void connectControls(Stage primaryStage) {
+    Stage primaryStage;
+
+    public void reconnectKeyboard() {
+        Emulator.withComputer(computer -> {
+            if (computer.getKeyboard() != null) {
+                EventHandler<KeyEvent> keyboardHandler = computer.getKeyboard().getListener();
+                primaryStage.setOnShowing(evt -> computer.getKeyboard().resetState());
+                rootPane.setOnKeyPressed(keyboardHandler);
+                rootPane.setOnKeyReleased(keyboardHandler);
+                rootPane.setFocusTraversable(true);
+            }
+        });
+    }
+
+    private void connectControls(Stage ps) {
+        primaryStage = ps;
+
         connectButtons(controlOverlay);
-        if (computer.getKeyboard() != null) {
-            EventHandler<KeyEvent> keyboardHandler = computer.getKeyboard().getListener();
-            primaryStage.setOnShowing(evt -> computer.getKeyboard().resetState());
-            rootPane.setOnKeyPressed(keyboardHandler);
-            rootPane.setOnKeyReleased(keyboardHandler);
-            rootPane.setFocusTraversable(true);
-        }
-        speedSlider.setMinorTickCount(0);
+        speedSlider.setMinorTickCount(3);
         speedSlider.setMajorTickUnit(1);
+        speedSlider.setMax(MAX_SPEED);
+        speedSlider.setMin(MIN_SPEED);
         speedSlider.setLabelFormatter(new StringConverter<Double>() {
             @Override
             public String toString(Double val) {
-                if (val < 1.0) {
+                if (val <= MIN_SPEED) {
                     return "Half";
-                } else if (val >= 10.0) {
+                } else if (val >= MAX_SPEED) {
                     return "∞";
                 }
                 double v = convertSpeedToRatio(val);
                 if (v != Math.floor(v)) {
-                    return String.valueOf(v) + "x";
+                    return v + "x";
                 } else {
-                    return String.valueOf((int) v) + "x";
+                    return (int) v + "x";
                 }
             }
 
@@ -232,45 +255,38 @@ public class JaceUIController {
                 return 1.0;
             }
         });
-        speedSlider.valueProperty().addListener((val, oldValue, newValue) -> setSpeed(newValue.doubleValue()));
         Platform.runLater(() -> {
-            speedSlider.setValue(Emulator.logic.speedSetting);
-            // Kind of redundant but make sure speed is properly set as if the user did it
-            setSpeed(Emulator.logic.speedSetting);
+            double currentSpeed = (double) Emulator.withComputer(c->c.getMotherboard().getSpeedRatio(), 100) / 100.0;
+            speedSlider.valueProperty().set(currentSpeed);
+            speedSlider.valueProperty().addListener((val, oldValue, newValue) -> setSpeed(newValue.doubleValue()));
         });
+        reconnectKeyboard();
     }
 
     private void connectButtons(Node n) {
-        if (n instanceof Button) {
-            Button button = (Button) n;
-            Runnable action = Utility.getNamedInvokableAction(button.getText());
-            button.setOnMouseClicked(evt -> action.run());
-        } else if (n instanceof Parent) {
-            for (Node child : ((Parent) n).getChildrenUnmodifiable()) {
-                connectButtons(child);
-            }
+        if (n instanceof Button button) {
+            Function<Boolean, Boolean> action = Utility.getNamedInvokableAction(button.getText());
+            button.setOnMouseClicked(evt -> action.apply(false));
+        } else if (n instanceof Parent parent) {
+            parent.getChildrenUnmodifiable().forEach(child -> connectButtons(child));
         }
     }
 
-    protected void setSpeed(double speed) {
-        Emulator.logic.speedSetting = (int) speed;
-        double speedRatio = convertSpeedToRatio(speed);
+    public void setSpeed(double speed) {
+        double newSpeed = Math.max(speed, MIN_SPEED);
         if (speedSlider.getValue() != speed) {
-            Platform.runLater(() -> speedSlider.setValue(speed));
+            Platform.runLater(()->speedSlider.setValue(newSpeed));
         }
-        if (speedRatio > 100.0) {
-            Emulator.computer.getMotherboard().setMaxSpeed(true);
-            Motherboard.cpuPerClock = 3;
+        if (newSpeed >= MAX_SPEED) {
+            Emulator.withComputer(c -> {
+                c.getMotherboard().setMaxSpeed(true);
+            });
         } else {
-            if (speedRatio > 25) {
-                Motherboard.cpuPerClock = 2;
-            } else {
-                Motherboard.cpuPerClock = 1;
-            }
-            Emulator.computer.getMotherboard().setMaxSpeed(false);
-            Emulator.computer.getMotherboard().setSpeedInPercentage((int) (speedRatio * 100));
+            Emulator.withComputer(c -> {
+                c.getMotherboard().setMaxSpeed(false);
+                c.getMotherboard().setSpeedInPercentage((int) (newSpeed * 100));
+            });
         }
-        Emulator.computer.getMotherboard().reconfigure();
     }
 
     public void toggleAspectRatio() {
@@ -281,17 +297,21 @@ public class JaceUIController {
         aspectRatioCorrectionEnabled.set(enabled);
     }
 
-    public void connectComputer(Computer computer, Stage primaryStage) {
-        if (computer == null) {
-            return;
-        }
-        this.computer = computer;
+    public void connectComputer(Stage primaryStage) {
         Platform.runLater(() -> {
             connectControls(primaryStage);
-            appleScreen.setImage(computer.getVideo().getFrameBuffer());
+            Emulator.withVideo(this::connectVideo);
             appleScreen.setVisible(true);
             rootPane.requestFocus();
         });
+    }
+
+    public void connectVideo(Video video) {
+        if (video != null) {
+            appleScreen.setImage(video.getFrameBuffer());
+        } else {
+            appleScreen.setImage(null);
+        }
     }
 
     private void processDragEnteredEvent(DragEvent evt) {
@@ -355,15 +375,15 @@ public class JaceUIController {
                     });
                     icon.setOnDragDropped(event -> {
                         System.out.println("Dropping media on " + icon.getText());
-                        try {
-                            computer.pause();
-                            consumer.insertMedia(media, media.files.get(0));
-                            computer.resume();
-                            event.setDropCompleted(true);
-                            event.consume();
-                        } catch (IOException ex) {
-                            Logger.getLogger(JaceUIController.class.getName()).log(Level.SEVERE, null, ex);
-                        }
+                        Emulator.whileSuspended(c-> {
+                            try {
+                                consumer.insertMedia(media, media.files.get(0));
+                            } catch (IOException ex) {
+                                Logger.getLogger(JaceUIController.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        });
+                        event.setDropCompleted(true);
+                        event.consume();
                         endDragEvent();
                     });
                 });
@@ -374,48 +394,49 @@ public class JaceUIController {
 
     private void endDragEvent() {
         stackPane.getChildren().remove(drivePanel);
-        drivePanel.getChildren().stream().forEach((n) -> {
-            n.setOnDragDropped(null);
-        });
+        drivePanel.getChildren().forEach((n) -> n.setOnDragDropped(null));
     }
 
     private List<MediaConsumer> getMediaConsumers() {
         List<MediaConsumer> consumers = new ArrayList<>();
-        if (Emulator.logic.showDrives) {
-            for (Optional<Card> card : computer.memory.getAllCards()) {
-                card.filter(c -> c instanceof MediaConsumerParent).ifPresent(parent -> {
-                    consumers.addAll(Arrays.asList(((MediaConsumerParent) parent).getConsumers()));
-                });
-            }
+        if (Emulator.getUILogic().showDrives) {
+            Emulator.withMemory(m -> {
+                for (Optional<Card> card : m.getAllCards()) {
+                    card.filter(c -> c instanceof MediaConsumerParent).ifPresent(parent ->
+                        consumers.addAll(Arrays.asList(((MediaConsumerParent) parent).getConsumers()))
+                    );
+                }
+            });
         }
         return consumers;
     }
 
     Map<Label, Long> iconTTL = new ConcurrentHashMap<>();
 
-    void addIndicator(Label icon) {
+    public void addIndicator(Label icon) {
         addIndicator(icon, 250);
     }
 
-    void addIndicator(Label icon, long TTL) {
+    public void addIndicator(Label icon, long TTL) {
         if (!iconTTL.containsKey(icon)) {
-            Application.invokeLater(() -> {
+            Platform.runLater(() -> {
                 if (!notificationBox.getChildren().contains(icon)) {
-                    notificationBox.getChildren().add(icon);
+                    notificationBox.getChildren().add(0, icon);;
                 }
             });
         }
         trackTTL(icon, TTL);
     }
 
-    void removeIndicator(Label icon) {
-        Application.invokeLater(() -> {
+    public void removeIndicator(Label icon) {
+        Platform.runLater(() -> {
             notificationBox.getChildren().remove(icon);
             iconTTL.remove(icon);
         });
     }
 
     ScheduledExecutorService notificationExecutor = Executors.newSingleThreadScheduledExecutor();
+    @SuppressWarnings("all")
     ScheduledFuture ttlCleanupTask = null;
 
     private void trackTTL(Label icon, long TTL) {
@@ -430,9 +451,7 @@ public class JaceUIController {
         Long now = System.currentTimeMillis();
         iconTTL.keySet().stream()
                 .filter((icon) -> (iconTTL.get(icon) <= now))
-                .forEach((icon) -> {
-                    removeIndicator(icon);
-                });
+                .forEach(this::removeIndicator);
         if (iconTTL.isEmpty()) {
             ttlCleanupTask.cancel(true);
             ttlCleanupTask = null;
@@ -441,10 +460,12 @@ public class JaceUIController {
 
     public void addMouseListener(EventHandler<MouseEvent> handler) {
         appleScreen.addEventHandler(MouseEvent.ANY, handler);
+        rootPane.addEventHandler(MouseEvent.ANY, handler);
     }
 
     public void removeMouseListener(EventHandler<MouseEvent> handler) {
         appleScreen.removeEventHandler(MouseEvent.ANY, handler);
+        rootPane.removeEventHandler(MouseEvent.ANY, handler);
     }
 
     Label currentNotification = null;
@@ -456,15 +477,13 @@ public class JaceUIController {
         notification.setEffect(new DropShadow(2.0, Color.BLACK));
         notification.setTextFill(Color.WHITE);
         notification.setBackground(new Background(new BackgroundFill(Color.rgb(0, 0, 80, 0.7), new CornerRadii(5.0), new Insets(-5.0))));
-        Application.invokeLater(() -> {
+        Platform.runLater(() -> {
             stackPane.getChildren().remove(oldNotification);
             stackPane.getChildren().add(notification);
         });
 
-        notificationExecutor.schedule(() -> {
-            Application.invokeLater(() -> {
-                stackPane.getChildren().remove(notification);
-            });
-        }, 4, TimeUnit.SECONDS);
+        notificationExecutor.schedule(
+                () -> Platform.runLater(() -> stackPane.getChildren().remove(notification)),
+                4, TimeUnit.SECONDS);
     }
 }

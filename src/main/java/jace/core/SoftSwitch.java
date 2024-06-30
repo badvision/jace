@@ -1,27 +1,27 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.core;
 
-import jace.state.Stateful;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import jace.Emulator;
+import jace.state.Stateful;
 
 /**
  * A softswitch is a hidden bit that lives in the MMU, it can be activated or
@@ -40,14 +40,13 @@ public abstract class SoftSwitch {
 
     @Stateful
     public Boolean state;
-    private Boolean initalState;
-    private List<RAMListener> listeners;
+    private final Boolean initalState;
+    private final List<RAMListener> listeners;
     private final List<Integer> exclusionActivate = new ArrayList<>();
     private final List<Integer> exclusionDeactivate = new ArrayList<>();
     private final List<Integer> exclusionQuery = new ArrayList<>();
-    private String name;
+    private final String name;
     private boolean toggleType = false;
-    protected Computer computer;
 
     /**
      * Creates a new instance of SoftSwitch
@@ -105,7 +104,7 @@ public abstract class SoftSwitch {
                     exclusionActivate.add(i);
                 }
             }
-            RAMListener l = new RAMListener(changeType, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
+            RAMListener l = new RAMListener("Softswitch toggle " + name, changeType, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
                 @Override
                 protected void doConfig() {
                     setScopeStart(beginAddr);
@@ -135,7 +134,7 @@ public abstract class SoftSwitch {
                         exclusionActivate.add(i);
                     }
                 }
-                RAMListener l = new RAMListener(changeType, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
+                RAMListener l = new RAMListener("Softswitch on " + name, changeType, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
                     @Override
                     protected void doConfig() {
                         setScopeStart(beginAddr);
@@ -145,10 +144,10 @@ public abstract class SoftSwitch {
                     @Override
                     protected void doEvent(RAMEvent e) {
                         if (e.getType().isRead()) {
-                            e.setNewValue(computer.getVideo().getFloatingBus());
+                            e.setNewValue(Emulator.withComputer(c->c.getVideo().getFloatingBus(), (byte) 0));
                         }
                         if (!exclusionActivate.contains(e.getAddress())) {
-                            //                        System.out.println("Access to "+Integer.toHexString(e.getAddress())+" ENABLES switch "+getName());
+                            // System.out.println("Access to "+Integer.toHexString(e.getAddress())+" ENABLES switch "+getName());
                             setState(true);
                         }
                     }
@@ -168,7 +167,7 @@ public abstract class SoftSwitch {
                         exclusionDeactivate.add(i);
                     }
                 }
-                RAMListener l = new RAMListener(changeType, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
+                RAMListener l = new RAMListener("Softswitch off " + name, changeType, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
                     @Override
                     protected void doConfig() {
                         setScopeStart(beginAddr);
@@ -179,7 +178,7 @@ public abstract class SoftSwitch {
                     protected void doEvent(RAMEvent e) {
                         if (!exclusionDeactivate.contains(e.getAddress())) {
                             setState(false);
-//                          System.out.println("Access to "+Integer.toHexString(e.getAddress())+" disables switch "+getName());
+                            // System.out.println("Access to "+Integer.toHexString(e.getAddress())+" disables switch "+getName());
                         }
                     }
                 };
@@ -200,7 +199,7 @@ public abstract class SoftSwitch {
                 }
             }
 //            RAMListener l = new RAMListener(changeType, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
-            RAMListener l = new RAMListener(RAMEvent.TYPE.READ, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
+            RAMListener l = new RAMListener("Softswitch read state " + name, RAMEvent.TYPE.READ, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
                 @Override
                 protected void doConfig() {
                     setScopeStart(beginAddr);
@@ -239,39 +238,23 @@ public abstract class SoftSwitch {
         }
     }
 
-    public void register(Computer computer) {
-        this.computer = computer;
-        RAM m = computer.getMemory();
-        listeners.stream().forEach((l) -> {
-            m.addListener(l);
+    public void register() {
+        Emulator.withMemory(m -> {
+            listeners.forEach(m::addListener);
         });
     }
 
     public void unregister() {
-        RAM m = computer.getMemory();
-        listeners.stream().forEach((l) -> {
-            m.removeListener(l);
+        Emulator.withMemory(m -> {
+            listeners.forEach(m::removeListener);
         });
-        this.computer = null;
     }
 
     public void setState(boolean newState) {
         if (inhibit()) {
             return;
         }
-//        if (this != SoftSwitches.VBL.getSwitch() &&
-//            this != SoftSwitches.KEYBOARD.getSwitch())
-//            System.out.println("Switch "+name+" set to "+newState);
         state = newState;
-        /*
-         if (queryAddresses != null) {
-         RAM m = computer.getMemory();
-         for (int i:queryAddresses) {
-         byte old = m.read(i, false);
-         m.write(i, (byte) (old & 0x7f | (state ? 0x080:0x000)), false);
-         }
-         }
-         */
         stateChanged();
     }
 

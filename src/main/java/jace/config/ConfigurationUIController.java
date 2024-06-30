@@ -1,19 +1,19 @@
 package jace.config;
 
-import jace.config.Configuration.ConfigNode;
 import java.io.File;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+
+import jace.config.Configuration.ConfigNode;
 import javafx.beans.Observable;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -88,11 +88,12 @@ public class ConfigurationUIController {
         assert settingsScroll != null : "fx:id=\"settingsScroll\" was not injected: check your FXML file 'Configuration.fxml'.";
         assert deviceTree != null : "fx:id=\"deviceTree\" was not injected: check your FXML file 'Configuration.fxml'.";
         assert treeScroll != null : "fx:id=\"treeScroll\" was not injected: check your FXML file 'Configuration.fxml'.";
-        resetDeviceTree();
+        cancelConfig(null);
         deviceTree.getSelectionModel().selectedItemProperty().addListener(this::selectionChanged);
         deviceTree.maxWidthProperty().bind(treeScroll.widthProperty());
     }
     
+    @SuppressWarnings("all")
     private void resetDeviceTree() {
         Set<String> expanded = new HashSet<>();
         String current = getCurrentNodePath();
@@ -104,8 +105,8 @@ public class ConfigurationUIController {
 
     private void getExpandedNodes(String prefix, TreeItem<ConfigNode> root, Set<String> expanded) {
         if (root == null) return;
-        root.getChildren().stream().filter((item) -> (item.isExpanded())).forEach((item) -> {
-            String name = prefix+item.toString();
+        root.getChildren().stream().filter(TreeItem::isExpanded).forEach((item) -> {
+            String name = prefix+ item;
             expanded.add(name);
             getExpandedNodes(name+DELIMITER, item, expanded);
         });
@@ -113,7 +114,7 @@ public class ConfigurationUIController {
 
     private void setExpandedNodes(String prefix, TreeItem<ConfigNode> root, Set<String> expanded) {
         if (root == null) return;
-        root.getChildren().stream().forEach((item) -> {
+        root.getChildren().forEach((item) -> {
             String name = prefix+item.toString();
             if (expanded.contains(name)) {
                 item.setExpanded(true);
@@ -133,6 +134,7 @@ public class ConfigurationUIController {
         return out;
     }
     
+    @SuppressWarnings("all")
     private void setCurrentNodePath(String value) {
         if (value == null) return;
         String[] parts = value.split(Pattern.quote(DELIMITER));
@@ -163,12 +165,8 @@ public class ConfigurationUIController {
         if (node == null) {
             return;
         }
-        node.hotkeys.forEach((name, values) -> {
-            settingsVbox.getChildren().add(buildKeyShortcutRow(node, name, values));
-        });
-        node.settings.forEach((name, value) -> {
-            settingsVbox.getChildren().add(buildSettingRow(node, name, value));
-        });
+        node.hotkeys.forEach((name, values) -> buildKeyShortcutRow(node, name, values).ifPresent(settingsVbox.getChildren()::add));
+        node.settings.forEach((name, value) -> settingsVbox.getChildren().add(buildSettingRow(node, name, value)));
     }
 
     private Node buildSettingRow(ConfigNode node, String settingName, Serializable value) {
@@ -188,33 +186,36 @@ public class ConfigurationUIController {
         return row;
     }
 
-    private Node buildKeyShortcutRow(ConfigNode node, String actionName, String[] values) {
-        InvokableAction actionInfo = Configuration.getInvokableActionInfo(node.subject, actionName);
+    private Optional<Node> buildKeyShortcutRow(ConfigNode node, String actionName, String[] values) {
+        InvokableActionRegistry registry = InvokableActionRegistry.getInstance();
+        InvokableAction actionInfo = registry.getInstanceMethodInfo(actionName);
         if (actionInfo == null) {
-            return null;
+            actionInfo = registry.getStaticMethodInfo(actionName);
+        }
+        if (actionInfo == null) {
+            return Optional.empty();
         }
         HBox row = new HBox();
         row.getStyleClass().add("setting-row");
         Label label = new Label(actionInfo.name());
         label.getStyleClass().add("setting-keyboard-shortcut");
         label.setMinWidth(150.0);
-        String value = Arrays.stream(values).collect(Collectors.joining(" or "));
+        String value = String.join(" or ", values);
         Text widget = new Text(value);
         widget.setWrappingWidth(180.0);
         widget.getStyleClass().add("setting-keyboard-value");
-        widget.setOnMouseClicked((event) -> {
-            editKeyboardShortcut(node, actionName, widget);
-        });
+        widget.setOnMouseClicked((event) -> editKeyboardShortcut(node, actionName, widget));
         label.setLabelFor(widget);
         row.getChildren().add(label);
         row.getChildren().add(widget);
-        return row;
+        return Optional.of(row);
     }
 
     private void editKeyboardShortcut(ConfigNode node, String actionName, Text widget) {
         throw new UnsupportedOperationException("Not supported yet.");
     }    
     
+    @SuppressWarnings("all")
     private Node buildEditField(ConfigNode node, String settingName, Serializable value) {
         Field field;
         try {
@@ -237,8 +238,6 @@ public class ConfigurationUIController {
             }
         } else if (type.equals(File.class)) {
             // TODO: Add file support!
-        } else if (Class.class.isEnum()) {
-            // TODO: Add enumeration support!
         } else if (ISelection.class.isAssignableFrom(type)) {
             return buildDynamicSelectComponent(node, settingName, value);
         }
@@ -247,21 +246,18 @@ public class ConfigurationUIController {
 
     private Node buildTextField(ConfigNode node, String settingName, Serializable value, String validationPattern) {
         TextField widget = new TextField(String.valueOf(value));
-        widget.textProperty().addListener((e) -> {
-            node.setFieldValue(settingName, widget.getText());
-        });
+        widget.textProperty().addListener((e) -> node.setFieldValue(settingName, widget.getText()));
         return widget;
     }
 
     private Node buildBooleanField(ConfigNode node, String settingName, Serializable value) {
         CheckBox widget = new CheckBox();
         widget.setSelected(value.equals(Boolean.TRUE));
-        widget.selectedProperty().addListener((e) -> {
-            node.setFieldValue(settingName, widget.isSelected());
-        });
+        widget.selectedProperty().addListener((e) -> node.setFieldValue(settingName, widget.isSelected()));
         return widget;
     }
 
+    @SuppressWarnings("all")
     private Node buildDynamicSelectComponent(ConfigNode node, String settingName, Serializable value) {
         try {
             DynamicSelection sel = (DynamicSelection) node.subject.getClass().getField(settingName).get(node.subject);
@@ -284,9 +280,9 @@ public class ConfigurationUIController {
             } else {
                 widget.setValue(selected);
             }
-            widget.valueProperty().addListener((Observable e) -> {
-                node.setFieldValue(settingName, widget.getConverter().toString(widget.getValue()));
-            });
+            widget.valueProperty().addListener((Observable e) ->
+                    node.setFieldValue(settingName, widget.getConverter().toString(widget.getValue()))
+            );
             return widget;
         } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException ex) {
             Logger.getLogger(ConfigurationUIController.class.getName()).log(Level.SEVERE, null, ex);

@@ -1,26 +1,25 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.core;
+
+import java.util.Arrays;
 
 import jace.state.StateManager;
 import jace.state.Stateful;
-import java.util.Arrays;
 
 /**
  * This represents bank-switchable ram which can reside at fixed portions of the
@@ -41,9 +40,9 @@ public class PagedMemory {
         FIRMWARE_80COL(0x0c300),
         SLOW_ROM(0x0c100),
         RAM(0x0000);
-        protected int baseAddress;
+        int baseAddress;
 
-        private Type(int newBase) {
+        Type(int newBase) {
             baseAddress = newBase;
         }
 
@@ -59,10 +58,10 @@ public class PagedMemory {
 
     /**
      * Creates a new instance of PagedMemory
+     * @param size The size of the memory region, in multiples of 256
+     * @param memType The type of the memory region
      */
-    Computer computer;
-    public PagedMemory(int size, Type memType, Computer computer) {
-        this.computer = computer;
+    public PagedMemory(int size, Type memType) {
         type = memType;
         internalMemory = new byte[size >> 8][256];
         for (int i = 0; i < size; i += 256) {
@@ -77,12 +76,10 @@ public class PagedMemory {
         loadData(romData);
     }
 
-    public void loadData(byte[] romData) {
+    public final void loadData(byte[] romData) {
         for (int i = 0; i < romData.length; i += 256) {
             byte[] b = new byte[256];
-            for (int j = 0; j < 256; j++) {
-                b[j] = romData[i + j];
-            }
+            System.arraycopy(romData, i, b, 0, 256);
             internalMemory[i >> 8] = b;
         }
     }
@@ -111,9 +108,7 @@ public class PagedMemory {
 
     public byte[] getMemoryPage(int memoryBase) {
         int offset = memoryBase - type.baseAddress;
-//        int page = offset >> 8;
         int page = (offset >> 8) & 0x0ff;
-//        return get(page);
         return internalMemory[page];
     }
 
@@ -129,7 +124,7 @@ public class PagedMemory {
 
     public void writeByte(int address, byte value) {
         byte[] page = getMemoryPage(address);
-        StateManager.markDirtyValue(page, computer);
+        StateManager.markDirtyValue(page);
         getMemoryPage(address)[address & 0x0ff] = value;
     }
 
@@ -137,10 +132,10 @@ public class PagedMemory {
         byte[][] sourceMemory = source.getMemory();
         int sourceBase = source.type.getBaseAddress() >> 8;
         int thisBase = type.getBaseAddress() >> 8;
-        int start = sourceBase > thisBase ? sourceBase : thisBase;
+        int start = Math.max(sourceBase, thisBase);
         int sourceEnd = sourceBase + source.getMemory().length;
         int thisEnd = thisBase + getMemory().length;
-        int end = sourceEnd < thisEnd ? sourceEnd : thisEnd;
+        int end = Math.min(sourceEnd, thisEnd);
         for (int i = start; i < end; i++) {
             set(i - thisBase, sourceMemory[i - sourceBase]);
         }

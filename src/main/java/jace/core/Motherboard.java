@@ -1,31 +1,27 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.core;
 
+import java.util.HashSet;
+
+import jace.Emulator;
 import jace.apple2e.SoftSwitches;
 import jace.apple2e.Speaker;
 import jace.config.ConfigurableField;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Motherboard is the heart of the computer. It can have a list of cards
@@ -37,20 +33,20 @@ import java.util.logging.Logger;
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
-public class Motherboard extends TimedDevice {
-    
+public class Motherboard extends IndependentTimedDevice {
+
     @ConfigurableField(name = "Enable Speaker", shortName = "speaker", defaultValue = "true")
     public static boolean enableSpeaker = true;
     public Speaker speaker;
 
     void vblankEnd() {
         SoftSwitches.VBL.getSwitch().setState(true);
-        computer.notifyVBLStateChanged(true);
+        Emulator.withComputer(c->c.notifyVBLStateChanged(true));
     }
 
     void vblankStart() {
         SoftSwitches.VBL.getSwitch().setState(false);
-        computer.notifyVBLStateChanged(false);
+        Emulator.withComputer(c->c.notifyVBLStateChanged(false));
     }
 
     /**
@@ -58,8 +54,8 @@ public class Motherboard extends TimedDevice {
      * @param computer
      * @param oldMotherboard
      */
-    public Motherboard(Computer computer, Motherboard oldMotherboard) {
-        super(computer);
+    public Motherboard(Motherboard oldMotherboard) {
+        super();
         if (oldMotherboard != null) {
             addAllDevices(oldMotherboard.getChildren());
             speaker = oldMotherboard.speaker;
@@ -78,69 +74,42 @@ public class Motherboard extends TimedDevice {
     public String getShortName() {
         return "mb";
     }
-    @ConfigurableField(category = "advanced", name = "CPU per clock", defaultValue = "1", description = "Number of CPU cycles per clock cycle (normal = 1)")
-    public static int cpuPerClock = 1;
-    public int clockCounter = 1;
+
+    private CPU _cpu = null;
+    public CPU getCpu() {
+        if (_cpu == null) {
+            _cpu = Emulator.withComputer(Computer::getCpu, null);
+        }
+        return _cpu;
+    }
 
     @Override
     public void tick() {
-        Optional<Card>[] cards = computer.getMemory().getAllCards();
-        try {
-            clockCounter--;
-            computer.getCpu().doTick();
-            if (clockCounter > 0) {
-                return;
-            }
-            clockCounter = cpuPerClock;
-            computer.getVideo().doTick();
-            for (Optional<Card> card : cards) {
-                card.ifPresent(Card::doTick);
-            }
-        } catch (Throwable t) {
-            Logger.getLogger(getClass().getName()).log(Level.SEVERE, null, t);
-        }
-    }
-    // From the holy word of Sather 3:5 (Table 3.1) :-)
-    // This average speed averages in the "long" cycles
-    public static long SPEED = 1020484L; // (NTSC)
-    //public static long SPEED = 1015625L; // (PAL)
-
-    @Override
-    public long defaultCyclesPerSecond() {
-        return SPEED;
     }
 
     @Override
     public synchronized void reconfigure() {
-        boolean startAgain = pause();
+        _cpu = null;
         accelorationRequestors.clear();
+        disableTempMaxSpeed();
         super.reconfigure();
+
         // Now create devices as needed, e.g. sound
 
         if (enableSpeaker) {
             try {
                 if (speaker == null) {
-                    speaker = new Speaker(computer);
-                    if (computer.mixer.lineAvailable) {
-                        speaker.attach();
-                        addChildDevice(speaker);
-                    } else {
-                        System.out.print("No lines available!  Speaker not running.");
-                    }
+                    speaker = new Speaker();
+                    speaker.attach();
                 }
                 speaker.reconfigure();
+                addChildDevice(speaker);
             } catch (Throwable t) {
                 System.out.println("Unable to initalize sound -- deactivating speaker out");
-                removeChildDevice(speaker);
+                t.printStackTrace();
             }
         } else {
             System.out.println("Speaker not enabled, leaving it off.");
-            if (speaker != null) {
-                removeChildDevice(speaker);
-            }
-        }
-        if (startAgain && computer.getMemory() != null) {
-            resume();
         }
     }
     HashSet<Object> accelorationRequestors = new HashSet<>();
@@ -151,50 +120,8 @@ public class Motherboard extends TimedDevice {
     }
 
     public void cancelSpeedRequest(Object requester) {
-        accelorationRequestors.remove(requester);
-        if (accelorationRequestors.isEmpty()) {
+        if (accelorationRequestors.remove(requester) && accelorationRequestors.isEmpty()) {
             disableTempMaxSpeed();
         }
-    }
-
-    @Override
-    public void attach() {
-    }
-    final Set<Card> resume = new HashSet<>();
-
-    @Override
-    public boolean suspend() {
-        synchronized (resume) {
-            resume.clear();
-            for (Optional<Card> c : computer.getMemory().getAllCards()) {
-                if (!c.isPresent()) {
-                    continue;
-                }
-                if (!c.get().suspendWithCPU() || !c.get().isRunning()) {
-                    continue;
-                }
-                if (c.get().suspend()) {
-                    resume.add(c.get());
-                }
-            }
-        }
-        return super.suspend();
-    }
-
-    @Override
-    public void resume() {
-        super.resume();
-        synchronized (resume) {
-            resume.stream().forEach((c) -> {
-                c.resume();
-            });
-        }
-    }
-
-    @Override
-    public void detach() {
-        System.out.println("Detaching motherboard");
-//        halt();
-        super.detach();
     }
 }

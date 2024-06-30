@@ -1,31 +1,23 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.core;
 
-import jace.Emulator;
-import jace.config.Configuration;
-import jace.config.InvokableAction;
 import java.io.File;
 import java.io.InputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -34,13 +26,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
+import java.util.function.Function;
+
+import jace.config.InvokableAction;
+import jace.config.InvokableActionRegistry;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
@@ -48,7 +41,6 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
-import org.reflections.Reflections;
 
 /**
  * This is a set of helper functions which do not belong anywhere else.
@@ -57,12 +49,6 @@ import org.reflections.Reflections;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Utility {
-
-    static Reflections reflections = new Reflections("jace");
-
-    public static Set<Class> findAllSubclasses(Class clazz) {
-        return reflections.getSubTypesOf(clazz);
-    }
 
     //------------------------------ String comparators
     /**
@@ -107,6 +93,7 @@ public class Utility {
 
     /**
      * Normalize distance based on longest string
+     *
      * @param s
      * @param t
      * @return Similarity ranking, higher is better
@@ -114,7 +101,6 @@ public class Utility {
     public static int adjustedLevenshteinDistance(String s, String t) {
         return Math.max(s.length(), t.length()) - levenshteinDistance(s, t);
     }
-
 
     /**
      * Compare strings based on a tally of similar patterns found, using a fixed
@@ -148,17 +134,10 @@ public class Utility {
         return score * adjustment * adjustment;
     }
 
-    public static String join(Collection<String> c, String d) {
-        return c.stream().collect(Collectors.joining(d));
-    }
-
     private static boolean isHeadless = false;
 
     public static void setHeadlessMode(boolean headless) {
         isHeadless = headless;
-        if (Emulator.instance == null && headless) {
-            Emulator.instance = new Emulator(Collections.emptyList());
-        }
     }
 
     public static boolean isHeadlessMode() {
@@ -169,7 +148,11 @@ public class Utility {
         if (isHeadless) {
             return Optional.empty();
         }
-        InputStream stream = Utility.class.getClassLoader().getResourceAsStream("jace/data/" + filename);
+        InputStream stream = Utility.class.getResourceAsStream("/jace/data/" + filename);
+        if (stream == null) {
+            System.err.println("Could not load icon: " + filename);
+            return Optional.empty();
+        }
         return Optional.of(new Image(stream));
     }
 
@@ -177,12 +160,14 @@ public class Utility {
         if (isHeadless) {
             return Optional.empty();
         }
-        Image img = loadIcon(filename).get();
+        Optional<Image> img = loadIcon(filename);
+        if (img.isEmpty()) {
+            return Optional.empty();
+        }
         Label label = new Label() {
             @Override
             public boolean equals(Object obj) {
-                if (obj instanceof Label) {
-                    Label l2 = (Label) obj;
+                if (obj instanceof Label l2) {
                     return super.equals(l2) || l2.getText().equals(getText());
                 } else {
                     return super.equals(obj);
@@ -194,7 +179,7 @@ public class Utility {
                 return getText().hashCode();
             }
         };
-        label.setGraphic(new ImageView(img));
+        label.setGraphic(new ImageView(img.get()));
         label.setAlignment(Pos.CENTER);
         label.setContentDisplay(ContentDisplay.TOP);
         label.setTextFill(Color.WHITE);
@@ -217,26 +202,25 @@ public class Utility {
         });
     }
 
-//    public static void runModalProcess(String title, final Runnable runnable) {
-////        final JDialog frame = new JDialog(Emulator.getFrame());
-//        final JProgressBar progressBar = new JProgressBar();
-//        progressBar.setIndeterminate(true);
-//        final JPanel contentPane = new JPanel();
-//        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-//        contentPane.setLayout(new BorderLayout());
-//        contentPane.add(new JLabel(title), BorderLayout.NORTH);
-//        contentPane.add(progressBar, BorderLayout.CENTER);
-//        frame.setContentPane(contentPane);
-//        frame.pack();
-//        frame.setLocationRelativeTo(null);
-//        frame.setVisible(true);
-//
-//        new Thread(() -> {
-//            runnable.run();
-//            frame.setVisible(false);
-//            frame.dispose();
-//        }).start();
-//    }
+    public static void decision(String title, String message, String aLabel, String bLabel, Runnable aAction, Runnable bAction) {
+        Platform.runLater(() -> {
+            ButtonType buttonA = new ButtonType(aLabel, ButtonData.LEFT);
+            ButtonType buttonB = new ButtonType(bLabel, ButtonData.RIGHT);
+
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, message, buttonA, buttonB);
+            confirm.setTitle(title);
+
+            Optional<ButtonType> response = confirm.showAndWait();
+            response.ifPresent(b -> {
+                if (b.getButtonData() == ButtonData.LEFT && aAction != null) {
+                    Platform.runLater(aAction);
+                } else if (b.getButtonData() == ButtonData.RIGHT && bAction != null) {
+                    Platform.runLater(bAction);
+                }
+            });
+        });
+    }
+    
     public static class RankingComparator implements Comparator<String> {
 
         String match;
@@ -298,113 +282,30 @@ public class Utility {
         return null;
     }
 
-    public static void printStackTrace() {
-        System.out.println("CURRENT STACK TRACE:");
-        for (StackTraceElement s : Thread.currentThread().getStackTrace()) {
-            System.out.println(s.getClassName() + "." + s.getMethodName() + " (line " + s.getLineNumber() + ") " + (s.isNativeMethod() ? "NATIVE" : ""));
-        }
-        System.out.println("END OF STACK TRACE");
-    }
-
-    public static int parseHexInt(Object s) {
-        if (s == null) {
-            return -1;
-        }
-        if (s instanceof Integer) {
-            return (Integer) s;
-        }
-        String val = String.valueOf(s).trim();
-        int base = 10;
-        if (val.startsWith("$")) {
-            base = 16;
-            val = val.contains(" ") ? val.substring(1, val.indexOf(' ')) : val.substring(1);
-        } else if (val.startsWith("0x")) {
-            base = 16;
-            val = val.contains(" ") ? val.substring(2, val.indexOf(' ')) : val.substring(2);
-        }
-        try {
-            return Integer.parseInt(val, base);
-        } catch (NumberFormatException ex) {
-            gripe("This isn't a valid number: " + val + ".  If you put a $ in front of that then I'll know you meant it to be a hex number.");
-            throw ex;
-        }
-    }
-
     public static void gripe(final String message) {
+        gripe(message, false, null);
+    }
+
+    public static void gripe(final String message, boolean wait, Runnable andThen) {
         Platform.runLater(() -> {
             Alert errorAlert = new Alert(Alert.AlertType.ERROR);
             errorAlert.setContentText(message);
             errorAlert.setTitle("Error");
-            errorAlert.show();
+            if (wait) {
+                errorAlert.showAndWait();
+                if (andThen != null) {
+                    andThen.run();
+                }
+            } else {
+                errorAlert.show();
+            }
         });
     }
 
-    public static Object findChild(Object object, String fieldName) {
-        if (object instanceof Map) {
-            Map map = (Map) object;
-            for (Object key : map.keySet()) {
-                if (key.toString().equalsIgnoreCase(fieldName)) {
-                    return map.get(key);
-                }
-            }
-            return null;
-        }
-        try {
-            Field f = object.getClass().getField(fieldName);
-            return f.get(object);
-        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException ex) {
-            for (Method m : object.getClass().getMethods()) {
-                if (m.getName().equalsIgnoreCase("get" + fieldName) && m.getParameterTypes().length == 0) {
-                    try {
-                        return m.invoke(object, new Object[0]);
-                    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex1) {
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    public static Object setChild(Object object, String fieldName, String value, boolean hex) {
-        if (object instanceof Map) {
-            Map map = (Map) object;
-            for (Object key : map.entrySet()) {
-                if (key.toString().equalsIgnoreCase(fieldName)) {
-                    map.put(key, value);
-                    return null;
-                }
-            }
-            return null;
-        }
-        Field f;
-        try {
-            f = object.getClass().getField(fieldName);
-        } catch (NoSuchFieldException ex) {
-            System.out.println("Object type " + object.getClass().getName() + " has no field named " + fieldName);
-            Logger.getLogger(Utility.class.getName()).log(Level.SEVERE, null, ex);
-            return null;
-        } catch (SecurityException ex) {
-            Logger.getLogger(Utility.class.getName()).log(Level.SEVERE, null, ex);
-            return null;
-        }
-        Object useValue = deserializeString(value, f.getType(), hex);
-        try {
-            f.set(object, useValue);
-            return useValue;
-        } catch (IllegalArgumentException | IllegalAccessException ex) {
-            for (Method m : object.getClass().getMethods()) {
-                if (m.getName().equalsIgnoreCase("set" + fieldName) && m.getParameterTypes().length == 0) {
-                    try {
-                        m.invoke(object, useValue);
-                    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex1) {
-                    }
-                }
-            }
-        }
-        return useValue;
-    }
+    @SuppressWarnings("all")
     static Map<Class, Map<String, Object>> enumCache = new HashMap<>();
 
+    @SuppressWarnings("all")
     public static Object findClosestEnumConstant(String value, Class type) {
         Map<String, Object> enumConstants = enumCache.get(type);
         if (enumConstants == null) {
@@ -423,38 +324,43 @@ public class Utility {
         return enumConstants.get(key);
     }
 
+    @SuppressWarnings("all")
     public static Object deserializeString(String value, Class type, boolean hex) {
         int radix = hex ? 16 : 10;
         if (type.equals(Integer.TYPE) || type == Integer.class) {
             value = value.replaceAll(hex ? "[^0-9\\-A-Fa-f]" : "[^0-9\\-]", "");
             try {
-                return Integer.parseInt(value, radix);
+                return Integer.valueOf(value, radix);
             } catch (NumberFormatException ex) {
                 return null;
             }
         } else if (type.equals(Short.TYPE) || type == Short.class) {
             value = value.replaceAll(hex ? "[^0-9\\-\\.A-Fa-f]" : "[^0-9\\-\\.]", "");
             try {
-                return Short.parseShort(value, radix);
+                return Short.valueOf(value, radix);
             } catch (NumberFormatException ex) {
                 return null;
             }
         } else if (type.equals(Long.TYPE) || type == Long.class) {
             value = value.replaceAll(hex ? "[^0-9\\-\\.A-Fa-f]" : "[^0-9\\-\\.]", "");
             try {
-                return Long.parseLong(value, radix);
+                return Long.valueOf(value, radix);
             } catch (NumberFormatException ex) {
                 return null;
             }
         } else if (type.equals(Byte.TYPE) || type == Byte.class) {
             try {
                 value = value.replaceAll(hex ? "[^0-9\\-A-Fa-f]" : "[^0-9\\-]", "");
-                return Byte.parseByte(value, radix);
+                return Byte.valueOf(value, radix);
             } catch (NumberFormatException ex) {
                 return null;
             }
         } else if (type.equals(Boolean.TYPE) || type == Boolean.class) {
             return Boolean.valueOf(value);
+        } else if (type.equals(Float.TYPE) || type == Float.class) {
+            return Float.parseFloat(value);
+        } else if (type.equals(Double.TYPE) || type == Double.class) {
+            return Double.parseDouble(value);
         } else if (type == File.class) {
             return new File(String.valueOf(value));
         } else if (type.isEnum()) {
@@ -464,59 +370,15 @@ public class Utility {
         return null;
     }
 
-    public static Object getProperty(Object object, String path) {
-        String[] paths = path.split("\\.");
-        for (String path1 : paths) {
-            object = findChild(object, path1);
-            if (object == null) {
-                return null;
-            }
-        }
-        return object;
-    }
-
-    public static Object setProperty(Object object, String path, String value, boolean hex) {
-        String[] paths = path.split("\\.");
-        for (int i = 0; i < paths.length - 1; i++) {
-            object = findChild(object, paths[i]);
-            if (object == null) {
-                return null;
-            }
-        }
-        return setChild(object, paths[paths.length - 1], value, hex);
-    }
-
-    static Map<InvokableAction, Runnable> allActions = null;
-
-    public static Map<InvokableAction, Runnable> getAllInvokableActions() {
-        if (allActions == null) {
-            allActions = new HashMap<>();
-            Configuration.BASE.getTreeAsStream().forEach((Configuration.ConfigNode node) -> {
-                for (Method m : node.subject.getClass().getMethods()) {
-                    if (m.isAnnotationPresent(InvokableAction.class)) {
-                        allActions.put(m.getAnnotation(InvokableAction.class), () -> {
-                            try {
-                                m.invoke(node.subject);
-                            } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-                                Logger.getLogger(Utility.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                        });
-                    }
-                }
-            });
-        }
-        return allActions;
-    }
-
-    public static Runnable getNamedInvokableAction(String action) {
-        Map<InvokableAction, Runnable> actions = getAllInvokableActions();
-        List<InvokableAction> actionsList = new ArrayList(actions.keySet());
-        actionsList.sort((a,b) -> Integer.compare(getActionNameMatch(action, a), getActionNameMatch(action, b)));
+    public static Function<Boolean, Boolean> getNamedInvokableAction(String action) {
+        InvokableActionRegistry registry = InvokableActionRegistry.getInstance();        
+        List<InvokableAction> actionsList = new ArrayList<>(registry.getAllStaticActions());
+        actionsList.sort((a, b) -> Integer.compare(getActionNameMatch(action, a), getActionNameMatch(action, b)));
 //        for (InvokableAction a : actionsList) {
 //            String actionName = a.alternatives() == null ? a.name() : (a.name() + ";" + a.alternatives());
 //            System.out.println("Score for " + action + " evaluating " + a.name() + ": " + getActionNameMatch(action, a));
 //        }
-        return actions.get(actionsList.get(0));
+        return registry.getStaticFunction(actionsList.get(0).name());
     }
 
     private static int getActionNameMatch(String str, InvokableAction action) {
@@ -527,5 +389,20 @@ public class Utility {
             }
         }
         return nameMatch;
+    }
+
+    public static enum OS {Windows, Linux, Mac, Unknown}
+    public static OS getOS() {
+        String osName = System.getProperty("os.name").toLowerCase();
+        if (osName.contains("windows")) {
+            return OS.Windows;
+        } else if (osName.contains("linux")) {
+            return OS.Linux;
+        } else if (osName.contains("mac")) {
+            return OS.Mac;
+        } else {
+            System.out.println("Unknown %s".formatted(osName));
+            return OS.Unknown;
+        }
     }
 }

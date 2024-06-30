@@ -1,7 +1,5 @@
 package jace.ide;
 
-import jace.applesoft.ApplesoftHandler;
-import jace.assembly.AssemblyHandler;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -14,6 +12,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import jace.applesoft.ApplesoftHandler;
+import jace.assembly.AssemblyHandler;
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.scene.control.TextInputDialog;
@@ -25,11 +26,12 @@ import netscape.javascript.JSObject;
  *
  * @author blurry
  */
+@SuppressWarnings("all")
 public class Program {
 
     public static String CODEMIRROR_EDITOR = "/codemirror/editor.html";
 
-    public static enum DocumentType {
+    public enum DocumentType {
 
         applesoft(new ApplesoftHandler(), "textfile", "*.bas"), assembly(new AssemblyHandler(), "textfile", "*.a", "*.s", "*.asm"), plain(new TextHandler(), "textfile", "*.txt"), hex(new TextHandler(), "textfile", "*.bin", "*.raw");
 
@@ -55,7 +57,7 @@ public class Program {
         }
     }
 
-    public static enum Option {
+    public enum Option {
 
         mode, value, theme, indentUnit, smartIndent, tabSize, indentWithTabs, electricChars, specialChars,
         specialCharPlaceHolder, rtlMoveVisually, keyMap, extraKeys, lineWrapping,
@@ -206,23 +208,26 @@ public class Program {
             }
             builder.append(o.name()).append(":");
             if (v instanceof String) {
-                builder.append('"').append(String.valueOf(v)).append('"');
+                builder.append('"').append(v).append('"');
             } else {
-                builder.append(String.valueOf(v));
+                builder.append(v);
             }
         });
         builder.append("}");
         return builder.toString();
     }
 
-    public void execute() {
+    public void execute() throws Exception {
         lastResult = getHandler().compile(this);
         manageCompileResult(lastResult);
         if (lastResult.isSuccessful()) {
             getHandler().execute(lastResult);
         } else {
-            lastResult.getOtherMessages().forEach(System.err::println);
+            StringBuilder error = new StringBuilder("Compilation failed:\n");
+            lastResult.getErrors().forEach((line, message) -> error.append("Line %d: %s%n".formatted(line, message)));
+            lastResult.getOtherMessages().forEach(message -> error.append(message).append("\n"));
             getHandler().clean(lastResult);
+            throw new Exception(error.toString());
         }
     }
 

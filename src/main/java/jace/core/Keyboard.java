@@ -1,46 +1,40 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.core;
+
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import jace.Emulator;
 import jace.apple2e.SoftSwitches;
 import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
-import java.awt.Toolkit;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.UnsupportedFlavorException;
-import java.io.IOException;
-import java.io.StringReader;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javafx.event.EventHandler;
+import javafx.scene.input.Clipboard;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-import javafx.stage.WindowEvent;
 
 /**
  * Keyboard manages all keyboard-related activities. For now, all hotkeys are
@@ -56,12 +50,6 @@ public class Keyboard implements Reconfigurable {
         clearStrobe();
         openApple(false);
         solidApple(false);
-    }
-
-    private Computer computer;
-
-    public Keyboard(Computer computer) {
-        this.computer = computer;
     }
 
     @Override
@@ -96,53 +84,58 @@ public class Keyboard implements Reconfigurable {
      */
     public Keyboard() {
     }
-    private static Map<KeyCode, Set<KeyHandler>> keyHandlersByKey = new HashMap<>();
-    private static Map<Object, Set<KeyHandler>> keyHandlersByOwner = new HashMap<>();
+    private static final Map<KeyCode, Set<KeyHandler>> keyHandlersByKey = new HashMap<>();
+    private static final Map<Object, Set<KeyHandler>> keyHandlersByOwner = new HashMap<>();
 
-    public static void registerInvokableAction(InvokableAction action, Object owner, Method method, String code) {
-        boolean isStatic = Modifier.isStatic(method.getModifiers());
+    /**
+     *
+     * @param action
+     * @param owner
+     * @param method
+     * @param code
+     */
+    public static void registerInvokableAction(InvokableAction action, Object owner, Function<Boolean, Boolean> method, String code) {
         registerKeyHandler(new KeyHandler(code) {
             @Override
             public boolean handleKeyUp(KeyEvent e) {
-                Emulator.computer.getKeyboard().shiftPressed = e.isShiftDown();
+                Emulator.withComputer(c -> c.getKeyboard().shiftPressed = e.isShiftDown());
                 if (action == null || !action.notifyOnRelease()) {
                     return false;
                 }
-//                System.out.println("Key up: "+method.toString());
-                Object returnValue = null;
-                try {
-                    if (method.getParameterCount() > 0) {
-                        returnValue = method.invoke(isStatic ? null : owner, false);
-                    } else {
-                        returnValue = method.invoke(isStatic ? null : owner);
-                    }
-                } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-                    Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                if (returnValue != null) {
-                    return (Boolean) returnValue;
-                }
-                return action.consumeKeyEvent();
+                return method.apply(false) && action.consumeKeyEvent();
             }
 
             @Override
             public boolean handleKeyDown(KeyEvent e) {
 //                System.out.println("Key down: "+method.toString());
-                Emulator.computer.getKeyboard().shiftPressed = e.isShiftDown();
-                Object returnValue = null;
-                try {
-                    if (method.getParameterCount() > 0) {
-                        returnValue = method.invoke(isStatic ? null : owner, true);
-                    } else {
-                        returnValue = method.invoke(isStatic ? null : owner);
-                    }
-                } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-                    Logger.getLogger(Keyboard.class.getName()).log(Level.SEVERE, null, ex);
+                Emulator.withComputer(c -> c.getKeyboard().shiftPressed = e.isShiftDown());
+                if (action == null) {
+                    return false;
                 }
-                if (returnValue != null) {
-                    return (Boolean) returnValue;
+                return method.apply(true) && action.consumeKeyEvent();
+            }
+        }, owner);
+    }
+
+    public static void registerInvokableAction(InvokableAction action, Object owner, BiFunction<Object, Boolean, Boolean> method, String code) {
+        registerKeyHandler(new KeyHandler(code) {
+            @Override
+            public boolean handleKeyUp(KeyEvent e) {
+                Emulator.withComputer(c -> c.getKeyboard().shiftPressed = e.isShiftDown());
+                if (action == null || !action.notifyOnRelease()) {
+                    return false;
                 }
-                return action != null ? action.consumeKeyEvent() : null;
+                return method.apply(owner, false) && action.consumeKeyEvent();
+            }
+
+            @Override
+            public boolean handleKeyDown(KeyEvent e) {
+//                System.out.println("Key down: "+method.toString());
+                Emulator.withComputer(c -> c.getKeyboard().shiftPressed = e.isShiftDown());
+                if (action == null) {
+                    return false;
+                }
+                return method.apply(owner, true) && action.consumeKeyEvent();
             }
         }, owner);
     }
@@ -163,9 +156,8 @@ public class Keyboard implements Reconfigurable {
         if (!keyHandlersByOwner.containsKey(owner)) {
             return;
         }
-        keyHandlersByOwner.get(owner).stream().filter((handler) -> !(!keyHandlersByKey.containsKey(handler.key))).forEach((handler) -> {
-            keyHandlersByKey.get(handler.key).remove(handler);
-        });
+        keyHandlersByOwner.get(owner).stream().filter((handler) -> keyHandlersByKey.containsKey(handler.key)).forEach(
+                (handler) -> keyHandlersByKey.get(handler.key).remove(handler));
         keyHandlersByOwner.remove(owner);
     }
 
@@ -252,7 +244,7 @@ public class Keyboard implements Reconfigurable {
             default:
         }
 
-        Emulator.computer.getKeyboard().shiftPressed = e.isShiftDown();
+        Emulator.withComputer(computer -> computer.getKeyboard().shiftPressed = e.isShiftDown());
         if (e.isShiftDown()) {
             c = fixShiftedChar(c);
         }
@@ -310,18 +302,18 @@ public class Keyboard implements Reconfigurable {
         e.consume();
     }
 
+    public static boolean isOpenApplePressed = false;
     @InvokableAction(name = "Open Apple Key", alternatives = "OA", category = "Keyboard", notifyOnRelease = true, defaultKeyMapping = "Alt", consumeKeyEvent = false)
     public void openApple(boolean pressed) {
-        computer.pause();
+        isOpenApplePressed = pressed;
         SoftSwitches.PB0.getSwitch().setState(pressed);
-        computer.resume();
     }
 
+    public static boolean isClosedApplePressed = false;
     @InvokableAction(name = "Closed Apple Key", alternatives = "CA", category = "Keyboard", notifyOnRelease = true, defaultKeyMapping = {"Shortcut","Meta","Command"}, consumeKeyEvent = false)
     public void solidApple(boolean pressed) {
-        computer.pause();
+        isClosedApplePressed = pressed;
         SoftSwitches.PB1.getSwitch().setState(pressed);
-        computer.resume();
     }
 
     public static void pasteFromString(String text) {
@@ -331,18 +323,10 @@ public class Keyboard implements Reconfigurable {
 
     @InvokableAction(name = "Paste clipboard", alternatives = "paste", category = "Keyboard", notifyOnRelease = false, defaultKeyMapping = {"Ctrl+Shift+V","Shift+Insert"}, consumeKeyEvent = true)
     public static void pasteFromClipboard() {
-        try {
-            Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
-            String contents = (String) clip.getData(DataFlavor.stringFlavor);
-            if (contents != null && !"".equals(contents)) {
-                contents = contents.replaceAll("\\r?\\n|\\r", (char) 0x0d + "");
-                pasteBuffer = new StringReader(contents);
-            }
-        } catch (UnsupportedFlavorException | IOException ex) {
-            Logger.getLogger(Keyboard.class
-                    .getName()).log(Level.SEVERE, null, ex);
+        Clipboard clipboard = Clipboard.getSystemClipboard();
+        if (clipboard.hasString()) {
+            pasteFromString(clipboard.getString());
         }
-
     }
     static StringReader pasteBuffer = null;
 

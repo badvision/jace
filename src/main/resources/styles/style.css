@@ -11,7 +11,7 @@
 }
 
 .setting-keyboard-shortcut {
-    -fx-graphic: "/jace/data/icon_keyboard.gif";
+    -fx-graphic: url("../jace/data/icon_keyboard.gif");
     -fx-graphic-text-gap: 2;
 }
 
@@ -26,13 +26,18 @@
     -fx-background-radius: 10px;
 }
 
-.menuButton, .uiActionButton, .uiSpeedSlider ImageView, .uiSpeedSlider Slider, .uiSpeedSlider AnchorPane {
+.menuButton, .uiActionButton, .uiSpeedSlider ImageView, .uiSpeedSlider Slider, .uiSpeedSlider AnchorPane, .musicLabel, GridPane {
     -fx-background-color: rgba(0, 0, 0, 0.75);
     -fx-text-fill: #a0FFa0
 }
 
+.musicLabel {
+    -fx-text-alignment: right;
+    -fx-font-size:18pt;
+}
+
 .uiActionButton ImageView, .uiSpeedSlider ImageView {
-    -fx-effect: dropshadow(gaussian , rgba(128,255,128,0.75) , 2,1.0,0,0);
+    -fx-effect: dropshadow(gaussian , rgba(64,255,64,0.25) , 2,1.0,0,0);
 }
 
 .uiSpeedSlider AnchorPane {

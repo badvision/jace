@@ -1,13 +1,14 @@
 package jace.applesoft;
 
-import jace.Emulator;
-import jace.ide.Program;
-import jace.ide.CompileResult;
-import jace.ide.LanguageHandler;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import jace.Emulator;
+import jace.ide.CompileResult;
+import jace.ide.LanguageHandler;
+import jace.ide.Program;
 
 /**
  *
@@ -17,7 +18,7 @@ public class ApplesoftHandler implements LanguageHandler<ApplesoftProgram> {
 
     @Override
     public String getNewDocumentContent() {
-        return ApplesoftProgram.fromMemory(Emulator.computer.getMemory()).toString();
+        return Emulator.withComputer(c->ApplesoftProgram.fromMemory(c.getMemory()).toString(), "");
     }
 
     @Override
@@ -41,7 +42,7 @@ public class ApplesoftHandler implements LanguageHandler<ApplesoftProgram> {
 
             @Override
             public Map<Integer, String> getErrors() {
-                return Collections.EMPTY_MAP;
+                return Collections.emptyMap();
             }
 
             @Override
@@ -51,12 +52,12 @@ public class ApplesoftHandler implements LanguageHandler<ApplesoftProgram> {
 
             @Override
             public List<String> getOtherMessages() {
-                return Collections.EMPTY_LIST;
+                return Collections.emptyList();
             }
 
             @Override
             public List<String> getRawOutput() {
-                return Collections.EMPTY_LIST;
+                return Collections.emptyList();
             }
         };
     }

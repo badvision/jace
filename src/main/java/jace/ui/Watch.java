@@ -5,14 +5,15 @@
  */
 package jace.ui;
 
-import jace.Emulator;
-import jace.cheat.MemoryCell;
-import jace.core.RAMListener;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+
+import jace.Emulator;
+import jace.cheat.MemoryCell;
+import jace.core.RAMListener;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.geometry.Insets;
@@ -20,7 +21,6 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.CornerRadii;
@@ -38,6 +38,7 @@ class Watch extends VBox {
     private static final int GRAPH_WIDTH = 50;
     private static final double GRAPH_HEIGHT = 50;
     int address;
+    @SuppressWarnings("all")
     ScheduledFuture redraw;
     Canvas graph;
     List<Integer> samples = Collections.synchronizedList(new ArrayList<>());
@@ -74,9 +75,9 @@ class Watch extends VBox {
     }
 
     public void redraw() {
-        if (!Emulator.computer.getRunningProperty().get()) {
-            return;
-        }
+        boolean isRunning = Emulator.withComputer(c->c.getRunningProperty().get(), false);
+        if (!isRunning) return;
+
         int val = cell.value.get() & 0x0ff;
         if (!holding.get()) {
             value = val;
@@ -117,8 +118,8 @@ class Watch extends VBox {
             outer.cheatEngine.removeListener(holdListener);
             holdListener = null;
         } else {
-            value = Emulator.computer.memory.readRaw(address) & 0x0ff;
-            holdListener = outer.cheatEngine.forceValue(value, address);
+            value = Emulator.withComputer(c->c.getMemory().readRaw(address) & 0x0ff, 0);
+            holdListener = outer.cheatEngine.forceValue("Watch force value", value, address);
         }
     }
 

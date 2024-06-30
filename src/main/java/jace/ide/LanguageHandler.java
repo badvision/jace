@@ -2,11 +2,11 @@ package jace.ide;
 
 public interface LanguageHandler<T> {
 
-    public String getNewDocumentContent();
+    String getNewDocumentContent();
     
-    public CompileResult<T> compile(Program program);
+    CompileResult<T> compile(Program program);
 
-    public void execute(CompileResult<T> lastResult);
+    void execute(CompileResult<T> lastResult) throws Exception;
     
-    public void clean(CompileResult<T> lastResult);
+    void clean(CompileResult<T> lastResult);
 }

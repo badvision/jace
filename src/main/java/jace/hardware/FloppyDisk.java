@@ -1,26 +1,21 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware;
 
-import jace.core.Computer;
-import jace.state.StateManager;
-import jace.state.Stateful;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,6 +26,9 @@ import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import jace.state.StateManager;
+import jace.state.Stateful;
 
 /**
  * Representation of a 140kb floppy disk image. This also performs conversions
@@ -99,7 +97,7 @@ public class FloppyDisk {
             NIBBLE_62_REVERSE[NIBBLE_62[i] & 0x0ff] = 0x0ff & i;
         }
     }
-    private static boolean DEBUG = false;
+    private static final boolean DEBUG = false;
 
     public FloppyDisk() throws IOException {
         // This constructor is only used for disk conversion...
@@ -108,19 +106,18 @@ public class FloppyDisk {
     /**
      *
      * @param diskFile
-     * @param computer
      * @throws IOException
      */
-    public FloppyDisk(File diskFile, Computer computer) throws IOException {
+    public FloppyDisk(File diskFile) throws IOException {
         FileInputStream input = new FileInputStream(diskFile);
         String name = diskFile.getName().toUpperCase();
-        readDisk(input, name.endsWith(".PO"), computer);
+        readDisk(input, name.endsWith(".PO"));
         writeProtected = !diskFile.canWrite();
         diskPath = diskFile;
     }
 
     // brendanr: refactored to use input stream
-    public void readDisk(InputStream diskFile, boolean prodosOrder, Computer computer) throws IOException {
+    public void readDisk(InputStream diskFile, boolean prodosOrder) throws IOException {
         isNibblizedImage = true;
         volumeNumber = CardDiskII.DEFAULT_VOLUME_NUMBER;
         headerLength = 0;
@@ -156,8 +153,8 @@ public class FloppyDisk {
         } catch (IOException ex) {
             throw ex;
         }
-        StateManager.markDirtyValue(nibbles, computer);
-        StateManager.markDirtyValue(currentSectorOrder, computer);
+        StateManager.markDirtyValue(nibbles);
+        StateManager.markDirtyValue(currentSectorOrder);
     }
 
     /*
@@ -179,6 +176,17 @@ public class FloppyDisk {
                 // 34 junk bytes
                 writeJunkBytes(output, 38 - gap2);
             }
+        }
+        // Write output to stdout for debugging purposes
+        if (DEBUG) {
+            System.out.println("Nibblized disk:");
+            for (int i = 0; i < output.size(); i++) {
+                System.out.print(Integer.toString(output.toByteArray()[i] & 0x0ff, 16) + " ");
+                if (i % 16 == 255) {
+                    System.out.println();
+                }
+            }
+            System.out.println();
         }
         return output.toByteArray();
     }
@@ -220,8 +228,7 @@ public class FloppyDisk {
 
     private int decodeOddEven(byte b1, byte b2) {
 //        return (((b1 ^ 0x0AA) << 1) & 0x0ff) | ((b2 ^ 0x0AA) & 0x0ff);
-        int result = ((((b1 << 1) | 1) & b2) & 0x0ff);
-        return result;
+        return ((((b1 << 1) | 1) & b2) & 0x0ff);
     }
 
     private void nibblizeBlock(ByteArrayOutputStream output, int track, int sector, byte[] nibbles) {
@@ -299,17 +306,23 @@ public class FloppyDisk {
             byte[] trackNibbles = new byte[TRACK_NIBBLE_LENGTH];
             byte[] trackData = new byte[SECTOR_COUNT * 256];
             // Copy track into temporary buffer
-//            System.out.println("Nibblized track "+track);
-//            System.out.printf("%04d:",0);
-            for (int i = 0, pos = track * TRACK_NIBBLE_LENGTH; i < TRACK_NIBBLE_LENGTH; i++, pos++) {
-                trackNibbles[i] = nibbles[pos];
-//                System.out.print(Integer.toString(nibbles[pos] & 0x0ff, 16)+" ");
-//                if (i % 16 == 15) {
-//                    System.out.println();
-//                    System.out.printf("%04d:",i+1);
-//                }
+            if (DEBUG) {
+                System.out.println("Nibblized track "+track);
+                System.out.printf("%04d:",0);
             }
-//            System.out.println();
+           for (int i = 0, pos = track * TRACK_NIBBLE_LENGTH; i < TRACK_NIBBLE_LENGTH; i++, pos++) {
+                trackNibbles[i] = nibbles[pos];
+                if (DEBUG) {
+                    System.out.print(Integer.toString(nibbles[pos] & 0x0ff, 16)+" ");
+                    if (i % 16 == 15) {
+                        System.out.println();
+                        System.out.printf("%04d:",i+1);
+                    }
+                }
+            }
+            if (DEBUG) {
+               System.out.println();
+            }
 
             int pos = 0;
             for (int i = 0; i < SECTOR_COUNT; i++) {
@@ -319,7 +332,9 @@ public class FloppyDisk {
                 int trackVerify = decodeOddEven(trackNibbles[pos + 5], trackNibbles[pos + 6]);
                 // Locate sector number
                 int sector = decodeOddEven(trackNibbles[pos + 7], trackNibbles[pos + 8]);
-//                System.out.println("Writing track " + track + ", getting address block for T" + trackVerify + ".S" + sector + " found at NIB offset "+pos);
+                if (DEBUG) {
+                    System.out.println("Writing track " + track + ", getting address block for T" + trackVerify + ".S" + sector + " found at NIB offset "+pos);
+                }
                 // Skip to end of address block
                 pos = locatePattern(pos, trackNibbles, 0x0de, 0x0aa /*, 0x0eb this is sometimes being written as FF??*/);
                 // Locate start of sector data
@@ -327,7 +342,9 @@ public class FloppyDisk {
                 // Determine offset in output data for sector
                 //int offset = reverseLoopkup(currentSectorOrder, sector) * 256;
                 int offset = currentSectorOrder[sector] * 256;
-//                System.out.println("Sector "+sector+" maps to physical sector "+reverseLoopkup(currentSectorOrder, sector));
+                if (DEBUG) {
+                    System.out.println("Sector "+sector+" maps to physical sector "+reverseLoopkup(currentSectorOrder, sector));
+                }
                 // Decode sector data
                 denibblizeSector(trackNibbles, pos + 3, trackData, offset);
                 // Skip to end of sector

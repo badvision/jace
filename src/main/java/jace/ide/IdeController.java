@@ -5,9 +5,6 @@
  */
 package jace.ide;
 
-import jace.JaceApplication;
-import jace.ide.Program.DocumentType;
-import jace.ide.Program.Option;
 import java.io.File;
 import java.net.URL;
 import java.util.EnumMap;
@@ -15,6 +12,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ResourceBundle;
+
+import jace.JaceApplication;
+import jace.ide.Program.DocumentType;
+import jace.ide.Program.Option;
 import javafx.collections.ListChangeListener;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
@@ -98,7 +99,8 @@ public class IdeController {
 
     @FXML
     void newApplesoftBasicClicked(ActionEvent event) {
-        Program tab = createTab(DocumentType.applesoft, null, true);
+        // Program tab = 
+        createTab(DocumentType.applesoft, null, true);
     }
 
     @FXML
@@ -108,7 +110,8 @@ public class IdeController {
         warningAlert.setContentText("If you proceed and applesoft is not running or there is no active program then the emulator might freeze.  Press Cancel if you are unsure.");
         Optional<ButtonType> result = warningAlert.showAndWait();
         if (result.get() == ButtonType.OK) {
-            Program tab = createTab(DocumentType.applesoft, null, false);
+            // Program tab = 
+            createTab(DocumentType.applesoft, null, false);
         }
     }
 
@@ -216,8 +219,12 @@ public class IdeController {
     @FXML
     void executeClicked(ActionEvent event) {
         getCurrentProgram().ifPresent(program -> {
-            program.execute();
-            updateStatusMessages(program.lastResult);
+            try {
+                program.execute();
+                updateStatusMessages(program.lastResult);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         });
     }
 
@@ -264,6 +271,7 @@ public class IdeController {
         });
     }
 
+    @SuppressWarnings("all")
     private void updateStatusMessages(CompileResult lastResult) {
         String message = "Compiler was " + (lastResult.isSuccessful() ? " successful" : " NOT SUCCESSFUL");
         message += " -- ";

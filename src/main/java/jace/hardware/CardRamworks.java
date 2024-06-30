@@ -1,40 +1,39 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware;
 
-import jace.apple2e.RAM128k;
-import jace.config.ConfigurableField;
-import jace.config.Name;
-import jace.core.Computer;
-import jace.core.PagedMemory;
-import jace.core.RAMEvent;
-import jace.core.RAMListener;
-import jace.state.Stateful;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
+import jace.Emulator;
+import jace.apple2e.RAM128k;
+import jace.config.ConfigurableField;
+import jace.config.Name;
+import jace.core.PagedMemory;
+import jace.core.RAMEvent;
+import jace.core.RAMListener;
+import jace.state.Stateful;
+
 /**
  * Emulates the Ramworks Basic and Ramworks III cards
  *
- * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
+ * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Stateful
 @Name("Ramworks III Memory Expansion")
@@ -47,32 +46,32 @@ public class CardRamworks extends RAM128k {
     public Map<BankType, PagedMemory> nullBank = generateBank();
     @ConfigurableField(
             category = "memory",
-            defaultValue = "3072",
+            defaultValue = "4096",
             name = "Memory Size",
             description = "Size in KB.  Should be a multiple of 64 and not exceed 8192.  The real card cannot support more than 3072k")
-    public int memorySize = 3072;
+    public int memorySize = 4096;
     public int maxBank = memorySize / 64;
     private Map<BankType, PagedMemory> generateBank() {
             Map<BankType, PagedMemory> memoryBank = new EnumMap<>(BankType.class);
-            memoryBank.put(BankType.MAIN_MEMORY, new PagedMemory(0xc000, PagedMemory.Type.RAM, computer));
-            memoryBank.put(BankType.LANGUAGE_CARD_1, new PagedMemory(0x3000, PagedMemory.Type.LANGUAGE_CARD, computer));
-            memoryBank.put(BankType.LANGUAGE_CARD_2, new PagedMemory(0x1000, PagedMemory.Type.LANGUAGE_CARD, computer));
+            memoryBank.put(BankType.MAIN_MEMORY, new PagedMemory(0xc000, PagedMemory.Type.RAM));
+            memoryBank.put(BankType.LANGUAGE_CARD_1, new PagedMemory(0x3000, PagedMemory.Type.LANGUAGE_CARD));
+            memoryBank.put(BankType.LANGUAGE_CARD_2, new PagedMemory(0x1000, PagedMemory.Type.LANGUAGE_CARD));
             return memoryBank;
     }
 
-    public static enum BankType {
+    public enum BankType {
         MAIN_MEMORY, LANGUAGE_CARD_1, LANGUAGE_CARD_2
-    };
+    }
 
-    public CardRamworks(Computer computer) {
-        super(computer);
+    public CardRamworks() {
+        super();
         memory = new ArrayList<>(maxBank);
         reconfigure();
     }
-    
+
     private PagedMemory getAuxBank(BankType type, int bank) {
         if (bank >= maxBank) {
-            return nullBank.get(type);
+            return nullBank == null ? null : nullBank.get(type);
         }
         Map<BankType, PagedMemory> memoryBank = memory.get(bank);
         if (memoryBank == null) {
@@ -104,6 +103,11 @@ public class CardRamworks extends RAM128k {
     }
 
     @Override
+    public String getAuxZPConfiguration() {
+        return super.getAuxZPConfiguration() + currentBank;
+    }  
+    
+    @Override
     public String getName() {
         return "Ramworks III";
     }
@@ -115,33 +119,32 @@ public class CardRamworks extends RAM128k {
 
     @Override
     public void reconfigure() {
-        boolean resume = computer.pause();
-        maxBank = memorySize / 64;
-        if (maxBank < 1) {
-            maxBank = 1;
-        } else if (maxBank > 128) {
-            maxBank = 128;
-        }
-        for (int i = memory.size(); i < maxBank; i++) {
-            memory.add(null);
-        }
-        configureActiveMemory();
-        if (resume) {
-            computer.resume();
-        }
+        Emulator.whileSuspended(computer -> {
+            maxBank = memorySize / 64;
+            if (maxBank < 1) {
+                maxBank = 1;
+            } else if (maxBank > 128) {
+                maxBank = 128;
+            }
+            for (int i = memory.size(); i < maxBank; i++) {
+                memory.add(null);
+            }
+            configureActiveMemory();    
+        });
     }
 
     private RAMListener bankSelectListener;
     @Override
     public void attach() {
-        bankSelectListener = computer.getMemory().observe(RAMEvent.TYPE.WRITE, BANK_SELECT, (e) -> {
+        bankSelectListener = observe("Ramworks bank select", RAMEvent.TYPE.WRITE, BANK_SELECT, (e) -> {
             currentBank = e.getNewValue();
-            configureActiveMemory();            
+            configureActiveMemory();
         });
     }
 
     @Override
     public void detach() {
         removeListener(bankSelectListener);
+        super.detach();
     }
 }

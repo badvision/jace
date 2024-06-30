@@ -1,32 +1,21 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware;
 
-import jace.EmulatorUILogic;
-import jace.config.ConfigurableField;
-import jace.config.Name;
-import jace.config.Reconfigurable;
-import jace.core.Card;
-import jace.core.Computer;
-import jace.core.RAMEvent;
-import jace.core.RAMEvent.TYPE;
-import jace.core.Utility;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,8 +23,18 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import jace.Emulator;
+import jace.EmulatorUILogic;
+import jace.config.ConfigurableField;
+import jace.config.Name;
+import jace.core.Card;
+import jace.core.RAMEvent;
+import jace.core.RAMEvent.TYPE;
+import jace.core.Utility;
 import javafx.scene.control.Label;
 
 /**
@@ -45,7 +44,7 @@ import javafx.scene.control.Label;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Name("Super Serial Card")
-public class CardSSC extends Card implements Reconfigurable {
+public class CardSSC extends Card {
 
     @ConfigurableField(name = "TCP/IP Port", shortName = "port")
     public short IP_PORT = 1977;
@@ -55,16 +54,16 @@ public class CardSSC extends Card implements Reconfigurable {
     protected Thread listenThread;
     private int lastInputByte = 0;
     private boolean FULL_ECHO = true;
-    private final boolean RECV_ACTIVE = true;
-    private boolean TRANS_ACTIVE = true;
 //    private boolean RECV_STRIP_LF = true;
 //    private boolean TRANS_ADD_LF = true;
+    @ConfigurableField(category = "Advanced", name = "Liveness check interval", description = "How often the connection is polled for signs of life when idle (in milliseconds)")
+    public int livenessCheck = 5000000;
     @ConfigurableField(name = "Strip LF (recv)", shortName = "stripLF", defaultValue = "false", description = "Strip incoming linefeeds")
     public boolean RECV_STRIP_LF = false;
     @ConfigurableField(name = "Add LF (send)", shortName = "addLF", defaultValue = "false", description = "Append linefeeds after outgoing carriage returns")
     public boolean TRANS_ADD_LF = false;
     private boolean DTR = true;
-    public int SW1 = 0x01;              // Read = Jumper block SW1
+    public static int SW1 = 0x01;              // Read = Jumper block SW1
     //Bit 0 = !SW1-6
     //Bit 1 = !SW1-5
     //Bit 4 = !SW1-4
@@ -74,7 +73,7 @@ public class CardSSC extends Card implements Reconfigurable {
     // 19200 baud (SW1-1,2,3,4 off)
     // Communications mode (SW1-5,6 on)
     public int SW1_SETTING = 0x0F0;
-    public int SW2_CTS = 0x02;          // Read = Jumper block SW2 and CTS
+    public static int SW2_CTS = 0x02;          // Read = Jumper block SW2 and CTS
     //Bit 0 = !CTS
     //SW2-6 = Allow interrupts (disable in ][, ][+)
     //Bit 1 = !SW2-5  -- Generate LF after CR
@@ -86,10 +85,10 @@ public class CardSSC extends Card implements Reconfigurable {
     // 8 data bits (SW2-2 on)
     // No parity (SW2-3 don't care, SW2-4 off)
     private final int SW2_SETTING = 0x04;
-    public int ACIA_Data = 0x08;        // Read=Receive / Write=transmit
-    public int ACIA_Status = 0x09;     // Read=Status / Write=Reset
-    public int ACIA_Command = 0x0A;
-    public int ACIA_Control = 0x0B;
+    public static int ACIA_Data = 0x08;        // Read=Receive / Write=transmit
+    public static int ACIA_Status = 0x09;     // Read=Status / Write=Reset
+    public static int ACIA_Command = 0x0A;
+    public static int ACIA_Control = 0x0B;
     public boolean PORT_CONNECTED = false;
     public boolean RECV_IRQ_ENABLED = false;
     public boolean TRANS_IRQ_ENABLED = false;
@@ -97,8 +96,8 @@ public class CardSSC extends Card implements Reconfigurable {
     // Bitmask for stop bits (FF = 8, 7F = 7, etc)
     private int DATA_BITS = 0x07F;
 
-    public CardSSC(Computer computer) {
-        super(computer);
+    public CardSSC() {
+        super(false);
     }
 
     @Override
@@ -111,7 +110,7 @@ public class CardSSC extends Card implements Reconfigurable {
     @Override
     public void setSlot(int slot) {
         try {
-            loadRom("jace/data/SSC.rom");
+            loadRom("/jace/data/SSC.rom");
         } catch (IOException ex) {
             Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -122,7 +121,7 @@ public class CardSSC extends Card implements Reconfigurable {
         });
     }
 
-    boolean newInputAvailable = false;
+    AtomicBoolean newInputAvailable = new AtomicBoolean();
     public void socketMonitor() {
         try {
             socket = new ServerSocket(IP_PORT);
@@ -141,13 +140,12 @@ public class CardSSC extends Card implements Reconfigurable {
                     clientConnected();
                     clientSocket.setTcpNoDelay(true);
                     while (isConnected()) {
-                        try {
-                            Thread.sleep(10);
-                            if (socketInput.ready()) {
-                                newInputAvailable = true;
+                        Thread.onSpinWait();
+                        if (!newInputAvailable.get() && inputAvailable()) {
+                            lastTransmission = System.currentTimeMillis();
+                            synchronized (newInputAvailable) {
+                                newInputAvailable.set(true);
                             }
-                        } catch (InterruptedException ex) {
-                            // Do nothing
                         }
                     }
                     clientDisconnected();
@@ -178,34 +176,30 @@ public class CardSSC extends Card implements Reconfigurable {
     public void loadRom(String path) throws IOException {
         // Load rom file, first 0x0700 bytes are C8 rom, last 0x0100 bytes are CX rom
         // CF00-CFFF are unused by the SSC
-        InputStream romFile = CardSSC.class.getClassLoader().getResourceAsStream(path);
+        InputStream romFile = CardSSC.class.getResourceAsStream(path);
         final int cxRomLength = 0x0100;
         final int c8RomLength = 0x0700;
         byte[] romxData = new byte[cxRomLength];
         byte[] rom8Data = new byte[c8RomLength];
-        try {
-            if (romFile.read(rom8Data) != c8RomLength) {
-                throw new IOException("Bad SSC rom size");
-            }
-            getC8Rom().loadData(rom8Data);
-            if (romFile.read(romxData) != cxRomLength) {
-                throw new IOException("Bad SSC rom size");
-            }
-            getCxRom().loadData(romxData);
-        } catch (IOException ex) {
-            throw ex;
+        if (romFile.read(rom8Data) != c8RomLength) {
+            throw new IOException("Bad SSC rom size");
         }
+        getC8Rom().loadData(rom8Data);
+        if (romFile.read(romxData) != cxRomLength) {
+            throw new IOException("Bad SSC rom size");
+        }
+        getCxRom().loadData(romxData);
     }
 
     @Override
     public void reset() {
+        suspend();
         Thread resetThread = new Thread(() -> {
             try {
-                Thread.sleep(50);
+                Thread.sleep(100);
             } catch (InterruptedException ex) {
                 Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
             }
-            suspend();
             resume();
         });
         resetThread.start();
@@ -216,6 +210,7 @@ public class CardSSC extends Card implements Reconfigurable {
         try {
             int newValue = -1;
             switch (type) {
+                case ANY:
                 case EXECUTE:
                 case READ_OPERAND:
                 case READ_DATA:
@@ -226,7 +221,7 @@ public class CardSSC extends Card implements Reconfigurable {
                     if (register == SW2_CTS) {
                         newValue = SW2_SETTING & 0x0FE;
                         // if port is connected and ready to send another byte, set CTS bit on
-                        newValue |= (PORT_CONNECTED && inputAvailable()) ? 0x00 : 0x01;
+                        newValue |= (PORT_CONNECTED && newInputAvailable.get() ? 0x00 : 0x01);
                     }
                     if (register == ACIA_Data) {
                         EmulatorUILogic.addIndicator(this, activityIndicator);
@@ -238,7 +233,7 @@ public class CardSSC extends Card implements Reconfigurable {
                         // 1 = Framing error (1)
                         // 2 = Overrun error (1)
                         // 3 = ACIA Receive Register full (1)
-                        if (newInputAvailable || inputAvailable()) {
+                        if (newInputAvailable.get()) {
                             newValue |= 0x08;
                         }
                         // 4 = ACIA Transmit Register empty (1)
@@ -299,19 +294,15 @@ public class CardSSC extends Card implements Reconfigurable {
                         switch ((value >> 2) & 3) {
                             case 0:
                                 TRANS_IRQ_ENABLED = false;
-                                TRANS_ACTIVE = false;
                                 break;
                             case 1:
                                 TRANS_IRQ_ENABLED = true;
-                                TRANS_ACTIVE = true;
                                 break;
                             case 2:
                                 TRANS_IRQ_ENABLED = false;
-                                TRANS_ACTIVE = true;
                                 break;
                             case 3:
                                 TRANS_IRQ_ENABLED = false;
-                                TRANS_ACTIVE = true;
                                 break;
                         }
                         // 4 = Normal mode 0, or Echo mode 1 (bits 2 and 3 must be 0)
@@ -353,15 +344,14 @@ public class CardSSC extends Card implements Reconfigurable {
 
     @Override
     public void tick() {
-        if (RECV_IRQ_ENABLED && newInputAvailable) {
-            newInputAvailable = false;
+        if (RECV_IRQ_ENABLED && newInputAvailable.get()) {
+            // newInputAvailable = false;
             triggerIRQ();
         }
     }
 
     public boolean inputAvailable() throws IOException {
         if (isConnected() && clientSocket != null && socketInput != null) {
-//            return socketInput.available() > 0;
             return socketInput.ready();
         } else {
             return false;
@@ -369,16 +359,19 @@ public class CardSSC extends Card implements Reconfigurable {
     }
 
     private int getInputByte() throws IOException {
-        if (inputAvailable()) {
-            int in = socketInput.read() & DATA_BITS;
-            if (RECV_STRIP_LF && in == 10 && lastInputByte == 13) {
-                in = socketInput.read() & DATA_BITS;
-            }
-            lastInputByte = in;
+        if (newInputAvailable.get()) {
+            synchronized (newInputAvailable) {
+                int in = socketInput.read() & DATA_BITS;
+                if (RECV_STRIP_LF && in == 10 && lastInputByte == 13) {
+                    in = socketInput.read() & DATA_BITS;
+                }
+                lastInputByte = in;
+                newInputAvailable.set(false);
+           }
         }
         return lastInputByte;
     }
-    long lastSuccessfulWrite = -1L;
+    long lastTransmission = -1L;
 
     private void sendOutputByte(int i) throws IOException {
         if (clientSocket != null && clientSocket.isConnected()) {
@@ -388,35 +381,36 @@ public class CardSSC extends Card implements Reconfigurable {
                     clientSocket.getOutputStream().write(10);
                 }
                 clientSocket.getOutputStream().flush();
-                lastSuccessfulWrite = System.currentTimeMillis();
+                lastTransmission = System.currentTimeMillis();
             } catch (IOException e) {
-                lastSuccessfulWrite = -1L;
+                lastTransmission = -1L;
                 hangUp();
             }
         } else {
-            lastSuccessfulWrite = -1L;
+            lastTransmission = -1L;
         }
     }
 
-    private void setCTS(boolean b) throws InterruptedException {
-        PORT_CONNECTED = b;
-        if (b == false) {
-            reset();
-        }
-    }
+    // CTS isn't used here -- it's assumed that we're always clear-to-send
+    // private void setCTS(boolean b) throws InterruptedException {
+    //     PORT_CONNECTED = b;
+    //     if (b == false) {
+    //         reset();
+    //     }
+    // }
 
-    private boolean getCTS() throws InterruptedException {
-        return PORT_CONNECTED;
-    }
+    // private boolean getCTS() throws InterruptedException {
+    //     return PORT_CONNECTED;
+    // }
 
     private void triggerIRQ() {
         IRQ_TRIGGERED = true;
-        computer.getCpu().generateInterrupt();            
+        Emulator.withComputer(c->c.getCpu().generateInterrupt());
     }
 
     public void hangUp() {
         lastInputByte = 0;
-        lastSuccessfulWrite = -1L;
+        lastTransmission = -1L;
         if (clientSocket != null && clientSocket.isConnected()) {
             try {
                 clientSocket.shutdownInput();
@@ -437,55 +431,48 @@ public class CardSSC extends Card implements Reconfigurable {
      */
     @Override
     public boolean suspend() {
-        synchronized (this) {
-            if (socket != null) {
-                try {
-                    socket.close();
-                } catch (IOException ex) {
-                    Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
-                }
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (IOException ex) {
+                Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
             }
-            hangUp();
-            if (listenThread != null && listenThread.isAlive()) {
-                try {
-                    listenThread.interrupt();
-                    listenThread.join(100);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-            listenThread = null;
-            socket = null;
-            return super.suspend();
         }
+        hangUp();
+        if (listenThread != null && listenThread.isAlive()) {
+            try {
+                listenThread.interrupt();
+                listenThread.join(100);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        listenThread = null;
+        socket = null;
+        return super.suspend();
     }
 
     @Override
     public void resume() {
-        synchronized (this) {
+        if (!isRunning()) {
+            RECV_IRQ_ENABLED = false;
+            TRANS_IRQ_ENABLED = false;
+            IRQ_TRIGGERED = false;
 
-            if (!isRunning()) {
-                super.resume();
-                RECV_IRQ_ENABLED = false;
-                TRANS_IRQ_ENABLED = false;
-                IRQ_TRIGGERED = false;
-
-                    //socket.setReuseAddress(true);
-                    listenThread = new Thread(this::socketMonitor);
-                    listenThread.setDaemon(false);
-                    listenThread.setName("SSC port listener, slot" + getSlot());
-                    listenThread.start();
-            }
+            //socket.setReuseAddress(true);
+            listenThread = new Thread(this::socketMonitor);
+            listenThread.setDaemon(false);
+            listenThread.setName("SSC port listener, slot" + getSlot());
+            listenThread.start();
         }
+        super.resume();
     }
-    @ConfigurableField(category = "Advanced", name = "Liveness check interval", description = "How often the connection is polled for signs of life (in milliseconds)")
-    public int livenessCheck = 10000;
 
     public boolean isConnected() {
         if (clientSocket == null || !clientSocket.isConnected()) {
             return false;
         }
-        if (lastSuccessfulWrite == -1 || System.currentTimeMillis() > (lastSuccessfulWrite + livenessCheck)) {
+        if (lastTransmission == -1 || System.currentTimeMillis() > (lastTransmission + livenessCheck)) {
             try {
                 sendOutputByte(0);
                 return true;

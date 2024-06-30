@@ -1,25 +1,21 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware.massStorage;
 
-import jace.core.Computer;
-import jace.core.RAM;
 import java.io.IOException;
 
 /**
@@ -27,18 +23,18 @@ import java.io.IOException;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
  */
 public interface IDisk {
-    public static int BLOCK_SIZE = 512;
-    public static int MAX_BLOCK = 0x07fff;
+    int BLOCK_SIZE = 512;
+    int MAX_BLOCK = 0x07fff;
 
-    public void mliFormat() throws IOException;
-    public void mliRead(int block, int bufferAddress, RAM memory) throws IOException;
-    public void mliWrite(int block, int bufferAddress, RAM memory) throws IOException;
-    public void boot0(int slot, Computer computer) throws IOException;
+    void mliFormat() throws IOException;
+    void mliRead(int block, int bufferAddress) throws IOException;
+    void mliWrite(int block, int bufferAddress) throws IOException;
+    void boot0(int slot) throws IOException;
 
     // Return size in 512k blocks
-    public int getSize();
+    int getSize();
     
-    public void eject();
-    public boolean isWriteProtected();
+    void eject();
+    boolean isWriteProtected();
 
 }

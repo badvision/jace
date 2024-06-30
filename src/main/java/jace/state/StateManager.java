@@ -1,32 +1,21 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.state;
 
-import jace.Emulator;
-import jace.apple2e.SoftSwitches;
-import jace.config.ConfigurableField;
-import jace.config.InvokableAction;
-import jace.config.Reconfigurable;
-import jace.core.Computer;
-import jace.core.PagedMemory;
-import jace.core.Video;
-import java.awt.image.BufferedImage;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
@@ -38,14 +27,23 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import jace.Emulator;
+import jace.apple2e.SoftSwitches;
+import jace.config.ConfigurableField;
+import jace.config.InvokableAction;
+import jace.config.Reconfigurable;
+import jace.core.Computer;
+import jace.core.PagedMemory;
+import jace.core.Video;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
-import javafx.scene.input.KeyCode;
 
 /**
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
+@SuppressWarnings("all")
 public class StateManager implements Reconfigurable {
 
     private static StateManager instance;
@@ -65,7 +63,7 @@ public class StateManager implements Reconfigurable {
     public int maxStates = 100;
     @ConfigurableField(category = "Emulator", name = "Capture frequency", description = "How often states are captured, in relation to each VBL (1 = 60 states/second, 2 = 30 states/second, 3 = 15 states/second, etc", defaultValue = "3")
     public int captureFrequency = 3;
-    private ObjectGraphNode<BufferedImage> imageGraphNode;
+    private ObjectGraphNode<Image> imageGraphNode;
 
     Computer computer;
 
@@ -166,7 +164,7 @@ public class StateManager implements Reconfigurable {
         Class type = node.getCurrentValue().getClass();
         if (PagedMemory.class.isAssignableFrom(type)) {
             addMemoryPages(node, f);
-        } else if (BufferedImage.class.isAssignableFrom(type)) {
+        } else if (Image.class.isAssignableFrom(type)) {
             addVideoFrame(node, f);
         } else if (List.class.isAssignableFrom(type)) {
             List l = (List) node.getCurrentValue();
@@ -210,17 +208,17 @@ public class StateManager implements Reconfigurable {
     /**
      * Track a stateful video framebuffer.
      *
-     * @param objectGraphNode
+     * @param node
      * @param f
      */
-    private void addVideoFrame(ObjectGraphNode<BufferedImage> node, Field f) {
+    private void addVideoFrame(ObjectGraphNode<Image> node, Field f) {
         imageGraphNode = node;
     }
 
     /**
      * Track a stateful set of memory.
      *
-     * @param objectGraphNode
+     * @param node
      * @param f
      */
     private void addMemoryPages(ObjectGraphNode<PagedMemory> node, Field f) {
@@ -243,8 +241,8 @@ public class StateManager implements Reconfigurable {
         }
     }
 
-    public static void markDirtyValue(Object o, Computer computer) {
-        StateManager manager = getInstance(computer);
+    public static void markDirtyValue(Object o) {
+        StateManager manager = Emulator.withComputer(StateManager::getInstance, null);
         if (manager.objectLookup == null) {
             return;
         }
@@ -371,9 +369,7 @@ public class StateManager implements Reconfigurable {
             // If there are no changes to this node value, don't waste memory on it.
             s.put(node, new StateValue(node));
             return node;
-        }).forEach((node) -> {
-            node.markClean();
-        });
+        }).forEach(ObjectGraphNode::markClean);
         return s;
 
     }
@@ -414,7 +410,7 @@ public class StateManager implements Reconfigurable {
             defaultKeyMapping = {"ctrl+shift+Open Bracket"}
     )
     public static void beKindRewind() {
-        StateManager manager = getInstance(Emulator.computer);
+        StateManager manager = Emulator.withComputer(StateManager::getInstance, null);
         new Thread(()->manager.rewind(60 / manager.captureFrequency)).start();
     }
 

@@ -1,33 +1,28 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.apple2e;
 
-import jace.core.Computer;
+import java.util.logging.Logger;
+
 import jace.core.Font;
 import jace.core.Palette;
 import jace.core.RAMEvent;
 import jace.core.Video;
-import static jace.core.Video.hiresOffset;
-import static jace.core.Video.hiresRowLookup;
-import static jace.core.Video.textRowLookup;
 import jace.core.VideoWriter;
-import java.util.logging.Logger;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
@@ -65,7 +60,7 @@ public class VideoDHGR extends Video {
     private VideoWriter dhiresPage1;
     private VideoWriter dhiresPage2;
     // Mixed mode
-    private final VideoWriter mixed;
+    private VideoWriter mixed;
     private VideoWriter currentGraphicsWriter = null;
     private VideoWriter currentTextWriter = null;
 
@@ -74,8 +69,142 @@ public class VideoDHGR extends Video {
      *
      * @param computer
      */
-    public VideoDHGR(Computer computer) {
-        super(computer);
+    public VideoDHGR() {
+        super();
+        
+        initCharMap();
+        initHgrDhgrTables();
+        initVideoWriters();
+        registerDirtyFlagChecks();
+        currentTextWriter = textPage1;
+        currentGraphicsWriter = loresPage1;
+    }
+
+    // Take two consecutive bytes and double them, taking hi-bit into account
+    // This should yield a 28-bit word of 7 color dhgr pixels
+    // This looks like crap on text...
+    final int[][] HGR_TO_DHGR = new int[512][256];
+    // Take two consecutive bytes and double them, disregarding hi-bit
+    // Useful for text mode
+    final int[][] HGR_TO_DHGR_BW = new int[256][256];
+    final int[] TIMES_14 = new int[40];
+    final int[] FLIP_BITS = new int[256];
+    
+    private void initHgrDhgrTables() {
+        // complete reverse of 8 bits
+        for (int i = 0; i < 256; i++) {
+            FLIP_BITS[i] = (((i * 0x0802 & 0x22110) | (i * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0x0ff;
+        }
+
+        for (int i = 0; i < 40; i++) {
+            TIMES_14[i] = i * 14;
+        }
+
+        for (int bb1 = 0; bb1 < 512; bb1++) {
+            for (int bb2 = 0; bb2 < 256; bb2++) {
+                int value = ((bb1 & 0x0181) >= 0x0101) ? 1 : 0;
+                int b1 = byteDoubler((byte) (bb1 & 0x07f));
+                if ((bb1 & 0x080) != 0) {
+                    b1 <<= 1;
+                }
+                int b2 = byteDoubler((byte) (bb2 & 0x07f));
+                if ((bb2 & 0x080) != 0) {
+                    b2 <<= 1;
+                }
+                if ((bb1 & 0x040) == 0x040 && (bb2 & 1) != 0) {
+                    b2 |= 1;
+                }
+                value |= b1 | (b2 << 14);
+                if ((bb2 & 0x040) != 0) {
+                    value |= 0x10000000;
+                }
+                HGR_TO_DHGR[bb1][bb2] = value;
+                HGR_TO_DHGR_BW[bb1 & 0x0ff][bb2]
+                        = byteDoubler((byte) bb1) | (byteDoubler((byte) bb2) << 14);
+            }
+        }
+    }
+
+    boolean flashInverse = false;
+    int flashTimer = 0;
+    int FLASH_SPEED = 16; // UTAIIe:8-13,P7 - FLASH toggles every 16 scans
+    final int[] CHAR_MAP1 = new int[256];
+    final int[] CHAR_MAP2 = new int[256];
+    final int[] CHAR_MAP3 = new int[256];
+    int[] currentCharMap = CHAR_MAP1;
+
+    private void initCharMap() {
+        // Generate screen text lookup maps ahead of time
+        // ALTCHR clear
+        // 00-3F - Inverse characters (uppercase only) "@P 0"
+        // 40-7F - Flashing characters (uppercase only) "@P 0"
+        // 80-BF - Normal characters (uppercase only) "@P 0"
+        // C0-DF - Normal characters (repeat 80-9F) "@P"
+        // E0-FF - Normal characters (lowercase) "`p"
+
+        // ALTCHR set
+        // 00-3f - Inverse characters (uppercase only) "@P 0"
+        // 40-5f - Mousetext (//gs alts are at 0x46 and 0x47, swap with 0x11 and 0x12 for //e and //c)
+        // 60-7f - Inverse characters (lowercase only)
+        // 80-BF - Normal characters (uppercase only)
+        // C0-DF - Normal characters (repeat 80-9F)
+        // E0-FF - Normal characters (lowercase)
+        // MAP1: Normal map, flash inverse = false
+        // MAP2: Normal map, flash inverse = true
+        // MAP3: Alt map, mousetext mode
+        for (int b = 0; b < 256; b++) {
+            int mod = b % 0x020;
+            // Inverse
+            if (b < 0x020) {
+                CHAR_MAP1[b] = mod + 0x0c0;
+                CHAR_MAP2[b] = mod + 0x0c0;
+                CHAR_MAP3[b] = mod + 0x0c0;
+            } else if (b < 0x040) {
+                CHAR_MAP1[b] = mod + 0x0a0;
+                CHAR_MAP2[b] = mod + 0x0a0;
+                CHAR_MAP3[b] = mod + 0x0a0;
+            } else if (b < 0x060) {
+                // Flash/Mouse
+                CHAR_MAP1[b] = mod + 0x0c0;
+                CHAR_MAP2[b] = mod + 0x040;
+                if (!USE_GS_MOUSETEXT && mod == 6) {
+                    CHAR_MAP3[b] = 0x011;
+                } else if (!USE_GS_MOUSETEXT && mod == 7) {
+                    CHAR_MAP3[b] = 0x012;
+                } else {
+                    CHAR_MAP3[b] = mod + 0x080;
+                }
+            } else if (b < 0x080) {
+                // Flash/Inverse lowercase
+                CHAR_MAP1[b] = mod + 0x0a0;
+                CHAR_MAP2[b] = mod + 0x020;
+                CHAR_MAP3[b] = mod + 0x0e0;
+            } else if (b < 0x0a0) {
+                // Normal uppercase
+                CHAR_MAP1[b] = mod + 0x040;
+                CHAR_MAP2[b] = mod + 0x040;
+                CHAR_MAP3[b] = mod + 0x040;
+            } else if (b < 0x0c0) {
+                // Normal uppercase
+                CHAR_MAP1[b] = mod + 0x020;
+                CHAR_MAP2[b] = mod + 0x020;
+                CHAR_MAP3[b] = mod + 0x020;
+            } else if (b < 0x0e0) {
+                // Normal uppercase (repeat)
+                CHAR_MAP1[b] = mod + 0x040;
+                CHAR_MAP2[b] = mod + 0x040;
+                CHAR_MAP3[b] = mod + 0x040;
+            } else {
+                // Normal lowercase
+                CHAR_MAP1[b] = mod + 0x060;
+                CHAR_MAP2[b] = mod + 0x060;
+                CHAR_MAP3[b] = mod + 0x060;
+            }
+        }
+    }
+
+
+    private void initVideoWriters() {
         hiresPage1 = new VideoWriter() {
             @Override
             public int getYOffset(int y) {
@@ -287,23 +416,23 @@ public class VideoDHGR extends Video {
                 return true;
             }
         };
-        registerDirtyFlagChecks();
-    }
+    }    
+    
     // color burst per byte (chat mauve compatibility)
     boolean[] useColor = new boolean[80];
 
     protected void displayDoubleHires(WritableImage screen, int xOffset, int y, int rowAddress) {
         // Skip odd columns since this does two at once
-        if ((xOffset & 0x01) == 1) {
+        if ((xOffset & 0x01) == 1 || xOffset < 0) {
             return;
         }
-        int b1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset    );
-        int b2 = ((RAM128k) computer.getMemory()).getMainMemory()    .readByte(rowAddress + xOffset    );
-        int b3 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset + 1);
-        int b4 = ((RAM128k) computer.getMemory()).getMainMemory()    .readByte(rowAddress + xOffset + 1);
+        int b1 = ((RAM128k) getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset    );
+        int b2 = ((RAM128k) getMemory()).getMainMemory()    .readByte(rowAddress + xOffset    );
+        int b3 = ((RAM128k) getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset + 1);
+        int b4 = ((RAM128k) getMemory()).getMainMemory()    .readByte(rowAddress + xOffset + 1);
         int useColOffset = xOffset << 1;
         // This shouldn't be necessary but prevents an index bounds exception when graphics modes are flipped (Race condition?)
-        if (useColOffset >= 77) {
+        if (useColOffset >= 77 || useColOffset < 0) {
             useColOffset = 76;
         }
         useColor[useColOffset    ] = (b1 & 0x80) != 0;
@@ -320,67 +449,21 @@ public class VideoDHGR extends Video {
 
     protected void displayHires(WritableImage screen, int xOffset, int y, int rowAddress) {
         // Skip odd columns since this does two at once
-        if ((xOffset & 0x01) == 1) {
+        if ((xOffset & 0x01) == 1 || xOffset < 0 || xOffset > 39) {
             return;
         }
-        int b1 = 0x0ff & ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset);
-        int b2 = 0x0ff & ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
+        int b1 = 0x0ff & ((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset);
+        int b2 = 0x0ff & ((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
         int dhgrWord = HGR_TO_DHGR[(extraHalfBit && xOffset > 0) ? b1 | 0x0100 : b1][b2];
         extraHalfBit = (dhgrWord & 0x10000000) != 0;
         showDhgr(screen, TIMES_14[xOffset], y, dhgrWord & 0xfffffff);
 // If you want monochrome, use this instead...
 //            showBW(screen, times14[xOffset], y, dhgrWord);
     }
-    // Take two consecutive bytes and double them, taking hi-bit into account
-    // This should yield a 28-bit word of 7 color dhgr pixels
-    // This looks like crap on text...
-    static final int[][] HGR_TO_DHGR;
-    // Take two consecutive bytes and double them, disregarding hi-bit
-    // Useful for text mode
-    static final int[][] HGR_TO_DHGR_BW;
-    static final int[] TIMES_14;
-    static final int[] FLIP_BITS;
-
-    static {
-        // complete reverse of 8 bits
-        FLIP_BITS = new int[256];
-        for (int i = 0; i < 256; i++) {
-            FLIP_BITS[i] = (((i * 0x0802 & 0x22110) | (i * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0x0ff;
-        }
-
-        TIMES_14 = new int[40];
-        for (int i = 0; i < 40; i++) {
-            TIMES_14[i] = i * 14;
-        }
-        HGR_TO_DHGR = new int[512][256];
-        HGR_TO_DHGR_BW = new int[256][256];
-        for (int bb1 = 0; bb1 < 512; bb1++) {
-            for (int bb2 = 0; bb2 < 256; bb2++) {
-                int value = ((bb1 & 0x0181) >= 0x0101) ? 1 : 0;
-                int b1 = byteDoubler((byte) (bb1 & 0x07f));
-                if ((bb1 & 0x080) != 0) {
-                    b1 <<= 1;
-                }
-                int b2 = byteDoubler((byte) (bb2 & 0x07f));
-                if ((bb2 & 0x080) != 0) {
-                    b2 <<= 1;
-                }
-                if ((bb1 & 0x040) == 0x040 && (bb2 & 1) != 0) {
-                    b2 |= 1;
-                }
-                value |= b1 | (b2 << 14);
-                if ((bb2 & 0x040) != 0) {
-                    value |= 0x10000000;
-                }
-                HGR_TO_DHGR[bb1][bb2] = value;
-                HGR_TO_DHGR_BW[bb1 & 0x0ff][bb2]
-                        = byteDoubler((byte) bb1) | (byteDoubler((byte) bb2) << 14);
-            }
-        }
-    }
-
+    
     protected void displayLores(WritableImage screen, int xOffset, int y, int rowAddress) {
-        int c1 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        if (xOffset < 0) return;
+        int c1 = ((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
             c1 &= 15;
         } else {
@@ -403,12 +486,13 @@ public class VideoDHGR extends Video {
         writer.setColor(xx++, y, color);
         writer.setColor(xx++, y, color);
         writer.setColor(xx++, y, color);
-        writer.setColor(xx++, y, color);
+        writer.setColor(xx, y, color);
     }
 
     protected void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
-        int c1 = ((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
-        int c2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        if (xOffset < 0) return;
+        int c1 = ((RAM128k) getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset) & 0x0FF;
+        int c2 = ((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset) & 0x0FF;
         if ((y & 7) < 4) {
             c1 &= 15;
             c2 &= 15;
@@ -435,89 +519,9 @@ public class VideoDHGR extends Video {
         writer.setColor(xx++, y, color);
         writer.setColor(xx++, y, color);
         writer.setColor(xx++, y, color);
-        writer.setColor(xx++, y, color);
-    }
-    boolean flashInverse = false;
-    int flashTimer = 0;
-    int FLASH_SPEED = 16; // UTAIIe:8-13,P7 - FLASH toggles every 16 scans
-    int[] currentCharMap = CHAR_MAP1;
-    static final int[] CHAR_MAP1;
-    static final int[] CHAR_MAP2;
-    static final int[] CHAR_MAP3;
-
-    static {
-        // Generate screen text lookup maps ahead of time
-        // ALTCHR clear
-        // 00-3F - Inverse characters (uppercase only) "@P 0"
-        // 40-7F - Flashing characters (uppercase only) "@P 0"
-        // 80-BF - Normal characters (uppercase only) "@P 0"
-        // C0-DF - Normal characters (repeat 80-9F) "@P"
-        // E0-FF - Normal characters (lowercase) "`p"
-
-        // ALTCHR set
-        // 00-3f - Inverse characters (uppercase only) "@P 0"
-        // 40-5f - Mousetext (//gs alts are at 0x46 and 0x47, swap with 0x11 and 0x12 for //e and //c)
-        // 60-7f - Inverse characters (lowercase only)
-        // 80-BF - Normal characters (uppercase only)
-        // C0-DF - Normal characters (repeat 80-9F)
-        // E0-FF - Normal characters (lowercase)
-        // MAP1: Normal map, flash inverse = false
-        CHAR_MAP1 = new int[256];
-        // MAP2: Normal map, flash inverse = true
-        CHAR_MAP2 = new int[256];
-        // MAP3: Alt map, mousetext mode
-        CHAR_MAP3 = new int[256];
-        for (int b = 0; b < 256; b++) {
-            int mod = b % 0x020;
-            // Inverse
-            if (b < 0x020) {
-                CHAR_MAP1[b] = mod + 0x0c0;
-                CHAR_MAP2[b] = mod + 0x0c0;
-                CHAR_MAP3[b] = mod + 0x0c0;
-            } else if (b < 0x040) {
-                CHAR_MAP1[b] = mod + 0x0a0;
-                CHAR_MAP2[b] = mod + 0x0a0;
-                CHAR_MAP3[b] = mod + 0x0a0;
-            } else if (b < 0x060) {
-                // Flash/Mouse
-                CHAR_MAP1[b] = mod + 0x0c0;
-                CHAR_MAP2[b] = mod + 0x040;
-                if (!USE_GS_MOUSETEXT && mod == 6) {
-                    CHAR_MAP3[b] = 0x011;
-                } else if (!USE_GS_MOUSETEXT && mod == 7) {
-                    CHAR_MAP3[b] = 0x012;
-                } else {
-                    CHAR_MAP3[b] = mod + 0x080;
-                }
-            } else if (b < 0x080) {
-                // Flash/Inverse lowercase
-                CHAR_MAP1[b] = mod + 0x0a0;
-                CHAR_MAP2[b] = mod + 0x020;
-                CHAR_MAP3[b] = mod + 0x0e0;
-            } else if (b < 0x0a0) {
-                // Normal uppercase
-                CHAR_MAP1[b] = mod + 0x040;
-                CHAR_MAP2[b] = mod + 0x040;
-                CHAR_MAP3[b] = mod + 0x040;
-            } else if (b < 0x0c0) {
-                // Normal uppercase
-                CHAR_MAP1[b] = mod + 0x020;
-                CHAR_MAP2[b] = mod + 0x020;
-                CHAR_MAP3[b] = mod + 0x020;
-            } else if (b < 0x0e0) {
-                // Normal uppercase (repeat)
-                CHAR_MAP1[b] = mod + 0x040;
-                CHAR_MAP2[b] = mod + 0x040;
-                CHAR_MAP3[b] = mod + 0x040;
-            } else {
-                // Normal lowercase
-                CHAR_MAP1[b] = mod + 0x060;
-                CHAR_MAP2[b] = mod + 0x060;
-                CHAR_MAP3[b] = mod + 0x060;
-            }
-        }
-    }
-
+        writer.setColor(xx, y, color);
+    }        
+    
     @Override
     public void vblankStart() {
         // ALTCHR set only affects character mapping and disables FLASH.
@@ -526,7 +530,9 @@ public class VideoDHGR extends Video {
         } else {
             flashTimer--;
             if (flashTimer <= 0) {
-                markFlashDirtyBits();
+                if (SoftSwitches.MIXED.isOn() || SoftSwitches.TEXT.isOn()) {
+                    markFlashDirtyBits();
+                }
                 flashTimer = FLASH_SPEED;
                 flashInverse = !flashInverse;
                 if (flashInverse) {
@@ -549,12 +555,12 @@ public class VideoDHGR extends Video {
 
     protected void displayText(WritableImage screen, int xOffset, int y, int rowAddress) {
         // Skip odd columns since this does two at once
-        if ((xOffset & 0x01) == 1) {
+        if ((xOffset & 0x01) == 1 || xOffset < 0) {
             return;
         }
         int yOffset = y & 7;
-        byte byte2 = ((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
-        int c1 = getFontChar(((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset));
+        byte byte2 = ((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1);
+        int c1 = getFontChar(((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset));
         int c2 = getFontChar(byte2);
         int b1 = Font.getByte(c1, yOffset);
         int b2 = Font.getByte(c2, yOffset);
@@ -566,14 +572,14 @@ public class VideoDHGR extends Video {
 
     protected void displayText80(WritableImage screen, int xOffset, int y, int rowAddress) {
         // Skip odd columns since this does two at once
-        if ((xOffset & 0x01) == 1) {
+        if ((xOffset & 0x01) == 1 || xOffset < 0) {
             return;
         }
         int yOffset = y & 7;
-        int c1 = getFontChar(((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset));
-        int c2 = getFontChar(((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset));
-        int c3 = getFontChar(((RAM128k) computer.getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset + 1));
-        int c4 = getFontChar(((RAM128k) computer.getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1));
+        int c1 = getFontChar(((RAM128k) getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset));
+        int c2 = getFontChar(((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset));
+        int c3 = getFontChar(((RAM128k) getMemory()).getAuxVideoMemory().readByte(rowAddress + xOffset + 1));
+        int c4 = getFontChar(((RAM128k) getMemory()).getMainMemory().readByte(rowAddress + xOffset + 1));
         int bits = Font.getByte(c1, yOffset) | (Font.getByte(c2, yOffset) << 7)
                 | (Font.getByte(c3, yOffset) << 14) | (Font.getByte(c4, yOffset) << 21);
         showBW(screen, TIMES_14[xOffset], y, bits);
@@ -634,7 +640,7 @@ public class VideoDHGR extends Video {
             Logger.getLogger(getClass().getName()).warning("Went out of bounds in video display");
         }
     }
-    static final Color BLACK = Color.BLACK;
+    static Color BLACK = Color.BLACK;
     static Color WHITE = Color.WHITE;
     static final int[][] XY_OFFSET;
 
@@ -683,7 +689,6 @@ public class VideoDHGR extends Video {
     }
 
     private void markFlashDirtyBits() {
-        // TODO: Be smarter about detecting where flash is used... one day...
         for (int row = 0; row < 192; row++) {
             currentTextWriter.markDirty(row);
         }
@@ -712,8 +717,8 @@ public class VideoDHGR extends Video {
     }
 
     private void registerDirtyFlagChecks() {
-        computer.getMemory().observe(RAMEvent.TYPE.WRITE, 0x0400, 0x0bff, this::registerTextDirtyFlag);
-        computer.getMemory().observe(RAMEvent.TYPE.WRITE, 0x02000, 0x05fff, this::registerHiresDirtyFlag);
+        getMemory().observe("Check for text changes", RAMEvent.TYPE.WRITE, 0x0400, 0x0bff, this::registerTextDirtyFlag);
+        getMemory().observe("Check for graphics changes", RAMEvent.TYPE.WRITE, 0x02000, 0x05fff, this::registerHiresDirtyFlag);
     }
 
     @Override

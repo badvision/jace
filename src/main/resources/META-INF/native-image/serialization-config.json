@@ -1,0 +1,27 @@
+{
+  "types":[
+    {
+      "name":"jace.config.Configuration$ConfigNode"
+    },
+    {
+      "name":"java.lang.Boolean"
+    },
+    {
+      "name":"java.lang.Integer"
+    },
+    {
+      "name":"java.lang.Number"
+    },
+    {
+      "name":"java.lang.Object[]"
+    },
+    {
+      "name":"java.lang.String"
+    },
+    {
+      "name":"java.util.TreeMap"
+    }
+  ],
+  "lambdaCapturingTypes":[
+  ]
+}

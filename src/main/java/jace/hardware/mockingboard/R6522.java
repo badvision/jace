@@ -1,54 +1,44 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware.mockingboard;
 
-import jace.core.Computer;
+import jace.Emulator;
 import jace.core.Device;
-import jace.core.TimedDevice;
 
 /**
  * Implementation of 6522 VIA chip
  *
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
-public abstract class R6522 extends TimedDevice {
+public abstract class R6522 extends Device {
     public static long SPEED = 1020484L; // (NTSC)
     
-    public R6522(Computer computer) {
-        super(computer);
+    public R6522() {
+        super();
         timer1freerun = true;
         timer1running = true;
         timer1latch = 0x1fff;
         timer1interruptEnabled = false;
-        setSpeedInHz(SPEED);
-        setRun(true);
     }
 
-    @Override
-    public long defaultCyclesPerSecond() {
-        return SPEED;
-    }
-    
     // 6522 VIA
     // http://www.applevault.com/twiki/Main/Mockingboard/6522.pdf
     // I/O registers
-    public static enum Register {
+    public enum Register {
         ORB(0), // Output Register B
         ORA(1), // Output Register A
         DDRB(2),// Data direction reg B
@@ -142,7 +132,8 @@ public abstract class R6522 extends TimedDevice {
     public int timer2counter = 0;
     public boolean timer2running = false;
     public boolean unclocked = false;
-    
+    public boolean debug = false;    
+
     @Override
     protected String getDeviceName() {
         return "6522 VIA Chip";
@@ -150,8 +141,39 @@ public abstract class R6522 extends TimedDevice {
     
     @Override
     public void tick() {
-        if (!unclocked) {
-            doTick();
+        if (timer1running) {
+            timer1counter--;
+            if (debug && timer1counter % 1000 == 0)
+                System.out.println(getShortName() + " Timer 1 counter: "+timer1counter+" Timer 1 interrupt enabled: "+timer1interruptEnabled);
+            if (timer1counter < 0) {
+                timer1counter = timer1latch;
+                if (!timer1freerun) {
+                    timer1running = false;
+                }
+                if (timer1interruptEnabled) {
+                    if (debug) System.out.println("Timer 1 generated interrupt");
+                    timer1IRQ = true;
+                    Emulator.withComputer(c->c.getCpu().generateInterrupt());
+                }
+            }
+        }
+        if (timer2running) {
+            timer2counter--;
+            if (debug && timer2counter % 1000 == 0)
+                System.out.println(getShortName() + " Timer 2 counter: "+timer2counter+" Timer 2 interrupt enabled: "+timer2interruptEnabled);
+            if (timer2counter < 0) {
+                timer2running = false;
+                timer2counter = timer2latch;
+                if (timer2interruptEnabled) {
+                    if (debug) System.out.println("Timer 2 generated interrupt");
+                    timer2IRQ = true;
+                    Emulator.withComputer(c->c.getCpu().generateInterrupt());
+                }
+            }
+        }
+        if (!timer1running && !timer2running) {
+            if (debug) System.out.println("No timers active, suspending");
+            suspend();
         }
     }
     
@@ -159,119 +181,69 @@ public abstract class R6522 extends TimedDevice {
         this.unclocked = unclocked;
     }
     
-    public void doTick() {
-        if (timer1running) {
-            timer1counter--;
-            if (timer1counter < 0) {
-                timer1counter = timer1latch;
-                if (!timer1freerun) {
-                    timer1running = false;
-                }
-                if (timer1interruptEnabled) {
-//                    System.out.println("Timer 1 generated interrupt");
-                    timer1IRQ = true;
-                    computer.getCpu().generateInterrupt();
-                }
-            }
-        }
-        if (timer2running) {
-            timer2counter--;
-            if (timer2counter < 0) {
-                timer2running = false;
-                timer2counter = timer2latch;
-                if (timer2interruptEnabled) {
-                    timer2IRQ = true;
-                    computer.getCpu().generateInterrupt();
-                }
-            }
-        }
-        if (!timer1running && !timer2running) {
-            setRun(false);
-        }
-    }
-    
-    @Override
-    public void attach() {
-        // Start chip
-    }
-    
     @Override
     public void reconfigure() {
-        // Reset
+        // Nothing to do
     }
     
     public void writeRegister(int reg, int val) {
         int value = val & 0x0ff;
         Register r = Register.fromInt(reg);
-//        System.out.println("Writing "+(value&0x0ff)+" to register "+r.toString());
+        if (debug) System.out.println(getShortName() + " Writing "+Integer.toHexString(value&0x0ff)+" to register "+r.toString());
         switch (r) {
-            case ORB:
+            case ORB -> {
                 if (dataDirectionB == 0) {
                     break;
                 }
                 sendOutputB(value & dataDirectionB);
-                break;
-            case ORA:
-//            case ORAH:
+            }
+            case ORA -> {
+                //            case ORAH:
                 if (dataDirectionA == 0) {
                     break;
                 }
                 sendOutputA(value & dataDirectionA);
-                break;
-            case DDRB:
-                dataDirectionB = value;
-                break;            
-            case DDRA:
-                dataDirectionA = value;
-                break;
-            case T1CL:
-            case T1LL:
-                timer1latch = (timer1latch & 0x0ff00) | value;
-                break;
-            case T1CH:
+            }
+            case DDRB -> dataDirectionB = value;
+            case DDRA -> dataDirectionA = value;
+            case T1CL, T1LL -> timer1latch = (timer1latch & 0x0ff00) | value;
+            case T1CH -> {
                 timer1latch = (timer1latch & 0x0ff) | (value << 8);
                 timer1IRQ = false;
                 timer1counter = timer1latch;
                 timer1running = true;
-                setRun(true);
-                break;
-            case T1LH:
+            }
+            case T1LH -> {
                 timer1latch = (timer1latch & 0x0ff) | (value << 8);
                 timer1IRQ = false;
-                break;
-            case T2CL:
-                timer2latch = (timer2latch & 0x0ff00) | value;
-                break;
-            case T2CH:
+            }
+            case T2CL -> timer2latch = (timer2latch & 0x0ff00) | value;
+            case T2CH -> {
                 timer2latch = (timer2latch & 0x0ff) | (value << 8);
                 timer2IRQ = false;
                 timer2counter = timer2latch;
                 timer2running = true;
-                setRun(true);
-                break;
-            case SR:
-                // SHIFT REGISTER NOT IMPLEMENTED
-                break;
-            case ACR:
+            }
+            case SR -> {
+            }
+            case ACR -> {
                 // SHIFT REGISTER NOT IMPLEMENTED
                 timer1freerun = (value & 64) != 0;
                 if (timer1freerun) {
                     timer1running = true;
-                    setRun(true);
                 }
-                break;
-            case PCR:
-                // TODO: Implement if Votrax (SSI) is to be supported
-                break;
-            case IFR:
+            }
+            case PCR -> {
+            }
+            case IFR -> {
                 if ((value & 64) != 0) {
                     timer1IRQ = false;
                 }
                 if ((value & 32) != 0) {
                     timer2IRQ = false;
-                }                
-                break;
-            case IER:
+                }
+            }
+            case IER -> {
                 boolean enable = (value & 128) != 0;
                 if ((value & 64) != 0) {
                     timer1interruptEnabled = enable;
@@ -279,8 +251,15 @@ public abstract class R6522 extends TimedDevice {
                 if ((value & 32) != 0) {
                     timer2interruptEnabled = enable;
                 }
-                break;
-            default:
+            }
+            default -> {
+            }
+        }
+        // SHIFT REGISTER NOT IMPLEMENTED
+        // TODO: Implement if Votrax (SSI) is to be supported
+        if (timer1running || timer2running) {
+            if (debug) System.out.println("One or more timers active, resuming");
+            resume();
         }
     }
 
@@ -292,49 +271,60 @@ public abstract class R6522 extends TimedDevice {
     
     public int readRegister(int reg) {
         Register r = Register.fromInt(reg);
-//        System.out.println("Reading register "+r.toString());
+        if (debug) System.out.println(getShortName() + " Reading register "+r.toString());
         switch (r) {
-            case ORB:
+            case ORB -> {
                 if (dataDirectionB == 0x0ff) {
                     break;
                 }
                 return receiveOutputB() & (dataDirectionB ^ 0x0ff);
-            case ORA:
-            case ORAH:
+            }
+            case ORA, ORAH -> {
                 if (dataDirectionA == 0x0ff) {
                     break;
                 }
                 return receiveOutputA() & (dataDirectionA ^ 0x0ff);
-            case DDRB:
+            }
+            case DDRB -> {
                 return dataDirectionB;
-            case DDRA:
+            }
+            case DDRA -> {
                 return dataDirectionA;
-            case T1CL:
+            }
+            case T1CL -> {
                 timer1IRQ = false;
                 return timer1counter & 0x0ff;
-            case T1CH:
+            }
+            case T1CH -> {
                 return (timer1counter & 0x0ff00) >> 8;
-            case T1LL:
+            }
+            case T1LL -> {
                 return timer1latch & 0x0ff;
-            case T1LH:
+            }
+            case T1LH -> {
                 return (timer1latch & 0x0ff00) >> 8;
-            case T2CL:
+            }
+            case T2CL -> {
                 timer2IRQ = false;
                 return timer2counter & 0x0ff;
-            case T2CH:
+            }
+            case T2CH -> {
                 return (timer2counter & 0x0ff00) >> 8;
-            case SR:
+            }
+            case SR -> {
                 // SHIFT REGISTER NOT IMPLEMENTED
                 return 0;
-            case ACR:
+            }
+            case ACR -> {
                 // SHIFT REGISTER NOT IMPLEMENTED
                 if (timer1freerun) {
                     return 64;
                 }
                 return 0;
-            case PCR:
-                break;
-            case IFR:
+            }
+            case PCR -> {
+            }
+            case IFR -> {
                 int val = 0;
                 if (timer1IRQ) {
                     val |= 64;
@@ -346,8 +336,9 @@ public abstract class R6522 extends TimedDevice {
                     val |= 128;
                 }
                 return val;
-            case IER:
-                val = 128;
+            }
+            case IER -> {
+                int val = 128;
                 if (timer1interruptEnabled) {
                     val |= 64;
                 }
@@ -355,6 +346,7 @@ public abstract class R6522 extends TimedDevice {
                     val |= 32;
                 }
                 return val;
+            }
         }
         return 0;
     }

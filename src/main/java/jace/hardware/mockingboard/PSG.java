@@ -1,21 +1,19 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.hardware.mockingboard;
 
 import java.util.ArrayList;
@@ -23,6 +21,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Implementation of the AY sound PSG chip. This class manages register values
@@ -33,7 +32,7 @@ import java.util.Map;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
  */
 public class PSG {
-
+    boolean debug = false;
     int baseReg;
     /* register ids */
 
@@ -100,16 +99,12 @@ public class PSG {
     List<SoundGenerator> channels;
     EnvelopeGenerator envelopeGenerator;
     NoiseGenerator noiseGenerator;
-    int CLOCK;
-    int SAMPLE_RATE;
     public int bus;
     int selectedReg;
-    String name;
     Map<Reg, Integer> regValues;
     public int mask;
 
     public PSG(int base, int clock, int sample_rate, String name, int DDR_Mask) {
-        this.name = name;
         this.mask = DDR_Mask;
         baseReg = base;
         channels = new ArrayList<>();
@@ -118,7 +113,7 @@ public class PSG {
         }
         envelopeGenerator = new EnvelopeGenerator(clock, sample_rate);
         noiseGenerator = new NoiseGenerator(clock, sample_rate);
-        regValues = Collections.synchronizedMap(new EnumMap<Reg, Integer>(Reg.class));
+        regValues = Collections.synchronizedMap(new EnumMap<>(Reg.class));
         reset();
     }
 
@@ -129,24 +124,24 @@ public class PSG {
     public void setControl(int c) {
         BusControl cmd = BusControl.fromInt(c);
         if (cmd == null) {
-//            System.out.println("Bad control param "+c);
+            if (debug) System.out.println("Bad control param "+c);
             return;
         }
         switch (cmd) {
-            case inactive:
-                break;
-            case latch:
-//                System.out.println("PSG latched register "+selectedReg);
+            case inactive -> {
+            }
+            case latch -> {
+                if (debug) System.out.println("PSG latched register "+selectedReg);
                 selectedReg = bus & 0x0f;
-                break;
-            case read:
+            }
+            case read -> {
                 bus = getReg(Reg.get(selectedReg));
-//                System.out.println("PSG read register "+selectedReg + " == "+bus);
-                break;
-            case write:
-//                System.out.println("PSG wrote register "+selectedReg + " == "+bus);
+                if (debug) System.out.println("PSG read register "+selectedReg + " == "+bus);
+            }
+            case write -> {
+                if (debug) System.out.println("PSG wrote register "+selectedReg + " == "+bus);
                 setReg(Reg.get(selectedReg), bus);
-                break;
+            }
         }
     }
 
@@ -155,14 +150,11 @@ public class PSG {
     }
 
     public void setRate(int clock, int sample_rate) {
-        CLOCK = clock;
-        SAMPLE_RATE = sample_rate;
         channels.stream().forEach((c) -> {
             c.setRate(clock, sample_rate);
         });
         envelopeGenerator.setRate(clock, sample_rate);
         noiseGenerator.setRate(clock, sample_rate);
-        reset();
     }
 
     public final void reset() {
@@ -209,72 +201,49 @@ public class PSG {
         /* period. In that case, period = 0 is half as period = 1. */
         value = value & 0x0ff;
         switch (r) {
-            case ACoarse:
-            case AFine:
-                channels.get(0).setPeriod(getReg(Reg.AFine) + (getReg(Reg.ACoarse) << 8));
-                break;
-            case BCoarse:
-            case BFine:
-                channels.get(1).setPeriod(getReg(Reg.BFine) + (getReg(Reg.BCoarse) << 8));
-                break;
-            case CCoarse:
-            case CFine:
-                channels.get(2).setPeriod(getReg(Reg.CFine) + (getReg(Reg.CCoarse) << 8));
-                break;
-            case NoisePeriod:
+            case ACoarse, AFine -> channels.get(0).setPeriod(getReg(Reg.AFine) + (getReg(Reg.ACoarse) << 8));
+            case BCoarse, BFine -> channels.get(1).setPeriod(getReg(Reg.BFine) + (getReg(Reg.BCoarse) << 8));
+            case CCoarse, CFine -> channels.get(2).setPeriod(getReg(Reg.CFine) + (getReg(Reg.CCoarse) << 8));
+            case NoisePeriod -> {
                 if (value == 0) value = 32;
                 noiseGenerator.setPeriod(value+16);
                 noiseGenerator.counter = 0;
-                break;
-            case Enable:
+            }
+            case Enable -> {
                 channels.get(0).setActive((value & 1) == 0);
                 channels.get(0).setNoiseActive((value & 8) == 0);
                 channels.get(1).setActive((value & 2) == 0);
                 channels.get(1).setNoiseActive((value & 16) == 0);
                 channels.get(2).setActive((value & 4) == 0);
                 channels.get(2).setNoiseActive((value & 32) == 0);
-                break;
-            case AVol:
-                channels.get(0).setAmplitude(value);
-                break;
-            case BVol:
-                channels.get(1).setAmplitude(value);
-                break;
-            case CVol:
-                channels.get(2).setAmplitude(value);
-                break;
-            case EnvFine:
-            case EnvCoarse:
-                envelopeGenerator.setPeriod(getReg(Reg.EnvFine) + 256 * getReg(Reg.EnvCoarse));
-                break;
-            case EnvShape:
-                envelopeGenerator.setShape(value);
-                break;
-            case PortA:
-            case PortB:
-                break;
+            }
+            case AVol -> channels.get(0).setAmplitude(value);
+            case BVol -> channels.get(1).setAmplitude(value);
+            case CVol -> channels.get(2).setAmplitude(value);
+            case EnvFine, EnvCoarse -> envelopeGenerator.setPeriod(getReg(Reg.EnvFine) + 256 * getReg(Reg.EnvCoarse));
+            case EnvShape -> envelopeGenerator.setShape(value);
+            case PortA, PortB -> {
+            }
         }
     }
 
-    public void update(int[] bufA, boolean clearA, int[] bufB, boolean clearB, int[] bufC, boolean clearC, int length) {
-        for (int i = 0; i < length; i++) {
-            noiseGenerator.step();
-            envelopeGenerator.step();
-            if (clearA) {
-                bufA[i] = channels.get(0).step(noiseGenerator, envelopeGenerator);
-            } else {
-                bufA[i] += channels.get(0).step(noiseGenerator, envelopeGenerator);
-            }
-            if (clearB) {
-                bufB[i] = channels.get(1).step(noiseGenerator, envelopeGenerator);
-            } else {
-                bufB[i] += channels.get(1).step(noiseGenerator, envelopeGenerator);
-            }
-            if (clearC) {
-                bufC[i] = channels.get(2).step(noiseGenerator, envelopeGenerator);
-            } else {
-                bufC[i] += channels.get(2).step(noiseGenerator, envelopeGenerator);
-            }
+    public void update(AtomicInteger bufA, boolean clearA, AtomicInteger bufB, boolean clearB, AtomicInteger bufC, boolean clearC) {
+        noiseGenerator.step();
+        envelopeGenerator.step();
+        if (clearA) {
+            bufA.set(channels.get(0).step(noiseGenerator, envelopeGenerator));
+        } else {
+            bufA.addAndGet(channels.get(0).step(noiseGenerator, envelopeGenerator));
+        }
+        if (clearB) {
+            bufB.set(channels.get(1).step(noiseGenerator, envelopeGenerator));
+        } else {
+            bufB.addAndGet(channels.get(1).step(noiseGenerator, envelopeGenerator));
+        }
+        if (clearC) {
+            bufC.set(channels.get(2).step(noiseGenerator, envelopeGenerator));
+        } else {
+            bufC.addAndGet(channels.get(2).step(noiseGenerator, envelopeGenerator));
         }
     }
-};
+}

@@ -1,40 +1,33 @@
-/*
- * Copyright (C) 2012 Brendan Robert (BLuRry) brendan.robert@gmail.com.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301  USA
- */
+/** 
+* Copyright 2024 Brendan Robert
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
 package jace.config;
 
-import jace.Emulator;
-import jace.EmulatorUILogic;
-import jace.core.Computer;
-import jace.core.Keyboard;
-import jace.core.Utility;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InvalidClassException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -47,9 +40,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
+
+import jace.Emulator;
+import jace.EmulatorUILogic;
+import jace.core.Keyboard;
+import jace.core.Utility;
+import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.control.TreeItem;
 import javafx.scene.image.ImageView;
@@ -60,14 +60,10 @@ import javafx.scene.image.ImageView;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public class Configuration implements Reconfigurable {
+    public EmulatorUILogic ui;
 
-    private static Method findAnyMethodByName(Class<? extends Reconfigurable> aClass, String m) {
-        for (Method method : aClass.getMethods()) {
-            if (method.getName().equals(m)) {
-                return method;
-            }
-        }
-        return null;
+    public Configuration() {
+        ui = Emulator.getUILogic();
     }
 
     static ConfigurableField getConfigurableFieldInfo(Reconfigurable subject, String settingName) {
@@ -83,15 +79,6 @@ public class Configuration implements Reconfigurable {
 
     public static String getShortName(ConfigurableField f, String longName) {
         return (f != null && !f.shortName().equals("")) ? f.shortName() : longName;
-    }
-
-    public static InvokableAction getInvokableActionInfo(Reconfigurable subject, String actionName) {
-        for (Method m : subject.getClass().getMethods()) {
-            if (m.getName().equals(actionName) && m.isAnnotationPresent(InvokableAction.class)) {
-                return m.getAnnotation(InvokableAction.class);
-            }
-        }
-        return null;
     }
 
     public static Optional<ImageView> getChangedIcon() {
@@ -120,6 +107,7 @@ public class Configuration implements Reconfigurable {
      * configuration 2) Provide a simple persistence mechanism to load/store
      * configuration
      */
+    @SuppressWarnings("all")
     public static class ConfigNode extends TreeItem implements Serializable {
 
         public transient ConfigNode root;
@@ -144,14 +132,21 @@ public class Configuration implements Reconfigurable {
 
         private void readObject(java.io.ObjectInputStream in)
                 throws IOException, ClassNotFoundException {
-            children = super.getChildren();
+                // Create children list if it doesn't exist
+            if (children == null) {
+                children = FXCollections.observableArrayList();
+                children.setAll(getChildren());
+            }
+            children.setAll(super.getChildren());
             id = (String) in.readObject();
             name = (String) in.readObject();
-            settings = (Map) in.readObject();
-            hotkeys = (Map) in.readObject();
+            settings = (Map<String, Serializable>) in.readObject();
+            hotkeys = (Map<String, String[]>) in.readObject();
             Object[] nodeArray = (Object[]) in.readObject();
-            for (Object child : nodeArray) {
-                children.add((ConfigNode) child);
+            synchronized (children) {
+                for (Object child : nodeArray) {
+                    children.add((ConfigNode) child);
+                }
             }
         }
 
@@ -189,17 +184,16 @@ public class Configuration implements Reconfigurable {
         }
 
         public void setFieldValue(String field, Serializable value) {
+            setChanged(true);
             if (value != null) {
                 if (value.equals(getFieldValue(field))) {
                     return;
                 }
             } else {
                 if (getFieldValue(field) == null) {
-                    setChanged(false);
                     return;
                 }
             }
-            setChanged(true);
             setRawFieldValue(field, value);
         }
 
@@ -216,19 +210,23 @@ public class Configuration implements Reconfigurable {
         }
 
         @Override
-        public ObservableList<ConfigNode> getChildren() {
+        final public ObservableList<ConfigNode> getChildren() {
             return super.getChildren();
         }
 
         private boolean removeChild(String childName) {
             ConfigNode child = findChild(childName);
-            return children.remove(child);
+            synchronized (children) {
+                return children.remove(child);
+            }
         }
 
         private ConfigNode findChild(String id) {
-            for (ConfigNode node : children) {
-                if (id.equalsIgnoreCase(node.id)) {
-                    return node;
+            synchronized (children) {
+                for (ConfigNode node : children) {
+                    if (id.equalsIgnoreCase(node.id)) {
+                        return node;
+                    }
                 }
             }
             return null;
@@ -245,7 +243,9 @@ public class Configuration implements Reconfigurable {
                     index++;
                 }
             }
-            children.add(index, newChild);
+            synchronized (children) {
+                children.add(index, newChild);
+            }
         }
 
         private void setChanged(boolean b) {
@@ -258,40 +258,47 @@ public class Configuration implements Reconfigurable {
         }
 
         public Stream<ConfigNode> getTreeAsStream() {
-            return Stream.concat(
-                    Stream.of(this),
-                    children.stream().flatMap(ConfigNode::getTreeAsStream));
+            synchronized (children) {
+                return Stream.concat(
+                        Stream.of(this),
+                        children.stream().flatMap(ConfigNode::getTreeAsStream));
+            }
         }
     }
     public static ConfigNode BASE;
-    public static EmulatorUILogic ui = Emulator.logic;
-    public static Computer emulator = Emulator.computer;
     @ConfigurableField(name = "Autosave Changes", description = "If unchecked, changes are only saved when the Save button is pressed.")
     public static boolean saveAutomatically = false;
 
     public static void buildTree() {
         BASE = new ConfigNode(new Configuration());
-        buildTree(BASE, new LinkedHashSet());
+        Set<ConfigNode> visited = new LinkedHashSet<>();
+        buildTree(BASE, visited);
+        Emulator.withComputer(c->{
+            ConfigNode computer = new ConfigNode(BASE, c);
+            BASE.putChild(c.getName(), computer);
+            buildTree(computer, visited);
+        });
     }
 
+    @SuppressWarnings("all")
     private static void buildTree(ConfigNode node, Set visited) {
         if (node.subject == null) {
             return;
         }
 
-        for (Method m : node.subject.getClass().getMethods()) {
-            if (!m.isAnnotationPresent(InvokableAction.class)) {
-                continue;
-            }
-            InvokableAction action = m.getDeclaredAnnotation(InvokableAction.class);
-            node.hotkeys.put(m.getName(), action.defaultKeyMapping());
-        }
+        InvokableActionRegistry registry = InvokableActionRegistry.getInstance();
+        registry.getStaticMethodNames(node.subject.getClass()).stream().forEach((name) -> 
+            node.hotkeys.put(name, registry.getStaticMethodInfo(name).defaultKeyMapping())
+        );
+        registry.getInstanceMethodNames(node.subject.getClass()).stream().forEach((name) -> 
+            node.hotkeys.put(name, registry.getInstanceMethodInfo(name).defaultKeyMapping())
+        );
 
         for (Field f : node.subject.getClass().getFields()) {
 //            System.out.println("Evaluating field " + f.getName());
             try {
                 Object o = f.get(node.subject);
-                if (!f.getType().isPrimitive() && f.getType() != String.class && visited.contains(o)) {
+                if (o == null || !f.getType().isPrimitive() && f.getType() != String.class && visited.contains(o)) {
                     continue;
                 }
                 visited.add(o);
@@ -301,7 +308,7 @@ public class Configuration implements Reconfigurable {
 //                if (o.getClass().isAssignableFrom(Reconfigurable.class)) {
 //                if (Reconfigurable.class.isAssignableFrom(o.getClass())) {
                 if (f.isAnnotationPresent(ConfigurableField.class)) {
-                    if (o != null && ISelection.class.isAssignableFrom(o.getClass())) {
+                    if (ISelection.class.isAssignableFrom(o.getClass())) {
                         ISelection selection = (ISelection) o;
                         node.setRawFieldValue(f.getName(), (Serializable) selection.getSelections().get(selection.getValue()));
                     } else {
@@ -309,16 +316,14 @@ public class Configuration implements Reconfigurable {
                     }
                     continue;
                 }
-                if (o == null) {
-                    continue;
-                }
 
-                if (o instanceof Reconfigurable) {
-                    Reconfigurable r = (Reconfigurable) o;
+                if (o instanceof Reconfigurable r) {
                     ConfigNode child = node.findChild(r.getName());
                     if (child == null || !child.subject.equals(o)) {
                         child = new ConfigNode(node, r);
                         node.putChild(f.getName(), child);
+                    } else {
+                        Logger.getLogger(Configuration.class.getName()).severe("Unable to find child named %s for node %s".formatted(r.getName(), node.name));
                     }
                     buildTree(child, visited);
                 } else if (o.getClass().isArray()) {
@@ -331,8 +336,7 @@ public class Configuration implements Reconfigurable {
                         if (Optional.class.isAssignableFrom(type)) {
                             Type genericTypes = f.getGenericType();
 //                            System.out.println("Looking at generic parmeters " + genericTypes.getTypeName() + " for reconfigurable class, type " + genericTypes.getClass().getName());
-                            if (genericTypes instanceof GenericArrayType) {
-                                GenericArrayType aType = (GenericArrayType) genericTypes;
+                            if (genericTypes instanceof GenericArrayType aType) {
                                 ParameterizedType pType = (ParameterizedType) aType.getGenericComponentType();
                                 if (pType.getActualTypeArguments().length != 1) {
                                     continue;
@@ -346,11 +350,13 @@ public class Configuration implements Reconfigurable {
                                 continue;
                             }
 
-                            for (Optional<Reconfigurable> child : (Optional<Reconfigurable>[]) o) {
-                                if (child.isPresent()) {
-                                    children.add(child.get());
-                                } else {
-                                    children.add(null);
+                            synchronized (children) {
+                                for (Optional<Reconfigurable> child : (Optional<Reconfigurable>[]) o) {
+                                    if (child.isPresent()) {
+                                        children.add(child.get());
+                                    } else {
+                                        children.add(null);
+                                    }
                                 }
                             }
                         }
@@ -386,7 +392,6 @@ public class Configuration implements Reconfigurable {
             defaultKeyMapping = "meta+ctrl+s"
     )
     public static void saveSettings() {
-        FileOutputStream fos = null;
         {
             ObjectOutputStream oos = null;
             try {
@@ -417,29 +422,29 @@ public class Configuration implements Reconfigurable {
             defaultKeyMapping = "meta+ctrl+r"
     )
     public static void loadSettings() {
-        {
-            boolean successful = false;
-            ObjectInputStream ois = null;
+        boolean successful = false;
+        ObjectInputStream ois = null;
+        try {
+            ois = new ObjectInputStream(new FileInputStream(getSettingsFile()));
+            ConfigNode newRoot = (ConfigNode) ois.readObject();
+            applyConfigTree(newRoot, BASE);
+            successful = true;
+        } catch (FileNotFoundException ex) {
+            // This just means there are no settings to be saved -- just ignore it.
+        } catch (InvalidClassException | NullPointerException ex) {
+            Logger.getLogger(Configuration.class.getName()).log(Level.WARNING, "Unable to load settings, Jace version is newer and incompatible with old settings.");
+        } catch (ClassNotFoundException | IOException ex) {
+            Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
             try {
-                ois = new ObjectInputStream(new FileInputStream(getSettingsFile()));
-                ConfigNode newRoot = (ConfigNode) ois.readObject();
-                applyConfigTree(newRoot, BASE);
-                successful = true;
-            } catch (FileNotFoundException ex) {
-                // This just means there are no settings to be saved -- just ignore it.
-            } catch (ClassNotFoundException | IOException ex) {
-                Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                try {
-                    if (ois != null) {
-                        ois.close();
-                    }
-                    if (!successful) {
-                        applySettings(BASE);
-                    }
-                } catch (IOException ex) {
-                    Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
+                if (ois != null) {
+                    ois.close();
                 }
+                if (!successful) {
+                    applySettings(BASE);
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -452,6 +457,34 @@ public class Configuration implements Reconfigurable {
         return new File(System.getProperty("user.dir"), ".jace.conf");
     }
 
+    public static void registerKeyHandlers() {
+        registerKeyHandlers(BASE, true);
+    }
+
+    public static void registerKeyHandlers(ConfigNode node, boolean recursive) {
+        Keyboard.unregisterAllHandlers(node.subject);
+        InvokableActionRegistry registry = InvokableActionRegistry.getInstance();
+        node.hotkeys.keySet().stream().forEach((name) -> {
+            InvokableAction action = registry.getStaticMethodInfo(name);
+            if (action != null) {
+                for (String code : node.hotkeys.get(name)) {
+                    Keyboard.registerInvokableAction(action, node.subject, registry.getStaticFunction(name), code);
+                }
+            }
+            action = registry.getInstanceMethodInfo(name);
+            if (action != null) {
+                for (String code : node.hotkeys.get(name)) {
+                    Keyboard.registerInvokableAction(action, node.subject, registry.getInstanceFunction(name), code);
+                }
+            }
+        });
+        if (recursive) {
+            node.getChildren().stream().forEach((child) -> {
+                registerKeyHandlers(child, true);
+            });
+        }
+    }
+
     /**
      * Apply settings from node tree to the object model This also calls
      * "reconfigure" on objects in sequence
@@ -461,33 +494,29 @@ public class Configuration implements Reconfigurable {
      * descendants
      */
     public static boolean applySettings(ConfigNode node) {
-        boolean resume = false;
-        if (node == BASE) {
-            resume = Emulator.computer.pause();
-        }
-        boolean hasChanged = false;
-        if (node.changed) {
-            doApply(node);
-            hasChanged = true;
-        }
+        AtomicBoolean hasChanged = new AtomicBoolean(false);
 
-        // Now that the object structure reflects the current configuration,
-        // process reconfiguration from the children, etc.
-        for (ConfigNode child : node.getChildren()) {
-            hasChanged |= applySettings(child);
-        }
+        Emulator.whileSuspended(c-> {
+            if (node.changed) {
+                doApply(node);
+                hasChanged.set(true);
+            }
 
-        if (node.equals(BASE) && hasChanged) {
+            // Now that the object structure reflects the current configuration,
+            // process reconfiguration from the children, etc.
+            for (ConfigNode child : node.getChildren()) {
+                if (applySettings(child)) hasChanged.set(true);
+            }
+        });
+
+        if (node.equals(BASE) && hasChanged.get()) {
             buildTree();
         }
 
-        if (resume) {
-            Emulator.computer.resume();
-        }
-
-        return hasChanged;
+        return hasChanged.get();
     }
 
+    @SuppressWarnings("all")
     private static void applyConfigTree(ConfigNode newRoot, ConfigNode oldRoot) {
         if (oldRoot == null || newRoot == null) {
             return;
@@ -509,18 +538,10 @@ public class Configuration implements Reconfigurable {
         });
     }
 
+    @SuppressWarnings("all")
     private static void doApply(ConfigNode node) {
         List<String> removeList = new ArrayList<>();
-        Keyboard.unregisterAllHandlers(node.subject);
-        node.hotkeys.keySet().stream().forEach((m) -> {
-            Method method = findAnyMethodByName(node.subject.getClass(), m);
-            if (method != null) {
-                InvokableAction action = method.getAnnotation(InvokableAction.class);
-                for (String code : node.hotkeys.get(m)) {
-                    Keyboard.registerInvokableAction(action, node.subject, method, code);
-                }
-            }
-        });
+        registerKeyHandlers(node, false);
 
         for (String f : node.settings.keySet()) {
             try {
@@ -585,7 +606,7 @@ public class Configuration implements Reconfigurable {
             String fieldName = parts[1];
             ConfigNode n = shortNames.get(deviceName.toLowerCase());
             if (n == null) {
-                System.err.println("Unable to find device named " + deviceName + ", try one of these: " + Utility.join(shortNames.keySet(), ", "));
+                System.err.println("Unable to find device named " + deviceName + ", try one of these: " + String.join(", ", shortNames.keySet()));
                 continue;
             }
 
@@ -607,7 +628,7 @@ public class Configuration implements Reconfigurable {
                 }
             }
             if (!found) {
-                System.err.println("Unable to find property " + fieldName + " for device " + deviceName + ".  Try one of these: " + Utility.join(shortFieldNames, ", "));
+                System.err.println("Unable to find property " + fieldName + " for device " + deviceName + ".  Try one of these: " + String.join(", ", shortFieldNames));
             }
         }
     }
@@ -615,27 +636,29 @@ public class Configuration implements Reconfigurable {
     private static void buildNodeMap(ConfigNode n, Map<String, ConfigNode> shortNames) {
 //        System.out.println("Encountered " + n.subject.getShortName().toLowerCase());
         shortNames.put(n.subject.getShortName().toLowerCase(), n);
-        n.getChildren().stream().forEach((c) -> {
-            buildNodeMap(c, shortNames);
-        });
+        synchronized (n.getChildren()) {
+            n.getChildren().stream().forEach((c) -> {
+                buildNodeMap(c, shortNames);
+            });
+        }
     }
 
-    private static void printTree(ConfigNode n, String prefix, int i) {
-        n.getAllSettingNames().stream().forEach((setting) -> {
-            for (int j = 0; j < i; j++) {
-                System.out.print(" ");
-            }
-            ConfigurableField f = null;
-            try {
-                f = n.subject.getClass().getField(setting).getAnnotation(ConfigurableField.class);
-            } catch (NoSuchFieldException | SecurityException ex) {
-                Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            String sn = (f != null && !f.shortName().equals("")) ? f.shortName() : setting;
-            System.out.println(prefix + ">>" + setting + " (" + n.subject.getShortName() + "." + sn + ")");
-        });
-        n.getChildren().stream().forEach((c) -> {
-            printTree(c, prefix + "." + c.toString(), i + 1);
-        });
-    }
+    // private static void printTree(ConfigNode n, String prefix, int i) {
+    //     n.getAllSettingNames().stream().forEach((setting) -> {
+    //         for (int j = 0; j < i; j++) {
+    //             System.out.print(" ");
+    //         }
+    //         ConfigurableField f = null;
+    //         try {
+    //             f = n.subject.getClass().getField(setting).getAnnotation(ConfigurableField.class);
+    //         } catch (NoSuchFieldException | SecurityException ex) {
+    //             Logger.getLogger(Configuration.class.getName()).log(Level.SEVERE, null, ex);
+    //         }
+    //         String sn = (f != null && !f.shortName().equals("")) ? f.shortName() : setting;
+    //         System.out.println(prefix + ">>" + setting + " (" + n.subject.getShortName() + "." + sn + ")");
+    //     });
+    //     n.getChildren().stream().forEach((c) -> {
+    //         printTree(c, prefix + "." + c, i + 1);
+    //     });
+    // }
 }

@@ -1,39 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.net.URL?>
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.SubScene?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.CheckBox?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.ListView?>
-<?import javafx.scene.control.RadioButton?>
-<?import javafx.scene.control.ScrollPane?>
-<?import javafx.scene.control.Separator?>
-<?import javafx.scene.control.SplitPane?>
-<?import javafx.scene.control.Tab?>
-<?import javafx.scene.control.TabPane?>
-<?import javafx.scene.control.TableColumn?>
-<?import javafx.scene.control.TableView?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.TitledPane?>
-<?import javafx.scene.control.ToggleGroup?>
-<?import javafx.scene.control.ToolBar?>
-<?import javafx.scene.layout.BorderPane?>
-<?import javafx.scene.layout.FlowPane?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Region?>
-<?import javafx.scene.layout.TilePane?>
-<?import javafx.scene.layout.StackPane?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.text.Font?>
-
-<!--<?import javafx.scene.canvas.*?>-->
-
-<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="520.0" prefWidth="710.0" stylesheets="@../styles/style.css" xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.ui.MetacheatUI">
-    <stylesheets>
-        <URL value="@/styles/style.css" />
-    </stylesheets>
+<?import java.lang.*?>
+<?import javafx.geometry.*?>
+<?import java.net.*?>
+<?import javafx.scene.canvas.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<!--stylesheets="@../styles/style.css" -->
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="520.0" prefWidth="710.0" xmlns="http://javafx.com/javafx/8.0.40" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.ui.MetacheatUI">
    <children>
       <ToolBar prefHeight="40.0" prefWidth="200.0" VBox.vgrow="NEVER">
          <items>
@@ -51,7 +26,11 @@
         <items>
             <ScrollPane fx:id="memoryViewPane" prefHeight="450.0" prefWidth="391.0">
                <content>
-                  <StackPane fx:id="memoryViewContents" prefHeight="150.0" prefWidth="200.0"/>
+                  <StackPane fx:id="memoryViewContents" prefHeight="150.0" prefWidth="200.0">
+                     <children>
+                        <Canvas fx:id="memoryViewCanvas" height="200.0" width="200.0" />
+                     </children>
+                  </StackPane>
                </content></ScrollPane>
             <ScrollPane fitToHeight="true" fitToWidth="true" prefHeight="200.0" prefWidth="200.0">
                <content>

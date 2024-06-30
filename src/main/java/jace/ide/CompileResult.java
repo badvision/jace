@@ -9,15 +9,15 @@ import java.util.Map;
  */
 public interface CompileResult<T> {
 
-    public boolean isSuccessful();
+    boolean isSuccessful();
     
-    public T getCompiledAsset();
+    T getCompiledAsset();
     
-    public Map<Integer, String> getErrors();
+    Map<Integer, String> getErrors();
 
-    public Map<Integer, String> getWarnings();
+    Map<Integer, String> getWarnings();
 
-    public List<String> getOtherMessages();
+    List<String> getOtherMessages();
 
-    public List<String> getRawOutput();    
+    List<String> getRawOutput();
 }
