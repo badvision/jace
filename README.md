@@ -59,8 +59,8 @@ JACE will always be free, but it does take considerable time to refine and add n
 * <a href="bitcoin:1TmP94jrEtJNqz7wrCpViA6musGsiTXEq?amount=0.000721&label=Jace%20Donations">Donate to support JACE! (BTC address: 1TmP94jrEtJNqz7wrCpViA6musGsiTXEq)</a>
 * <a href="https://www.paypal.me/BrendanRobert">Donate to support JACE! (Paypal)</a>
 
-![Airheart](https://sites.google.com/site/brendanrobert/_/rsrc/1327073239228/projects/jace/airheart.png?height=250&width=400)
-![Color swatches](https://sites.google.com/site/brendanrobert/_/rsrc/1327073239228/projects/jace/colors.png?height=223&width=400)
-![Desktop II](https://sites.google.com/site/brendanrobert/_/rsrc/1327992588666/projects/jace/AppleIIDesktop.png?height=265&width=400)
+![Airheart](https://lh3.googleusercontent.com/AVWYkQH91Nn_zgHdZge4Kp89eJpdppl9mN5fls2jgJKXNyMYrxkPNRFVYQhnAL4gLxVzz398B6rcOXQCeSjBI7L2WI1M8uEvEK41CdHNkRXec_I-dnTZcRUCbAvHgFMDfA=w1280)
+![Color swatches](https://lh6.googleusercontent.com/UJZ6PoPnXf9sTsQHQjSae5F5GR-XKd8pmEzW5NZHRtCNQcjWbm2a1E9UISnr6mC9Ew3_ZKRaU9vHD7CBH7IzEniMQfvADvpmfdzVI16QqS2PAf0uC-yU1m0p3vaorQYI4A=w1280)
+![Desktop II](https://lh4.googleusercontent.com/HlnVOLcMjYE9AMwLR70_p00Z79afqoK1wqyGuW8vyh_m-Z197GakHy550RaQa4Xey8I4p0RhT9FDcnJkkWD2TAxX6_sa3yAkmQ6skio47eQ_4qiypDVNmw2Pw3Wefq69yw=w1280)
 
-More information here: https://sites.google.com/site/brendanrobert/projects/jace
+More information here: https://sites.google.com/site/brendanrobert/projects/java-apple-computer-emulator
