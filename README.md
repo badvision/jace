@@ -32,8 +32,8 @@ Other features of Jace include:
 
 Running the standard java version of Jace requires you have installed Java 17 or later.
 * If you are building from source you can use any of the following:
-- mvn javafx:run
-- mvn gluonfx:run (Note: gluonfx plugin currently only supports up to Maven 3.8.8)
+    - mvn javafx:run
+    - mvn gluonfx:run (Note: gluonfx plugin currently only supports up to Maven 3.8.8)
 
 ## To Build natively:
 
