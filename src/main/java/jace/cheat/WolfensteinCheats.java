@@ -15,10 +15,9 @@
  */
 package jace.cheat;
 
+import jace.Emulator;
 import jace.EmulatorUILogic;
-import jace.apple2e.MOS65C02;
 import jace.config.ConfigurableField;
-import jace.core.Computer;
 import jace.core.RAMEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
@@ -55,10 +54,6 @@ public class WolfensteinCheats extends Cheats {
     static final int GUARD = 16;
     static final int DOOR = 80;
     static final int NOTHING = 0;
-
-    public WolfensteinCheats(Computer computer) {
-        super(computer);
-    }
 
     private EventHandler<MouseEvent> mouseListener = this::processMouseEvent;
     @ConfigurableField(category = "Hack", name = "Beyond Wolfenstein", defaultValue = "false", description = "Make sure cheats work with Beyond Wolfenstein")
@@ -102,57 +97,57 @@ public class WolfensteinCheats extends Cheats {
         if (_isBeyondWolfenstein) {
             // Only work in Beyond Wolfenstein
             if (rich) {
-                forceValue(MARKS, 255);
+                forceValue("Wolfenstein Money cheat", MARKS, 255);
             }
             if (dayAtTheOffice) {
                 for (int i = 0x04080; i < 0x04100; i += 0x010) {
-                    addCheat(RAMEvent.TYPE.READ, this::allDesks, i);
+                    addCheat("Wolfenstein day at the office cheat " + i, RAMEvent.TYPE.READ, this::allDesks, i);
                 }                
             }
         } else {
             // Only work in the first Wolfenstein game
             if (uniform) {
-                forceValue(255, 0x04349);
+                forceValue("Wolfenstein Uniform cheat", 255, 0x04349);
             }
             if (vest) {
-                forceValue(255, 0x0434A);
+                forceValue("Wolfenstein Vest cheat", 255, 0x0434A);
             }
             if (fastOpen) {
-                addCheat(RAMEvent.TYPE.WRITE, this::fastOpenHandler, 0x04351);
-                addCheat(RAMEvent.TYPE.WRITE, this::fastOpenHandler, 0x0587B);
+                addCheat("Wolfenstein FastOpen cheat (1)", RAMEvent.TYPE.WRITE, this::fastOpenHandler, 0x04351);
+                addCheat("Wolfenstein FastOpen cheat (2)", RAMEvent.TYPE.WRITE, this::fastOpenHandler, 0x0587B);
             }
         }
         if (ammo) {
-            forceValue(10, BULLETS);
+            forceValue("Wolfenstein ammo cheat", 10, BULLETS);
             if (!_isBeyondWolfenstein) {
-                forceValue(9, GRENADES);
+                forceValue("Wolfenstein grenades cheat", 9, GRENADES);
             }
         }
         if (skeletonKey) {
             if (_isBeyondWolfenstein) {
-                forceValue(255, PASSES);
-                forceValue(64, CLOSET_CONTENTS_CMP); // Fake it out so it thinks all doors are unlocked
+                forceValue("Wolfenstein passes cheat", 255, PASSES);
+                forceValue("Wolfenstein unlock closets cheat", 64, CLOSET_CONTENTS_CMP); // Fake it out so it thinks all doors are unlocked
             } else {
-                forceValue(255, KEYS);
+                forceValue("Wolfenstein keys cheat", 255, KEYS);
             }
         }
         if (allDead) {
             for (int i = 0x04080; i < 0x04100; i += 0x010) {
-                addCheat(RAMEvent.TYPE.READ, this::allDead, i);
+                addCheat("Wolfenstein all dead cheat " + i, RAMEvent.TYPE.READ, this::allDead, i);
             }
         }
         if (sleepyTime) {
             for (int i = 0x04080; i < 0x04100; i += 0x010) {
-                forceValue(0, i + 2);
-                forceValue(0, i + 3);
+                forceValue("Wolfenstein sleep cheat (1)", 0, i + 2);
+                forceValue("Wolfenstein sleep cheat (2)", 0, i + 3);
 // This makes them shout ACHTUNG over and over again... so don't do that.                
 //                forceValue(144, i+12);
-                forceValue(0, i + 12);
+                forceValue("Wolfenstein sleep cheat (3)", 0, i + 12);
             }
         }
         if (legendary) {
             for (int i = 0x04080; i < 0x04100; i += 0x010) {
-                addCheat(RAMEvent.TYPE.READ, this::legendaryMode, i);
+                addCheat("Wolfenstein legendary cheat", RAMEvent.TYPE.READ, this::legendaryMode, i);
             }
         }
 
@@ -172,7 +167,7 @@ public class WolfensteinCheats extends Cheats {
 
     private boolean isFinalRoom() {
         for (int i = 0x04080; i < 0x04100; i += 0x010) {
-            int objectType = computer.getMemory().readRaw(i) & 0x0ff;
+            int objectType = getMemory().readRaw(i) & 0x0ff;
             if (objectType == BW_DOOR) {
                 return true;
             }
@@ -181,14 +176,14 @@ public class WolfensteinCheats extends Cheats {
     }
 
     private void allDesks(RAMEvent evt) {
-        int location = computer.getMemory().readRaw(evt.getAddress() + 1);
+        int location = getMemory().readRaw(evt.getAddress() + 1);
         if (!isFinalRoom() || location < 32) {
             int type = evt.getNewValue();
             if (type == GUARD) {
                 evt.setNewValue(SEATED_GUARD);
                 // Reset the status flag to 0 to prevent the boss desk from rendering, but don't revive dead guards!
-                if (computer.getMemory().readRaw(evt.getAddress() + 4) != 4) {
-                    computer.getMemory().write(evt.getAddress() + 4, (byte) 0, false, false);
+                if (getMemory().readRaw(evt.getAddress() + 4) != 4) {
+                    getMemory().write(evt.getAddress() + 4, (byte) 0, false, false);
                 }
             }
         }
@@ -197,12 +192,12 @@ public class WolfensteinCheats extends Cheats {
     private void allDead(RAMEvent evt) {
         int type = evt.getNewValue();
         if (_isBeyondWolfenstein) {
-            int location = computer.getMemory().readRaw(evt.getAddress() + 1);
+            int location = getMemory().readRaw(evt.getAddress() + 1);
             if (!isFinalRoom() || location < 32) {
                 if (type == GUARD) {
                     evt.setNewValue(CORPSE);
                 } else if (type == SEATED_GUARD) {
-                    computer.getMemory().write(evt.getAddress() + 4, (byte) 4, false, false);
+                    getMemory().write(evt.getAddress() + 4, (byte) 4, false, false);
                 }
             }
         } else {
@@ -240,13 +235,13 @@ public class WolfensteinCheats extends Cheats {
     private void killEnemyAt(int location) {
         System.out.println("Looking for bad guy at " + location);
         for (int i = 0x04080; i < 0x04100; i += 0x010) {
-            int enemyLocation = computer.getMemory().readRaw(i + 1) & 0x0ff;
+            int enemyLocation = getMemory().readRaw(i + 1) & 0x0ff;
             System.out.print("Location " + enemyLocation);
             String type = "";
             boolean isAlive = false;
             boolean isSeatedGuard = false;
             if (_isBeyondWolfenstein) {
-                switch (computer.getMemory().readRaw(i) & 0x0ff) {
+                switch (getMemory().readRaw(i) & 0x0ff) {
                     case GUARD:
                         type = "guard";
                         isAlive = true;
@@ -266,10 +261,10 @@ public class WolfensteinCheats extends Cheats {
                         type = "nothing";
                         break;
                     default:
-                        type = "unknown type " + (computer.getMemory().readRaw(i) & 0x0ff);
+                        type = "unknown type " + (getMemory().readRaw(i) & 0x0ff);
                 }
             } else {
-                switch (computer.getMemory().readRaw(i) & 0x0ff) {
+                switch (getMemory().readRaw(i) & 0x0ff) {
                     case GUARD:
                         type = "guard";
                         isAlive = true;
@@ -291,21 +286,21 @@ public class WolfensteinCheats extends Cheats {
                         type = "nothing";
                         break;
                     default:
-                        type = "unknown type " + (computer.getMemory().readRaw(i) & 0x0ff);
+                        type = "unknown type " + (getMemory().readRaw(i) & 0x0ff);
                 }
             }
             System.out.println(" is a " + type);
             for (int j = 0x00; j < 0x0f; j++) {
-                int val = computer.getMemory().readRaw(i + j) & 0x0ff;
+                int val = getMemory().readRaw(i + j) & 0x0ff;
                 System.out.print(Integer.toHexString(val) + " ");
             }
             System.out.println();
 
             if (isAlive && location == enemyLocation) {
                 if (isSeatedGuard) {
-                    computer.getMemory().write(i + 4, (byte) 4, false, false);
+                    getMemory().write(i + 4, (byte) 4, false, false);
                 } else {
-                    computer.getMemory().write(i, (byte) CORPSE, false, true);
+                    getMemory().write(i, (byte) CORPSE, false, true);
                 }
 
                 System.out.println("*BLAM*");
@@ -315,7 +310,7 @@ public class WolfensteinCheats extends Cheats {
     }
 
     private void teleportTo(int location) {
-        computer.getMemory().write(0x04343, (byte) location, false, true);
+        getMemory().write(0x04343, (byte) location, false, true);
     }
 
     @Override
@@ -335,7 +330,7 @@ public class WolfensteinCheats extends Cheats {
         if (debugTicks > 0) {
             debugTicks--;
             if (debugTicks == 0) {
-                computer.getCpu().setTraceEnabled(false);
+                Emulator.withComputer(c->c.getCpu().setTraceEnabled(false));
             }
         }
     }

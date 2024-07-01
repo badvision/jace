@@ -38,7 +38,8 @@ public abstract class Cheats extends Device {
         Metacheat("Metacheat", MetaCheat.class, MetaCheat::new),
         MontezumasRevenge("Montezuma's Revenge", MontezumasRevengeCheats.class, MontezumasRevengeCheats::new),
         PrinceOfPersia("Prince of Persia", PrinceOfPersiaCheats.class, PrinceOfPersiaCheats::new),
-        ProgramIdentity("Identify program", ProgramIdentity.class, ProgramIdentity::new);
+        ProgramIdentity("Identify program", ProgramIdentity.class, ProgramIdentity::new),
+        Wolfenstein(name:"Wolfenstein", WolfensteinCheats.class, WolfensteinCheats::new);
 
         Supplier<Cheats> factory;
         String name;
