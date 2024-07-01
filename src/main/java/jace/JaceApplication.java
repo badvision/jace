@@ -48,8 +48,8 @@ public class JaceApplication extends Application {
             Scene s = new Scene(node);
             s.setFill(Color.BLACK);
             primaryStage.setScene(s);
-            primaryStage.titleProperty().set("jace");
-            Utility.loadIcon("jace_icon.png").ifPresent(icon -> {
+            primaryStage.titleProperty().set("Jace");
+            Utility.loadIcon("app_icon.png").ifPresent(icon -> {
                 primaryStage.getIcons().add(icon);
             });
         } catch (IOException exception) {

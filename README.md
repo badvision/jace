@@ -55,12 +55,12 @@ Because Jace provides an annotation processor for compilation, there is a chicke
 
 JACE will always be free, but it does take considerable time to refine and add new features.  If you would like to show your support and encourage the author to keep maintaining this emulator, why not throw him some change to buy him a drink?  (The emulator was named for the Jack and Cokes consumed during its inception.)
 
-<a href="bitcoin:1TmP94jrEtJNqz7wrCpViA6musGsiTXEq?amount=0.000721&label=Jace%20Donations"><img src="https://sites.google.com/site/brendanrobert/projects/jace/donate.png" height="150px" width="150px"></a>
-* <a href="bitcoin:1TmP94jrEtJNqz7wrCpViA6musGsiTXEq?amount=0.000721&label=Jace%20Donations">Donate to support JACE! (BTC address: 1TmP94jrEtJNqz7wrCpViA6musGsiTXEq)</a>
-* <a href="https://www.paypal.me/BrendanRobert">Donate to support JACE! (Paypal)</a>
+Donate here to support Jace developement:
+<a href="https://www.paypal.me/BrendanRobert"><img src="images/donate.png" width="64"></a>
 
-![Airheart](https://lh3.googleusercontent.com/AVWYkQH91Nn_zgHdZge4Kp89eJpdppl9mN5fls2jgJKXNyMYrxkPNRFVYQhnAL4gLxVzz398B6rcOXQCeSjBI7L2WI1M8uEvEK41CdHNkRXec_I-dnTZcRUCbAvHgFMDfA=w1280)
-![Color swatches](https://lh6.googleusercontent.com/UJZ6PoPnXf9sTsQHQjSae5F5GR-XKd8pmEzW5NZHRtCNQcjWbm2a1E9UISnr6mC9Ew3_ZKRaU9vHD7CBH7IzEniMQfvADvpmfdzVI16QqS2PAf0uC-yU1m0p3vaorQYI4A=w1280)
-![Desktop II](https://lh4.googleusercontent.com/HlnVOLcMjYE9AMwLR70_p00Z79afqoK1wqyGuW8vyh_m-Z197GakHy550RaQa4Xey8I4p0RhT9FDcnJkkWD2TAxX6_sa3yAkmQ6skio47eQ_4qiypDVNmw2Pw3Wefq69yw=w1280)
+* <a href="bitcoin:1TmP94jrEtJNqz7wrCpViA6musGsiTXEq?amount=0.000721&label=Jace%20Donations">BTC address: 1TmP94jrEtJNqz7wrCpViA6musGsiTXEq</a>
+* <a href="https://www.paypal.me/BrendanRobert">Paypal</a>
+
+<img src="images/airheart.png" height="192"> <img src="images/colors.png" height="192"> <img src="images/desktop2.png" height="192">
 
 More information here: https://sites.google.com/site/brendanrobert/projects/java-apple-computer-emulator
