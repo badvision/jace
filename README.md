@@ -49,7 +49,7 @@ The Gluon documentation provides a compatibility matrix for each OS platform and
 All other native dependencies are automatically downloaded as needed by Maven for the various LWJGL libraries.
 
 ### First time build note:
-Because Jace provides an annotation processor for compilation, there is a chicken-and-egg problem when building the first time.  In the pom.xml, comment out lines 35-42 dealing with annotation processors.  Run `mvn install` and once that completes, un-comment those lines and compile a second time.  After you compile the first time you don't have to do this step again as long as Maven is able to find a previously build version of Jace to provide this annotation processor.
+Because Jace provides an annotation processor for compilation, there is a chicken-and-egg problem when building the first time.  Currently, this means the first time you compile, run `mvn install` twice.  You don't have to do this step again as long as Maven is able to find a previously build version of Jace to provide this annotation processor.  I tried to set up the profiles in the pom.xml so that it disables the annotation processor the first time you compile to avoid any issues.  If running in a CICD environment, keep in mind you will likely always need to run the "mvn install" step twice, but only if your goal is to build the entire application including the annotations (should not be needed for just running unit tests.)
 
 ## Support JACE:
 

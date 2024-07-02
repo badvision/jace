@@ -27,23 +27,6 @@
         <finalName>JaceApplication</finalName>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>17</source>
-                    <target>17</target>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.badvision</groupId>
-                            <artifactId>jace</artifactId>
-                            <version>3.0</version>
-                        </path>
-                    </annotationProcessorPaths>
-                    <annotationProcessors>jace.config.InvokableActionAnnotationProcessor</annotationProcessors>
-                </configuration>
-                <version>3.11.0</version>
-            </plugin>
-            <plugin>
                 <groupId>com.gluonhq</groupId>
                 <artifactId>gluonfx-maven-plugin</artifactId>
                 <version>1.0.22</version>
@@ -279,6 +262,56 @@
         </dependency>
     </dependencies>
     <profiles>
+        <profile>
+            <id>default</id>
+            <activation>
+                <file>
+                    <exists>target/classes</exists>
+                </file>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <source>17</source>
+                            <target>17</target>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>org.badvision</groupId>
+                                    <artifactId>jace</artifactId>
+                                    <version>3.0</version>
+                                </path>
+                            </annotationProcessorPaths>
+                            <annotationProcessors>jace.config.InvokableActionAnnotationProcessor</annotationProcessors>
+                        </configuration>
+                        <version>3.11.0</version>
+                    </plugin>        
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>firstRun</id>
+            <activation>
+                <file>
+                    <missing>target/classes</missing>
+                </file>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <source>17</source>
+                            <target>17</target>
+                        </configuration>
+                        <version>3.11.0</version>
+                    </plugin>        
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <id>lwjgl-natives-linux-amd64</id>
             <activation>
