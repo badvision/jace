@@ -65,13 +65,13 @@ public class Apple2e extends Computer {
     @ConfigurableField(name = "Slot 1", shortName = "s1card")
     public DeviceSelection<Cards> card1 = new DeviceSelection<>(Cards.class, null);
     @ConfigurableField(name = "Slot 2", shortName = "s2card")
-    public DeviceSelection<Cards> card2 = new DeviceSelection<>(Cards.class, null);
+    public DeviceSelection<Cards> card2 = new DeviceSelection<>(Cards.class, Cards.AppleMouse, true);
     @ConfigurableField(name = "Slot 3", shortName = "s3card")
     public DeviceSelection<Cards> card3 = new DeviceSelection<>(Cards.class, null);
     @ConfigurableField(name = "Slot 4", shortName = "s4card")
-    public DeviceSelection<Cards> card4 = new DeviceSelection<>(Cards.class, null);
+    public DeviceSelection<Cards> card4 = new DeviceSelection<>(Cards.class, Cards.Mockingboard, true);
     @ConfigurableField(name = "Slot 5", shortName = "s5card")
-    public DeviceSelection<Cards> card5 = new DeviceSelection<>(Cards.class, null);
+    public DeviceSelection<Cards> card5 = new DeviceSelection<>(Cards.class, Cards.RamFactor, true);
     @ConfigurableField(name = "Slot 6", shortName = "s6card")
     public DeviceSelection<Cards> card6 = new DeviceSelection<>(Cards.class, Cards.DiskIIDrive, true);
     @ConfigurableField(name = "Slot 7", shortName = "s7card")

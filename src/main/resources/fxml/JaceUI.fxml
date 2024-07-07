@@ -100,19 +100,6 @@
                             <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                           </rowConstraints>
                            <children>
-                              <Label alignment="CENTER_RIGHT" styleClass="musicLabel" textAlignment="RIGHT">Music:</Label>
-                              <ComboBox fx:id="musicSelection" GridPane.columnIndex="1" GridPane.hgrow="ALWAYS">
-                                 <items>
-                                    <FXCollections fx:factory="observableArrayList">
-                                       <String fx:value="8-bit Chipmusic" />
-                                       <String fx:value="8-bit Orchestral samples" />
-                                       <String fx:value="None" />
-                                    </FXCollections>
-                                 </items>
-                                 <value>
-                                    <String fx:value="8-bit Chipmusic" />
-                                 </value>
-                              </ComboBox>
                               <Label alignment="CENTER_RIGHT" prefHeight="53.0" prefWidth="201.0" styleClass="musicLabel" text="Speaker:" textAlignment="RIGHT" GridPane.rowIndex="1" />
                               <Slider fx:id="speakerToggle" blockIncrement="1.0" majorTickUnit="1.0" max="1.0" maxWidth="32.0" minWidth="32.0" minorTickCount="0" prefWidth="32.0" snapToTicks="true" GridPane.columnIndex="1" GridPane.rowIndex="1" />
                            </children>
