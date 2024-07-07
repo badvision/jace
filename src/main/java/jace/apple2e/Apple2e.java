@@ -365,28 +365,28 @@ public class Apple2e extends Computer {
             return;
         }
         int row = 2;
-        for (String s : new String[]{
-            "              Welcome to",
-            "         _    __    ___   ____ ",
-            "        | |  / /\\  / / ` | |_  ",
-            "      \\_|_| /_/--\\ \\_\\_, |_|__ ",
-            "",
-            "    Java Apple Computer Emulator",
-            "",
-            "     Presented by Brendan Robert",
-            "  https://github.com/badvision/jace",
-            "",
-            "To insert a disk, please drag it over",
-            "this window and drop on the desired",
-            "drive icon.",
-            "",
-            "Press CTRL+SHIFT+C for configuration.",
-            "Press CTRL+SHIFT+I for IDE window.",
-            "",
-            "O-A: Alt/Option",
-            "C-A: Shortcut/Command",
-            "Reset: Delete/Backspace"
-        }) {
+        for (String s : """
+                          Welcome to
+                     _    __    ___   ____ 
+                    | |  / /\\  / / ` | |_
+                  \\_|_| /_/--\\ \\_\\_, |_|__
+            
+                Java Apple Computer Emulator
+            
+                 Presented by Brendan Robert
+              https://github.com/badvision/jace
+            
+            To insert a disk, please drag it over
+            this window and drop on the desired
+            drive icon.
+            
+            Press CTRL+SHIFT+C for configuration.
+            Press CTRL+SHIFT+I for IDE window.
+            
+            O-A: Alt/Option
+            C-A: Shortcut/Command
+            Reset: Delete/Backspace"""
+        .split("\n")) {
             int addr = 0x0401 + VideoDHGR.calculateTextOffset(row++);
             for (char c : s.toCharArray()) {
                 getMemory().write(addr++, (byte) (c | 0x080), false, true);
