@@ -373,7 +373,7 @@ public class Apple2e extends Computer {
             "",
             "    Java Apple Computer Emulator",
             "",
-            "    Presented by: Brendan Robert",
+            "     Presented by Brendan Robert",
             "  https://github.com/badvision/jace",
             "",
             "To insert a disk, please drag it over",
