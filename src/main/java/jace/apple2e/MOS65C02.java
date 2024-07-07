@@ -21,7 +21,6 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import jace.Emulator;
 import jace.config.ConfigurableField;
 import jace.core.CPU;
 import jace.core.RAMEvent.TYPE;
