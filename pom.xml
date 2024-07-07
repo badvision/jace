@@ -6,10 +6,10 @@
 
     <groupId>org.badvision</groupId>
     <artifactId>jace</artifactId>
-    <version>3.0</version>
+    <version>3.1</version>
     <packaging>jar</packaging>
 
-    <name>JaceApplication</name>
+    <name>Jace</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -24,7 +24,7 @@
     </organization>
 
     <build>
-        <finalName>JaceApplication</finalName>
+        <finalName>Jace</finalName>
         <plugins>
             <plugin>
                 <groupId>com.gluonhq</groupId>
@@ -32,7 +32,7 @@
                 <version>1.0.22</version>
                 <configuration>
                     <mainClass>jace.JaceApplication</mainClass>
-                    <resourcesList>
+                    <resourcesList>ceAppl
                         <resource>.*</resource>
                     </resourcesList>
                     <releaseConfiguration>
@@ -281,7 +281,7 @@
                                 <path>
                                     <groupId>org.badvision</groupId>
                                     <artifactId>jace</artifactId>
-                                    <version>3.0</version>
+                                    <version>3.1</version>
                                 </path>
                             </annotationProcessorPaths>
                             <annotationProcessors>jace.config.InvokableActionAnnotationProcessor</annotationProcessors>
