@@ -41,6 +41,7 @@ import jace.core.Utility;
 import jace.core.Utility.OS;
 import jace.state.Stateful;
 import javafx.application.Platform;
+import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.stage.Stage;
 
@@ -280,6 +281,38 @@ public class Joystick extends Device {
                 joyY = (int) (event.getY() / stage.getHeight() * 255);
             }
         });
+        stage.addEventHandler(MouseEvent.MOUSE_PRESSED, event -> {
+            if (!useKeyboard && !selectedPhysicalController()) {
+                if (event.getButton() == MouseButton.PRIMARY) {
+                    if (port == 0) {
+                        SoftSwitches.PB0.getSwitch().setState(true);                       
+                        Keyboard.isOpenApplePressed = true;
+                    } else {
+                        SoftSwitches.PB2.getSwitch().setState(true);
+                    }
+                } 
+                
+                if (event.getButton() == MouseButton.SECONDARY) {
+                    Keyboard.isClosedApplePressed = true;
+                    SoftSwitches.PB1.getSwitch().setState(true);
+                }
+            }
+        });
+        stage.addEventHandler(MouseEvent.MOUSE_RELEASED, event -> {
+            if (event.getButton() == MouseButton.PRIMARY) {
+                if (port == 0) {
+                    SoftSwitches.PB0.getSwitch().setState(false);
+                    Keyboard.isOpenApplePressed = false;
+                } else {
+                    SoftSwitches.PB2.getSwitch().setState(false);
+                }
+            } 
+            
+            if (event.getButton() == MouseButton.SECONDARY) {
+                Keyboard.isClosedApplePressed = false;
+                SoftSwitches.PB1.getSwitch().setState(false);
+            }
+       });
         this.port = port;
         if (port == 0) {
             xSwitch = (MemorySoftSwitch) SoftSwitches.PDL0.getSwitch();
