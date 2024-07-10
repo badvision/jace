@@ -579,7 +579,9 @@ public class Joystick extends Device {
 
     @InvokableAction(name = "Left", category = "joystick", defaultKeyMapping = "left", notifyOnRelease = true)
     public boolean joystickLeft(boolean pressed) {
-        if (!isAttached || !useKeyboard) {
+        System.out.println("LEFT "+pressed);
+        if (!useKeyboard) {
+            System.out.println("(ignored)");
             return false;
         }
         leftPressed = pressed;
@@ -591,7 +593,9 @@ public class Joystick extends Device {
 
     @InvokableAction(name = "Right", category = "joystick", defaultKeyMapping = "right", notifyOnRelease = true)
     public boolean joystickRight(boolean pressed) {
-        if (!isAttached || !useKeyboard) {
+        System.out.println("RIGHT "+pressed);
+        if (!useKeyboard) {
+            System.out.println("(ignored)");
             return false;
         }
         rightPressed = pressed;
@@ -603,7 +607,9 @@ public class Joystick extends Device {
 
     @InvokableAction(name = "Up", category = "joystick", defaultKeyMapping = "up", notifyOnRelease = true)
     public boolean joystickUp(boolean pressed) {
-        if (!isAttached || !useKeyboard) {
+        System.out.println("UP!");
+        if (!useKeyboard) {
+            System.out.println("(ignored)");
             return false;
         }
         upPressed = pressed;
@@ -615,7 +621,9 @@ public class Joystick extends Device {
 
     @InvokableAction(name = "Down", category = "joystick", defaultKeyMapping = "down", notifyOnRelease = true)
     public boolean joystickDown(boolean pressed) {
-        if (!isAttached || !useKeyboard) {
+        System.out.println("DOWN!");
+        if (!useKeyboard) {
+            System.out.println("(ignored)");
             return false;
         }
         downPressed = pressed;
