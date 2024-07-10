@@ -214,7 +214,7 @@ public class ConfigurationUIController {
         Text widget = new Text(value);
         widget.setWrappingWidth(180.0);
         widget.getStyleClass().add("setting-keyboard-value");
-        widget.setOnMouseClicked((event) -> editKeyboardShortcut(node, actionName, widget));
+        // widget.setOnMouseClicked((event) -> editKeyboardShortcut(node, actionName, widget));
         label.setLabelFor(widget);
         row.getChildren().add(label);
         row.getChildren().add(widget);
