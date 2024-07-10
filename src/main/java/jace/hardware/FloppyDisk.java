@@ -155,15 +155,21 @@ public class FloppyDisk {
             
             if (sectorOrder == SectorOrder.UNKNOWN) {
                 if (isProdosVolumeBlock(nibbles, 0x0400)) {
-                    System.out.println("Prodos volume block found at 0x0400");
+                    if (DEBUG) {
+                        System.out.println("Prodos volume block found at 0x0400");
+                    }
                     sectorOrder = SectorOrder.PRODOS;
                 } else if (isProdosVolumeBlock(nibbles, 0x0B00)) {
-                    System.out.println("Prodos volume block found at 0x0A00");
+                    if (DEBUG) {
+                        System.out.println("Prodos volume block found at 0x0B00");
+                    }
                     sectorOrder = SectorOrder.DOS;
                 }
             }
             if (sectorOrder == SectorOrder.UNKNOWN) {
-                System.out.println("Assuming sector order based on file extension");
+                if (DEBUG) {
+                    System.out.println("Assuming sector order based on file extension");
+                }
                 sectorOrder = assumedOrder;
             }
             System.out.println(null == sectorOrder ? "Sector order is null" : "Sector order is " + sectorOrder.name());
