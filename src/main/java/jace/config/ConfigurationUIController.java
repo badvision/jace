@@ -99,6 +99,16 @@ public class ConfigurationUIController {
         String current = getCurrentNodePath();
         getExpandedNodes("", deviceTree.getRoot(), expanded);
         deviceTree.setRoot(Configuration.BASE);
+        for (ConfigNode node : Configuration.BASE.getChildren()) {
+            String prefix = node.name;
+            expanded.add(prefix);
+            for (ConfigNode child : node.getChildren()) {
+                expanded.add(prefix + DELIMITER + child.toString());
+                for (ConfigNode grandchild : node.getChildren()) {
+                    expanded.add(prefix + DELIMITER + child.toString() + DELIMITER + grandchild.toString());
+                }   
+            }
+        }
         setExpandedNodes("", deviceTree.getRoot(), expanded);
         setCurrentNodePath(current);
     }
