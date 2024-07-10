@@ -41,9 +41,9 @@ import jace.core.Utility;
 import jace.core.Utility.OS;
 import jace.state.Stateful;
 import javafx.application.Platform;
+import javafx.scene.Scene;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
-import javafx.stage.Stage;
 
 
 /**
@@ -272,16 +272,16 @@ public class Joystick extends Device {
         if (JaceApplication.getApplication() == null) {
             return;
         }
-        Stage stage = JaceApplication.getApplication().primaryStage;
+        Scene scene = JaceApplication.getApplication().primaryStage.getScene();
         // Register a mouse handler on the primary stage that tracks the 
         // mouse x/y position as a percentage of window width and height
-        stage.addEventHandler(MouseEvent.MOUSE_MOVED, event -> {
+        scene.addEventHandler(MouseEvent.MOUSE_MOVED, event -> {
             if (!useKeyboard && !selectedPhysicalController()) {
-                joyX = (int) (event.getX() / stage.getWidth() * 255);
-                joyY = (int) (event.getY() / stage.getHeight() * 255);
+                joyX = (int) (event.getX() / scene.getWidth() * 255);
+                joyY = (int) (event.getY() / scene.getHeight() * 255);
             }
         });
-        stage.addEventHandler(MouseEvent.MOUSE_PRESSED, event -> {
+        scene.addEventHandler(MouseEvent.MOUSE_PRESSED, event -> {
             if (!useKeyboard && !selectedPhysicalController()) {
                 if (event.getButton() == MouseButton.PRIMARY) {
                     if (port == 0) {
@@ -298,7 +298,7 @@ public class Joystick extends Device {
                 }
             }
         });
-        stage.addEventHandler(MouseEvent.MOUSE_RELEASED, event -> {
+        scene.addEventHandler(MouseEvent.MOUSE_RELEASED, event -> {
             if (event.getButton() == MouseButton.PRIMARY) {
                 if (port == 0) {
                     SoftSwitches.PB0.getSwitch().setState(false);
