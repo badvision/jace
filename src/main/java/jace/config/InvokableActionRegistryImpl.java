@@ -197,11 +197,11 @@ public class InvokableActionRegistryImpl extends InvokableActionRegistry {
                 logger.log(Level.SEVERE, "Error invoking jace.core.Computer.pause", ex);
                 return false;
             }
-        });
+        });        
         annotation = createInvokableAction("Reset", "general", "Process user-initatiated reboot (ctrl+apple+reset)", "reboot;reset;three-finger-salute;restart", true, false, new String[]{"Ctrl+Ignore Alt+Ignore Meta+Backspace", "Ctrl+Ignore Alt+Ignore Meta+Delete"});
-        putInstanceAction(annotation.name(), jace.core.Computer.class, annotation, (o, b) -> {
+        putStaticAction(annotation.name(), jace.core.Computer.class, annotation, (b) -> {
             try {
-                ((jace.core.Computer) o).invokeReset();
+                jace.core.Computer.invokeReset();
             } catch (Exception ex) {
                 logger.log(Level.SEVERE, "Error invoking jace.core.Computer.invokeWarmStart", ex);
             }

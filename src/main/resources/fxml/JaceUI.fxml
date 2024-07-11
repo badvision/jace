@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.String?>
-<?import javafx.collections.FXCollections?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.Slider?>
 <?import javafx.scene.image.Image?>
@@ -19,9 +16,9 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.TilePane?>
 
-<AnchorPane id="AnchorPane" fx:id="rootPane" prefHeight="384.0" prefWidth="560.0" style="-fx-background-color: black;" stylesheets="@../styles/style.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.JaceUIController">
+<AnchorPane id="AnchorPane" fx:id="rootPane" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" style="-fx-background-color: black;" stylesheets="@../styles/style.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="jace.JaceUIController">
     <children>
-      <StackPane fx:id="stackPane" prefHeight="384.0" prefWidth="560.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+      <StackPane fx:id="stackPane" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
          <children>
             <ImageView fx:id="appleScreen" fitHeight="384.0" fitWidth="560.0" pickOnBounds="true" style="-fx-background-color: BLACK;" />
             <HBox fx:id="notificationBox" alignment="BOTTOM_RIGHT" fillHeight="false" maxHeight="45.0" minHeight="45.0" mouseTransparent="true" prefHeight="45.0" prefWidth="560.0" StackPane.alignment="BOTTOM_CENTER" />
@@ -30,7 +27,7 @@
                   <Button fx:id="menuButton" layoutX="494.0" layoutY="14.0" mnemonicParsing="false" styleClass="menuButton" text="☰" AnchorPane.rightAnchor="14.0" AnchorPane.topAnchor="14.0" />
                </children>
             </AnchorPane>
-            <BorderPane fx:id="controlOverlay" visible="false">
+            <BorderPane fx:id="controlOverlay" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308">
                <center>
                   <HBox maxHeight="64.0" prefHeight="64.0" styleClass="uiSpeedSlider" BorderPane.alignment="CENTER">
                      <children>
@@ -68,7 +65,7 @@
                <top>
                   <HBox fillHeight="false" nodeOrientation="LEFT_TO_RIGHT" BorderPane.alignment="CENTER">
                      <children>
-                        <TilePane hgap="5.0" nodeOrientation="LEFT_TO_RIGHT" vgap="5.0" HBox.hgrow="NEVER">
+                        <TilePane hgap="5.0" nodeOrientation="LEFT_TO_RIGHT" prefColumns="2" vgap="5.0" HBox.hgrow="NEVER">
                            <children>
                               <Button contentDisplay="TOP" mnemonicParsing="false" styleClass="uiActionButton" text="Info">
                                  <graphic>
@@ -90,20 +87,30 @@
                               </Button>
                            </children>
                         </TilePane>
-                        <GridPane prefHeight="70.0" prefWidth="467.0">
-                          <columnConstraints>
-                            <ColumnConstraints halignment="RIGHT" hgrow="ALWAYS" minWidth="10.0" prefWidth="100.0" />
-                            <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="10.0" prefWidth="100.0" />
-                          </columnConstraints>
-                          <rowConstraints>
-                            <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                            <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                          </rowConstraints>
-                           <children>
-                              <Label alignment="CENTER_RIGHT" prefHeight="53.0" prefWidth="201.0" styleClass="musicLabel" text="Speaker:" textAlignment="RIGHT" GridPane.rowIndex="1" />
-                              <Slider fx:id="speakerToggle" blockIncrement="1.0" majorTickUnit="1.0" max="1.0" maxWidth="32.0" minWidth="32.0" minorTickCount="0" prefWidth="32.0" snapToTicks="true" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                           </children>
-                        </GridPane>
+                        <BorderPane HBox.hgrow="ALWAYS">
+                           <right>
+                              <GridPane alignment="TOP_RIGHT" BorderPane.alignment="CENTER">
+                                <columnConstraints>
+                                  <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES" />
+                                  <ColumnConstraints halignment="LEFT" hgrow="NEVER" minWidth="10.0" />
+                                </columnConstraints>
+                                <rowConstraints>
+                                  <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                </rowConstraints>
+                                 <children>
+                                    <Label alignment="CENTER_RIGHT" styleClass="musicLabel" text="Speaker:" textAlignment="RIGHT" />
+                                    <Slider fx:id="speakerToggle" blockIncrement="1.0" majorTickUnit="1.0" max="1.0" maxWidth="-Infinity" minWidth="-Infinity" minorTickCount="0" prefWidth="32.0" snapToTicks="true" GridPane.columnIndex="1">
+                                       <GridPane.margin>
+                                          <Insets />
+                                       </GridPane.margin>
+                                       <padding>
+                                          <Insets bottom="5.0" top="5.0" />
+                                       </padding>
+                                    </Slider>
+                                 </children>
+                              </GridPane>
+                           </right>
+                        </BorderPane>
                      </children>
                   </HBox>
                </top>
