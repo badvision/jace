@@ -31,6 +31,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
+import javafx.stage.FileChooser;
 import javafx.util.StringConverter;
 
 public class ConfigurationUIController {
@@ -221,9 +222,9 @@ public class ConfigurationUIController {
         return Optional.of(row);
     }
 
-    private void editKeyboardShortcut(ConfigNode node, String actionName, Text widget) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }    
+    // private void editKeyboardShortcut(ConfigNode node, String actionName, Text widget) {
+    //     throw new UnsupportedOperationException("Not supported yet.");
+    // }    
     
     @SuppressWarnings("all")
     private Node buildEditField(ConfigNode node, String settingName, Serializable value) {
@@ -247,11 +248,38 @@ public class ConfigurationUIController {
                 return buildTextField(node, settingName, value, null);
             }
         } else if (type.equals(File.class)) {
-            // TODO: Add file support!
+            return buildFileField(node, settingName, value);
         } else if (ISelection.class.isAssignableFrom(type)) {
             return buildDynamicSelectComponent(node, settingName, value);
         }
         return null;
+    }
+
+    // NOTE: This was written but not tested/used currently.  Test before using!
+    private Node buildFileField(ConfigNode node, String settingName, Serializable value) {
+        // Create a label that shows the name of the file and lets you select a file when the label is clicked.
+        HBox hbox = new HBox();
+        Label label = new Label(value == null ? "" : ((File) value).getName()); 
+        label.setMinWidth(150.0);
+        label.getStyleClass().add("setting-file-label");
+        label.setOnMouseClicked((e) -> {
+            FileChooser fileChooser = new FileChooser();
+            File file = fileChooser.showOpenDialog(label.getScene().getWindow());
+            if (file != null) {
+                node.setFieldValue(settingName, file);
+                label.setText(file.getName());
+            }
+        });
+        hbox.getChildren().add(label);
+        // Add a button that lets you clear the file selection.
+        Label clearButton = new Label("Clear");
+        clearButton.getStyleClass().add("setting-file-clear");
+        clearButton.setOnMouseClicked((e) -> {
+            node.setFieldValue(settingName, null);
+            label.setText("");
+        });
+        return hbox;
+
     }
 
     private Node buildTextField(ConfigNode node, String settingName, Serializable value, String validationPattern) {
