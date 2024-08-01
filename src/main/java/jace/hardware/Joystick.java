@@ -201,6 +201,7 @@ public class Joystick extends Device {
             selections.put("", "***Empty***");
             for (int i = GLFW.GLFW_JOYSTICK_1; i <= GLFW.GLFW_JOYSTICK_LAST; i++) {
                 if (GLFW.glfwJoystickPresent(i)) {
+                    // System.out.println("Detected " + GLFW.glfwGetJoystickName(i) + ": " + GLFW.glfwGetJoystickGUID(i));
                     selections.put(GLFW.glfwGetJoystickName(i), GLFW.glfwGetJoystickName(i));
                 }
             }
@@ -335,6 +336,7 @@ public class Joystick extends Device {
                 System.out.println("Using device for joystick: " + glfwController.getValue());
                 useKeyboard = false;
                 useDPad = true;
+                reconfigure();
             } else {
                 System.out.println("Using device for joystick: " + (useKeyboard ? "keyboard" : "mouse"));
             }
