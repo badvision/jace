@@ -20,3 +20,4 @@ hs_err_pid*
 *.DS_Store
 !/lib/nestedvm.jar
 _acme_tmp*
+.vscode/settings.json
