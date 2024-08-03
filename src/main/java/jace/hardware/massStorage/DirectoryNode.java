@@ -152,7 +152,6 @@ public class DirectoryNode extends DiskNode implements FileFilter {
             end = start + ENTRIES_PER_BLOCK;
         }
         for (int i = start; i < end && i < directoryEntries.size(); i++, offset += FILE_ENTRY_SIZE) {
-            // TODO: Add any parts that are not file entries.
 //            System.out.println("Entry "+i+": "+children.get(i).getName()+"; offset "+offset);
             generateFileEntry(buffer, offset, i);
         }
