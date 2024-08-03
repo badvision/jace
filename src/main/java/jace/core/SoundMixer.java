@@ -135,7 +135,7 @@ public class SoundMixer extends Device {
         soundThreadExecutor.submit(operation, action);
     }
 
-    protected static void initSound() {
+    public static void initSound() {
         if (Utility.isHeadlessMode()) {
             return;
         }

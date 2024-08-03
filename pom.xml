@@ -15,7 +15,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <mainClass>jace.JaceApplication</mainClass>
         <netbeans.hint.license>apache20</netbeans.hint.license>
-        <lwjgl.version>3.3.3</lwjgl.version>
+        <lwjgl.version>3.3.4</lwjgl.version>
     </properties>
 
     <organization>
@@ -29,7 +29,7 @@
             <plugin>
                 <groupId>com.gluonhq</groupId>
                 <artifactId>gluonfx-maven-plugin</artifactId>
-                <version>1.0.22</version>
+                <version>1.0.23</version>
                 <configuration>
                     <mainClass>jace.JaceApplication</mainClass>
                     <resourcesList>ceAppl
@@ -93,7 +93,7 @@
             <plugin>
                 <groupId>org.moditect</groupId>
                 <artifactId>moditect-maven-plugin</artifactId>
-                <version>1.0.0.Final</version>
+                <version>1.2.2.Final</version>
                 <executions>
                     <execution>
                         <?m2e execute onConfiguration,onIncremental?>
@@ -123,7 +123,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
+            <!-- <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.11</version>
@@ -166,7 +166,7 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin> -->
         </plugins>
     </build>
 
@@ -197,31 +197,31 @@
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-base</artifactId>
-            <version>21.0.2</version>
+            <version>21.0.4</version>
             <type>jar</type>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
-            <version>21.0.2</version>
+            <version>21.0.4</version>
             <type>jar</type>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-web</artifactId>
-            <version>21.0.2</version>
+            <version>21.0.4</version>
             <type>jar</type>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-graphics</artifactId>
-            <version>21.0.2</version>
+            <version>21.0.4</version>
             <type>jar</type>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-swing</artifactId>
-            <version>21.0.2</version>
+            <version>21.0.4</version>
             <type>jar</type>
         </dependency>
         <dependency>
@@ -307,7 +307,7 @@
                             <source>17</source>
                             <target>17</target>
                         </configuration>
-                        <version>3.11.0</version>
+                        <version>3.13.0</version>
                     </plugin>        
                 </plugins>
             </build>
@@ -334,6 +334,18 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos</lwjgl.natives>
+            </properties>
+        </profile>
+        <profile>
+            <id>lwjgl-natives-macos-arm64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
             </properties>
         </profile>
         <profile>

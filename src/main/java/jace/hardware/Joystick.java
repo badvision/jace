@@ -201,6 +201,7 @@ public class Joystick extends Device {
             selections.put("", "***Empty***");
             for (int i = GLFW.GLFW_JOYSTICK_1; i <= GLFW.GLFW_JOYSTICK_LAST; i++) {
                 if (GLFW.glfwJoystickPresent(i)) {
+                    // System.out.println("Detected " + GLFW.glfwGetJoystickName(i) + ": " + GLFW.glfwGetJoystickGUID(i));
                     selections.put(GLFW.glfwGetJoystickName(i), GLFW.glfwGetJoystickName(i));
                 }
             }
@@ -321,6 +322,25 @@ public class Joystick extends Device {
             xSwitch = (MemorySoftSwitch) SoftSwitches.PDL2.getSwitch();
             ySwitch = (MemorySoftSwitch) SoftSwitches.PDL3.getSwitch();
         }
+        new Thread(()->{
+            try {
+                // We have to wait for the the library to be loaded and the UI to be active
+                // Otherwise this will fail
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            if (port == 0 && glfwController.getSelections().keySet().size() == 2) {
+                // Get the entry that is not null
+                glfwController.setValue(glfwController.getSelections().keySet().stream().filter(s->s != null && !s.isBlank()).findFirst().get());
+                System.out.println("Using device for joystick: " + glfwController.getValue());
+                useKeyboard = false;
+                useDPad = true;
+                reconfigure();
+            } else {
+                System.out.println("Using device for joystick: " + (useKeyboard ? "keyboard" : "mouse"));
+            }
+        }).start();
     }
     public boolean leftPressed = false;
     public boolean rightPressed = false;
@@ -579,9 +599,7 @@ public class Joystick extends Device {
 
     @InvokableAction(name = "Left", category = "joystick", defaultKeyMapping = "left", notifyOnRelease = true)
     public boolean joystickLeft(boolean pressed) {
-        System.out.println("LEFT "+pressed);
         if (!useKeyboard) {
-            System.out.println("(ignored)");
             return false;
         }
         leftPressed = pressed;
@@ -593,9 +611,7 @@ public class Joystick extends Device {
 
     @InvokableAction(name = "Right", category = "joystick", defaultKeyMapping = "right", notifyOnRelease = true)
     public boolean joystickRight(boolean pressed) {
-        System.out.println("RIGHT "+pressed);
         if (!useKeyboard) {
-            System.out.println("(ignored)");
             return false;
         }
         rightPressed = pressed;
@@ -607,9 +623,7 @@ public class Joystick extends Device {
 
     @InvokableAction(name = "Up", category = "joystick", defaultKeyMapping = "up", notifyOnRelease = true)
     public boolean joystickUp(boolean pressed) {
-        System.out.println("UP!");
         if (!useKeyboard) {
-            System.out.println("(ignored)");
             return false;
         }
         upPressed = pressed;
@@ -621,9 +635,7 @@ public class Joystick extends Device {
 
     @InvokableAction(name = "Down", category = "joystick", defaultKeyMapping = "down", notifyOnRelease = true)
     public boolean joystickDown(boolean pressed) {
-        System.out.println("DOWN!");
         if (!useKeyboard) {
-            System.out.println("(ignored)");
             return false;
         }
         downPressed = pressed;
