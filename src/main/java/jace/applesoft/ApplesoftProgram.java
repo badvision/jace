@@ -211,7 +211,7 @@ public class ApplesoftProgram {
      * Move variables around to accommodate bigger program
      * @param programEnd Program ending address
      */
-    private void relocateVariables(int programEnd) {
+    public void relocateVariables(int programEnd) {
         Emulator.withMemory(memory->{
             int currentEnd = memory.readWordRaw(END_OF_PROG_POINTER);
             memory.writeWord(END_OF_PROG_POINTER, programEnd, false, true);

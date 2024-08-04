@@ -61,6 +61,10 @@ public class Emulator {
             if (instance.computer != null) {
                 instance.computer.getMotherboard().suspend();
                 instance.computer.getMotherboard().detach();
+                if (instance.computer.getVideo() != null) {
+                    instance.computer.getVideo().suspend();
+                    instance.computer.getVideo().detach();
+                }
             }
         }
         instance = null;

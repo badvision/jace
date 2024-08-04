@@ -81,6 +81,7 @@ public abstract class TimedDevice extends Device {
 
     public final void resetSyncTimer() {
         nextSync = System.nanoTime() + nanosPerInterval;
+        waitUntil = null;
         cycleTimer = 0;
     }
     
@@ -119,9 +120,7 @@ public abstract class TimedDevice extends Device {
 
     public final void setMaxSpeed(boolean enabled) {
         maxspeed = enabled;
-        if (!enabled) {
-            resetSyncTimer();
-        }
+        resetSyncTimer();
     }
 
     public final boolean isMaxSpeedEnabled() {
@@ -129,7 +128,7 @@ public abstract class TimedDevice extends Device {
     }
 
     public final boolean isMaxSpeed() {
-        return forceMaxspeed || maxspeed;
+        return forceMaxspeed || maxspeed || tempSpeedDuration > 0;
     }
 
     public final long getSpeedInHz() {
