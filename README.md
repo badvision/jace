@@ -53,7 +53,7 @@ Because Jace provides an annotation processor for compilation, there is a chicke
 
 ## Support JACE:
 
-JACE will always be free, but it does take considerable time to refine and add new features.  If you would like to show your support and encourage the author to keep maintaining this emulator, why not throw him some change to buy him a drink?  (The emulator was named for the Jack and Cokes consumed during its inception.)
+JACE will always be free, and remain Apache-licensed, but it does take considerable time to refine and add new features.  If you would like to show your support and encourage the author to keep maintaining this emulator, why not throw him some change to buy him a drink?  (The emulator was named for the Jack and Cokes consumed during its inception.)  Also, should you want to use Jace under the terms of the Apache-license for commercial works, you are under no obligation to contribute any source code modifications or royalties to me, but I would appreciate you credit and mention my project and let me know about it.
 
 Donate here to support Jace developement:
 <a href="https://www.paypal.me/BrendanRobert"><img src="images/donate.png" width="64"></a>
