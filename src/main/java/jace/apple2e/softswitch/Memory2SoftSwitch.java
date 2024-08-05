@@ -16,6 +16,7 @@
 
 package jace.apple2e.softswitch;
 
+import jace.core.RAMEvent;
 import jace.core.RAMEvent.TYPE;
 
 /**
@@ -23,32 +24,30 @@ import jace.core.RAMEvent.TYPE;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com 
  */
 public class Memory2SoftSwitch extends MemorySoftSwitch {
-    public Memory2SoftSwitch(String name, int offAddress, int onAddress, int queryAddress, TYPE changeType, Boolean initalState) {
-        super(name, offAddress, onAddress, queryAddress, changeType, initalState);
-    }
-
     public Memory2SoftSwitch(String name, int[] offAddrs, int[] onAddrs, int[] queryAddrs, TYPE changeType, Boolean initalState) {
         super(name, offAddrs, onAddrs, queryAddrs, changeType, initalState);
     }
     
-    // The switch must be set true two times in a row before it will actually be set.
-    int count = 0;
+    int readCount = 0;
     @Override
-    public void setState(boolean newState) {
+    public void setState(boolean newState, RAMEvent e) {
         if (!newState) {
-            count = 0;
-            super.setState(newState);
+            super.setState(false);
+            readCount = 0;
         } else {
-            count++;
-            if (count >= 2) {
-                super.setState(newState);
-                count = 0;
+            if (e.getType().isRead()) {
+                readCount++;
+            } else {
+                readCount = 0;
+            }
+            if (readCount >= 2) {
+                super.setState(true);
             }
         }
     }
 
     @Override
     public String toString() {
-        return getName()+(getState()?":1":":0")+"~~"+count;
+        return getName()+(getState()?":1":":0")+"~~"+readCount;
     }
 }

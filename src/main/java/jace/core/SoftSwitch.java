@@ -114,8 +114,7 @@ public abstract class SoftSwitch {
                 @Override
                 protected void doEvent(RAMEvent e) {
                     if (!exclusionActivate.contains(e.getAddress())) {
-                        //                        System.out.println("Access to "+Integer.toHexString(e.getAddress())+" ENABLES switch "+getName());
-                        setState(!getState());
+                        setState(!getState(), e);
                     }
                 }
             };
@@ -148,7 +147,7 @@ public abstract class SoftSwitch {
                         }
                         if (!exclusionActivate.contains(e.getAddress())) {
                             // System.out.println("Access to "+Integer.toHexString(e.getAddress())+" ENABLES switch "+getName());
-                            setState(true);
+                            setState(true, e);
                         }
                     }
                 };
@@ -177,7 +176,7 @@ public abstract class SoftSwitch {
                     @Override
                     protected void doEvent(RAMEvent e) {
                         if (!exclusionDeactivate.contains(e.getAddress())) {
-                            setState(false);
+                            setState(false, e);
                             // System.out.println("Access to "+Integer.toHexString(e.getAddress())+" disables switch "+getName());
                         }
                     }
@@ -248,6 +247,12 @@ public abstract class SoftSwitch {
         Emulator.withMemory(m -> {
             listeners.forEach(m::removeListener);
         });
+    }
+
+    // Most softswitches act the same regardless of the ram event triggering them
+    // But some softswitches are a little tricky (such as language card write) and need to assert extra conditions
+    public void setState(boolean newState, RAMEvent e) {
+        setState(newState);
     }
 
     public void setState(boolean newState) {

@@ -246,10 +246,10 @@ public class TestProgram {
     private void handleTrace(byte val) {
         if (val == (byte)0x01) {
             System.out.println("Trace on");
-            Full65C02Test.cpu.setTraceEnabled(true);
+            Emulator.withComputer(c->c.getCpu().setTraceEnabled(true));
         } else {
             System.out.println("Trace off");
-            Full65C02Test.cpu.setTraceEnabled(false);
+            Emulator.withComputer(c->c.getCpu().setTraceEnabled(false));
         }
     }
 
@@ -271,6 +271,13 @@ public class TestProgram {
 
     public TestProgram add(String line) {
         lines.add(line);
+        return this;
+    }
+
+    public TestProgram assertEquals(String message) {
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        String caller = stackTrace[2].toString();
+        _test(TestProgram.INDENT + TestProgram.Flag.IS_ZERO.code, message + "<<" + caller + ">>");
         return this;
     }
 
@@ -372,7 +379,11 @@ public class TestProgram {
             +throwError %s
         +   ; >> Test """.formatted(condition, code, errorNum));
     }
-    
+   
+    public TestProgram throwError(String error) {
+        _test("", error);
+        return this;
+    }
     /**
      * Note the current breakpoint, helpful in understanding error locations
      * 
@@ -447,6 +458,12 @@ public class TestProgram {
             for (int i=0; i < maxTicks; i++) {
                 cpu.doTick();
                 tickCount++;
+                if (cpu.interruptSignalled) {
+                    if (lastError == null) {
+                        lastError = new ProgramException("Interrupt signalled by BRK opcode", lastBreakpoint);
+                    }
+                    programReportedError=true;
+                }
                 if (programReportedError) {
                     throw lastError;
                 }
