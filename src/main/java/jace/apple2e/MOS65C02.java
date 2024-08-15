@@ -415,7 +415,7 @@ public class MOS65C02 extends CPU {
             int address2 = cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             int address = 0x0FFFF & (address2 + cpu.X);
             // False read
-            cpu.getMemory().read(address, TYPE.READ_DATA, true, false);
+            cpu.getMemory().read(address, TYPE.READ_FAKE, true, false);
             cpu.setPageBoundaryPenalty((address & 0x00ff00) != (address2 & 0x00ff00));
             cpu.setPageBoundaryApplied(true);
             return address;
@@ -424,7 +424,7 @@ public class MOS65C02 extends CPU {
             int address2 = cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             int address = 0x0FFFF & (address2 + cpu.Y);
             // False read
-            cpu.getMemory().read(address, TYPE.READ_DATA, true, false);
+            cpu.getMemory().read(address, TYPE.READ_FAKE, true, false);
             cpu.setPageBoundaryPenalty((address & 0x00ff00) != (address2 & 0x00ff00));
             cpu.setPageBoundaryApplied(true);
             return address;

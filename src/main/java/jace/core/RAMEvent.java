@@ -40,6 +40,7 @@ public class RAMEvent {
         READ(true),
         READ_DATA(true),
         READ_OPERAND(true),
+        READ_FAKE(true),
         EXECUTE(true),
         WRITE(false),
         ANY(false);

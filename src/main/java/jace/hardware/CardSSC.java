@@ -333,6 +333,8 @@ public class CardSSC extends Card {
                         }
                     }
                     break;
+                case READ_FAKE:
+                    return;
             }
             if (newValue > -1) {
                 e.setNewValue(newValue);

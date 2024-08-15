@@ -86,6 +86,9 @@ public class CardDiskII extends Card implements MediaConsumerParent {
 
     @Override
     protected void handleIOAccess(int register, RAMEvent.TYPE type, int value, RAMEvent e) {
+        if (type == TYPE.READ_FAKE) {
+            return;
+        }
         // handle Disk ][ registers
         switch (register) {
             case 0x0:
