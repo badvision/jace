@@ -188,15 +188,18 @@ RESETALL
     sta CSW
     lda #>COUT1
     sta CSW+1
-    sta RESET_RAMRD
-    sta RESET_RAMWRT
+    ; Zelly's original test resets flags, but we might want to test with flags set.
+    ; So only reset softswitches that don't affect memory state.
+    ; Anyway, our @before setup function does this part already.
+    ;sta RESET_RAMRD
+    ;sta RESET_RAMWRT
     ;; Save return address in X and A, in case we switch zero-page memory.
-    sta RESET_80STORE
+    ;sta RESET_80STORE
     sta RESET_INTCXROM
-    sta RESET_ALTZP
+    ;sta RESET_ALTZP
     sta RESET_SLOTC3ROM
     sta RESET_INTC8ROM
-    sta RESET_80COL
+    ;sta RESET_80COL
     sta RESET_ALTCHRSET
     sta SET_TEXT
     sta RESET_MIXED

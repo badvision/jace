@@ -194,7 +194,7 @@ public class MemoryTest {
      * @throws ProgramException
      */
     @Test
-    public void machineIdentificationTEst() throws ProgramException {
+    public void machineIdentificationTest() throws ProgramException {
         TestProgram memoryDetectTestProgram = new TestProgram(MEMORY_TEST_COMMONS);
         memoryDetectTestProgram.add(MACHINE_IDENTIFICATION);
         // Assert this is an Apple //e
@@ -500,6 +500,17 @@ public class MemoryTest {
             !byte $23, $34, $11, $23, $34
             !byte 0
         """)
-        .runForTicks(10000000);
+        // .runForTicks(10000000);
+        .run();
+    }
+
+    @Test
+    public void auxLanguageCardTest() throws ProgramException {
+        // This is a repeat of the LC test but with AUX enabled
+        SoftSwitches.AUXZP.getSwitch().setState(true);
+        SoftSwitches.RAMRD.getSwitch().setState(true);
+        SoftSwitches.RAMWRT.getSwitch().setState(true);
+        SoftSwitches._80STORE.getSwitch().setState(true);
+        languageCardBankswitchTest();        
     }
 }
