@@ -38,7 +38,7 @@ public class MemorySoftSwitch extends SoftSwitch {
 
     @Override
     public void stateChanged() {
-//        System.out.println(getName()+ " was switched to "+getState());
+    //    System.out.println(getName()+ " was switched to "+getState());
         Emulator.withMemory(m->m.configureActiveMemory());
     }
 

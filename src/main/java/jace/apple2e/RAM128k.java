@@ -194,9 +194,9 @@ abstract public class RAM128k extends RAM {
     public String getReadConfiguration() {
         String rstate = "";
         if (SoftSwitches.RAMRD.getState()) {
-            rstate += "Ra";
+            rstate += "Ra_";
         } else {
-            rstate += "R0";
+            rstate += "R0_";
         }
         String LCR = "L0R";
         if (SoftSwitches.LCRAM.isOn()) {
@@ -214,16 +214,16 @@ abstract public class RAM128k extends RAM {
         }
         rstate += LCR;
         if (SoftSwitches.CXROM.getState()) {
-            rstate += "CXROM";
+            rstate += "_CXROM";
         } else {
-            rstate += "!CX";
+            rstate += "_!CX";
             if (SoftSwitches.SLOTC3ROM.isOff()) {
-                rstate += "C3";
+                rstate += "_C3";
             }
             if (SoftSwitches.INTC8ROM.isOn()) {
-                rstate += "C8";
+                rstate += "_C8";
             } else {
-                rstate += "C8"+getActiveSlot();
+                rstate += "_C8"+getActiveSlot();
             }
         }
 
@@ -233,9 +233,9 @@ abstract public class RAM128k extends RAM {
     public String getWriteConfiguration() {
         String wstate = "";
         if (SoftSwitches.RAMWRT.getState()) {
-            wstate += "Wa";
+            wstate += "Wa_";
         } else {
-            wstate += "W0";
+            wstate += "W0_";
         }
         String LCW = "L0W";
         if (SoftSwitches.LCWRITE.isOn()) {
@@ -256,22 +256,26 @@ abstract public class RAM128k extends RAM {
     }
 
     public String getAuxZPConfiguration() {
-        String astate = "";
+        String astate = "__";
         if (SoftSwitches._80STORE.isOn()) {
-            astate += "80S";
+            astate += "80S_";
             if (SoftSwitches.PAGE2.isOn()) {
-                astate += "2";
+                astate += "P2_";
+            } else {
+                astate += "P1_";
             }
             if (SoftSwitches.HIRES.isOn()) {
-                astate += "H";
+                astate += "H1_";
+            } else {
+                astate += "H0_";
             }
         }
 
         // Handle zero-page bankswitching
         if (SoftSwitches.AUXZP.getState()) {
-            astate += "Za";
+            astate += "Za_";
         } else {
-            astate += "Z0";
+            astate += "Z0_";
         }
         return astate;
     }
@@ -417,7 +421,8 @@ abstract public class RAM128k extends RAM {
         state = newState;
 
         log("MMU Switches");
-
+        // System.out.println("read: " + readConfiguration);
+        // System.out.println("write: " + writeConfiguration);
         if (memoryConfigurations.containsKey(readConfiguration)) {
             activeRead = memoryConfigurations.get(readConfiguration);
         } else {

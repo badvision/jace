@@ -74,11 +74,20 @@ public enum SoftSwitches {
             if (_80STORE.isOn()) {
                 Emulator.withMemory(m->m.configureActiveMemory());
             } else {
-                Emulator.withVideo(v->v.configureVideoMode());
+                super.stateChanged();
             }
         }
     }),
-    HIRES(new VideoSoftSwitch("Hires", 0x0c056, 0x0c057, 0x0c01d, RAMEvent.TYPE.ANY, false)),
+    HIRES(new VideoSoftSwitch("Hires", 0x0c056, 0x0c057, 0x0c01d, RAMEvent.TYPE.ANY, false) {
+        @Override
+        public void stateChanged() {
+            // PAGE2 is a hybrid switch; 80STORE ? memory : video
+            if (_80STORE.isOn()) {
+                Emulator.withMemory(m->m.configureActiveMemory());
+            }
+            super.stateChanged();
+        }
+    }),
     DHIRES(new VideoSoftSwitch("Double-hires", 0x0c05f, 0x0c05e, 0x0c07f, RAMEvent.TYPE.ANY, false)),
     PB0(new MemorySoftSwitch("Pushbutton0", -1, -1, 0x0c061, RAMEvent.TYPE.ANY, null)),
     PB1(new MemorySoftSwitch("Pushbutton1", -1, -1, 0x0c062, RAMEvent.TYPE.ANY, null)),

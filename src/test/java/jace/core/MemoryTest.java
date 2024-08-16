@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.MessageFormat;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Before;
@@ -36,6 +37,7 @@ import jace.TestProgram;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
+import jace.core.RAMEvent.TYPE;
 
 /**
  * Test that memory listeners fire appropriately.
@@ -68,9 +70,13 @@ public class MemoryTest {
     }
 
     @Before
-    public void setup() {
+    public void resetEmulator() {
         computer.pause();
         cpu.clearState();
+    }
+
+    @Before
+    public void resetSoftSwitches() {    
         // Reset softswitches
         for (SoftSwitches softswitch : SoftSwitches.values()) {
             softswitch.getSwitch().reset();
@@ -229,7 +235,6 @@ public class MemoryTest {
             sta $FE1F		; FE1F is $60 in Apple II/plus/e/enhanced
             cmp $FE1F
         """)
-        // 
         .assertEquals("E0005: We tried to put the language card into read RAM, write RAM, but failed to write.")
         .add("""
         	lda $C083		; Read and write bank 2
@@ -512,5 +517,69 @@ public class MemoryTest {
         SoftSwitches.RAMWRT.getSwitch().setState(true);
         SoftSwitches._80STORE.getSwitch().setState(true);
         languageCardBankswitchTest();        
+    }
+    
+    public record MemoryTestCase(int[] softswitches, byte... expected) {}
+
+    int[] testLocations = {
+        0x0FF, 0x100, 0x200, 0x3FF, 0x427, 0x7FF, 0x800, 0x1FFF,
+        0x2000, 0x3FFF, 0x4000, 0x5FFF, 0xBFFF
+    };
+    private void assertMemoryTest(MemoryTestCase testCase) {    
+        // Set the values in memory in main and aux banks
+        // This is done directly to ensure the values are exactly as expected
+        // The next tests will try to read these values using the softswitches
+        for (int location : testLocations) {
+            ((RAM128k) ram).getMainMemory().writeByte(location, (byte) 1);
+            ((RAM128k) ram).getAuxMemory().writeByte(location, (byte) 3);
+        }
+        resetSoftSwitches();
+        
+        for (int softswitch : testCase.softswitches) {
+            System.out.println("Setting softswitch " + Integer.toHexString(softswitch));
+            ram.write(softswitch, (byte) 0, true, false);
+        }
+        for (int i=0; i < testLocations.length; i++) {
+            int address = testLocations[i];
+            byte current = ram.read(address, TYPE.READ_DATA, false, false);
+            ram.write(address, (byte) (current+1), false, false);
+            byte expected = testCase.expected[i];
+            try {
+                assertEquals("Unexpected value at " + Integer.toHexString(address), expected, ram.read(address, TYPE.READ_DATA, false, false));
+            } catch (AssertionError err) {
+                for (SoftSwitches softswitch : SoftSwitches.values()) {
+                    System.out.println(MessageFormat.format("{0}\t{1}", softswitch.name(), (softswitch.isOn() ? "on" : "off")));
+                }
+                throw err;
+            }
+        }
+    }
+
+    @Test
+    public void auxBankSwitchTest() throws ProgramException {
+        byte M1 = (byte) 1; // Main + no change
+        byte M2 = (byte) 2; // Main + 1
+        byte A1 = (byte) 3; // Aux + no change
+        byte A2 = (byte) 4; // Aux + 1
+
+        // 80 STORE + RAMWRT + HIRES / Page 1 (Main mem)
+        assertMemoryTest(new MemoryTestCase(new int[] {0x0C005, 0x0C001, 0x0C057},
+            M2, M2, M1, M1, M2, M2, M1, M1, M2, M2, M1, M1, M1));
+
+        // RAMRD + AUXZP
+        assertMemoryTest(new MemoryTestCase(new int[] {0xC003, 0xC009},
+            A2, A2, A1, A1, A1, A1, A1, A1, A1, A1, A1, A1, A1));
+
+        // RAMRD + MAINZP
+        assertMemoryTest(new MemoryTestCase(new int[] {0xC003, 0xC008},
+            M2, M2, A1, A1, A1, A1, A1, A1, A1, A1, A1, A1, A1));
+
+        // 80 STORE + HIRES' + Page 2
+        assertMemoryTest(new MemoryTestCase(new int[] {0x0C001, 0x0C056, 0x0C055},
+            M2, M2, M2, M2, A2, A2, M2, M2, M2, M2, M2, M2, M2));
+
+        // 80 STORE + HIRES + Page 2
+        assertMemoryTest(new MemoryTestCase(new int[] {0x0C001, 0x0C057, 0x0C055},
+            M2, M2, M2, M2, A2, A2, M2, M2, A2, A2, M2, M2, M2));
     }
 }
