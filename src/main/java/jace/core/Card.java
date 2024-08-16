@@ -17,6 +17,7 @@
 package jace.core;
 
 import jace.apple2e.SoftSwitches;
+import jace.core.RAMEvent.TYPE;
 
 /**
  * Card is an abstraction of an Apple ][ hardware module which can carry its own
@@ -113,6 +114,9 @@ public abstract class Card extends TimedDevice {
         int baseIO = 0x0c080 + slot * 16;
         int baseRom = 0x0c000 + slot * 256;
         ioListener = getMemory().observe("Slot " + getSlot() + " " + getDeviceName() + " IO access", RAMEvent.TYPE.ANY, baseIO, baseIO + 15, (e) -> {
+            if (e.getType() == TYPE.READ_FAKE) {
+                return;
+            }
             int address = e.getAddress() & 0x0f;
             handleIOAccess(address, e.getType(), e.getNewValue(), e);
         });
@@ -121,7 +125,10 @@ public abstract class Card extends TimedDevice {
             getMemory().setActiveCard(slot);
             // Sather 6-4: Writes will still go through even when CXROM inhibits slot ROM
             if (SoftSwitches.CXROM.isOff() || !e.getType().isRead()) {
-                handleFirmwareAccess(e.getAddress() & 0x0ff, e.getType(), e.getNewValue(), e);
+                    if (e.getType() == TYPE.READ_FAKE) {
+                        return;
+                    }
+                    handleFirmwareAccess(e.getAddress() & 0x0ff, e.getType(), e.getNewValue(), e);
             }
         });
 

@@ -140,9 +140,6 @@ public class CardMockingboard extends Card {
     
     @Override
     protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
-        if (type == TYPE.READ_FAKE) {
-            return; 
-        }
         if (chips == null) {
             reconfigure();
         }
