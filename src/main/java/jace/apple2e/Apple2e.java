@@ -413,8 +413,8 @@ public class Apple2e extends Computer {
             animCycleNumber++;
         } else {
             getMemory().write(animAddr, animOldValue, true, true);
-            animationSchedule.cancel(false);
             animAddr = 0;
+            animationSchedule.cancel(true);
         }
     };
 
@@ -422,6 +422,9 @@ public class Apple2e extends Computer {
         if (hints.isEmpty()) {
             hints.add(getMemory().observe("Helpful hints", RAMEvent.TYPE.EXECUTE, 0x0FB63, (e)->{
                 animationTimer.schedule(drawHints, 1, TimeUnit.SECONDS);
+                if (animationSchedule != null) {
+                    animationSchedule.cancel(true);
+                }
                 animationSchedule =
                             animationTimer.scheduleAtFixedRate(doAnimation, 1250, 100, TimeUnit.MILLISECONDS);
             }));
