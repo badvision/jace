@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import jace.apple2e.Full65C02Test;
 import jace.apple2e.MOS65C02;
 import jace.core.Computer;
 
