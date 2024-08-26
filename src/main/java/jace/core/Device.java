@@ -65,6 +65,11 @@ public abstract class Device implements Reconfigurable {
         return _ram;
     }
 
+    // NOTE: This is for unit testing only, don't actually use this for anything else or expect things to be weird.
+    public void setMemory(RAM ram) {
+        _ram = ram;
+    }
+
     Device parentDevice = null;
     public Device getParent() {
         return parentDevice;

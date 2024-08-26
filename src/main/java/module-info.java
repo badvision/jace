@@ -40,6 +40,7 @@ module jace {
     requires org.lwjgl.openal;
     requires org.lwjgl.stb;
     requires org.lwjgl.glfw;
+    requires org.lwjgl;
     
     // requires org.reflections;
     

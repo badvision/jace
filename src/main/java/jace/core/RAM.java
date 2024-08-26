@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 import jace.Emulator;
 import jace.apple2e.SoftSwitches;
 import jace.config.Reconfigurable;
+import jace.core.RAMEvent.TYPE;
 
 /**
  * RAM is a 64K address space of paged memory. It also manages sets of memory
@@ -161,6 +162,14 @@ public abstract class RAM implements Reconfigurable {
     public int readWord(int address, RAMEvent.TYPE eventType, boolean triggerEvent, boolean requireSynchronization) {
         int lsb = 0x00ff & read(address, eventType, triggerEvent, requireSynchronization);
         int msb = (0x00ff & read(address + 1, eventType, triggerEvent, requireSynchronization)) << 8;
+        return msb + lsb;
+    }
+
+    // This is used by opcodes that wrap around page boundaries
+    public int readWordPageWraparound(int address, TYPE eventType, boolean triggerEvent, boolean requireSynchronization) {
+        int lsb = 0x00ff & read(address, eventType, triggerEvent, requireSynchronization);
+        int addr1 = ((address + 1) & 0x0ff) | (address & 0x0ff00);
+        int msb = (0x00ff & read(addr1, eventType, triggerEvent, requireSynchronization)) << 8;
         return msb + lsb;
     }
 

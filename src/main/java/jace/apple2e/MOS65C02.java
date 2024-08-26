@@ -136,7 +136,7 @@ public class MOS65C02 extends CPU {
         BBS6(0x0ef, COMMAND.BBS6, MODE.ZP_REL, 5, true),
         BBS7(0x0ff, COMMAND.BBS7, MODE.ZP_REL, 5, true),
         BEQ_REL0(0x00F0, COMMAND.BEQ, MODE.RELATIVE, 2),
-        BIT_IMM(0x0089, COMMAND.BIT, MODE.IMMEDIATE, 2, true),
+        BIT_IMM(0x0089, COMMAND.BIT, MODE.IMMEDIATE, 3, true),
         BIT_ZP(0x0024, COMMAND.BIT, MODE.ZEROPAGE, 3),
         BIT_ZP_X(0x0034, COMMAND.BIT, MODE.ZEROPAGE_X, 4, true),
         BIT_AB(0x002C, COMMAND.BIT, MODE.ABSOLUTE, 4),
@@ -193,7 +193,8 @@ public class MOS65C02 extends CPU {
         INX(0x00E8, COMMAND.INX, MODE.IMPLIED, 2),
         INY(0x00C8, COMMAND.INY, MODE.IMPLIED, 2),
         JMP_AB(0x004C, COMMAND.JMP, MODE.ABSOLUTE, 3, false, false),
-        JMP_IND(0x006C, COMMAND.JMP, MODE.INDIRECT, 5),
+        // JMP_IND(0x006C, COMMAND.JMP, MODE.INDIRECT_BUGGY, 6),
+        JMP_IND(0x006C, COMMAND.JMP, MODE.INDIRECT, 6),
         JMP_IND_X(0x007C, COMMAND.JMP, MODE.INDIRECT_X, 6, true),
         JSR_AB(0x0020, COMMAND.JSR, MODE.ABSOLUTE, 6, false, false),
         LDA_IMM(0x00A9, COMMAND.LDA, MODE.IMMEDIATE, 2),
@@ -386,6 +387,10 @@ public class MOS65C02 extends CPU {
         ZEROPAGE(2, "$~1", (cpu) -> cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) & 0x00FF),
         ZEROPAGE_X(2, "$~1,X", (cpu) -> 0x0FF & (cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X)),
         ZEROPAGE_Y(2, "$~1,Y", (cpu) -> 0x0FF & (cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.Y)),
+        INDIRECT_BUGGY(3, "$(~2~1)", (cpu) -> {
+            int address = cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
+            return cpu.getMemory().readWordPageWraparound(address, TYPE.READ_DATA, true, false);
+        }),
         INDIRECT(3, "$(~2~1)", (cpu) -> {
             int address = cpu.getMemory().readWord(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
             return cpu.getMemory().readWord(address, TYPE.READ_DATA, true, false);
@@ -396,15 +401,15 @@ public class MOS65C02 extends CPU {
         }),
         INDIRECT_ZP(2, "$(~1)", (cpu) -> {
             int address = cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
-            return cpu.getMemory().readWord(address & 0x0FF, TYPE.READ_DATA, true, false);
+            return cpu.getMemory().readWordPageWraparound(address & 0x0FF, TYPE.READ_DATA, true, false);
         }),
         INDIRECT_ZP_X(2, "$(~1,X)", (cpu) -> {
             int address = cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false) + cpu.X;
-            return cpu.getMemory().readWord(address & 0x0FF, TYPE.READ_DATA, true, false);
+            return cpu.getMemory().readWordPageWraparound(address & 0x0FF, TYPE.READ_DATA, true, false);
         }),
         INDIRECT_ZP_Y(2, "$(~1),Y", (cpu) -> {
             int address = 0x00FF & cpu.getMemory().read(cpu.getProgramCounter() + 1, TYPE.READ_OPERAND, cpu.readAddressTriggersEvent, false);
-            address = cpu.getMemory().readWord(address, TYPE.READ_DATA, true, false);
+            address = cpu.getMemory().readWordPageWraparound(address, TYPE.READ_DATA, true, false);
             int address2 = address + cpu.Y;
             cpu.setPageBoundaryPenalty((address & 0x00ff00) != (address2 & 0x00ff00));
             cpu.setPageBoundaryApplied(true);
@@ -526,7 +531,8 @@ public class MOS65C02 extends CPU {
         public void processCommand(int address, int value, MODE addressMode, MOS65C02 cpu) {
             if ((value & (1 << bit)) == 0) {
                 cpu.setProgramCounter(address);
-                cpu.addWaitCycles(cpu.pageBoundaryPenalty ? 2 : 1);
+                cpu.setPageBoundaryApplied(true);
+                cpu.addWaitCycles(1);
             }
         }
     }
@@ -666,9 +672,9 @@ public class MOS65C02 extends CPU {
         BIT((address, value, addressMode, cpu) -> {
             int result = (cpu.A & value);
             cpu.Z = result == 0;
-            cpu.N = (value & 0x080) != 0;
             // As per http://www.6502.org/tutorials/vflag.html
             if (addressMode != MODE.IMMEDIATE) {
+                cpu.N = (value & 0x080) != 0;
                 cpu.V = (value & 0x040) != 0;
             }
         }),
@@ -831,7 +837,7 @@ public class MOS65C02 extends CPU {
             cpu.push((byte) cpu.A);
         }),
         PHP((address, value, addressMode, cpu) -> {
-            cpu.push((cpu.getStatus()));
+            cpu.push((byte) (cpu.getStatus() | 0x10));
         }),
         PHX((address, value, addressMode, cpu) -> {
             cpu.push((byte) cpu.X);
@@ -969,11 +975,11 @@ public class MOS65C02 extends CPU {
             cpu.setNZ(cpu.Y);
         }),
         TRB((address, value, addressMode, cpu) -> {
-            cpu.C = (value & cpu.A) != 0 ? 1 : 0;
+            cpu.Z = (value & cpu.A) == 0;
             cpu.getMemory().write(address, (byte) (value & ~cpu.A), true, false);
         }),
         TSB((address, value, addressMode, cpu) -> {
-            cpu.C = (value & cpu.A) != 0 ? 1 : 0;
+            cpu.Z = (value & cpu.A) == 0;
             cpu.getMemory().write(address, (byte) (value | cpu.A), true, false);
         }),
         TSX((address, value, addressMode, cpu) -> {
@@ -1061,10 +1067,6 @@ public class MOS65C02 extends CPU {
                     bytes = 2;
                     wait = 2;
                 }
-                case 3, 7, 0x0b, 0x0f -> {
-                    wait = 1;
-                    bytes = 1;
-                }
                 case 4 -> {
                     bytes = 2;
                     if ((op & 0x0f0) == 0x040) {
@@ -1081,8 +1083,12 @@ public class MOS65C02 extends CPU {
                         wait = 4;
                     }
                 }
-                default -> bytes = 2;
+                default -> {
+                    wait = 1;
+                    bytes = 1;
+                }
             }
+            wait--;
             incrementProgramCounter(bytes);
             addWaitCycles(wait);
 
@@ -1129,7 +1135,7 @@ public class MOS65C02 extends CPU {
         return getMemory().read(0x0100 + STACK, TYPE.READ_DATA, true, false);
     }
 
-    private byte getStatus() {
+    public byte getStatus() {
         return (byte) ((N ? 0x080 : 0)
                 | (V ? 0x040 : 0)
                 | 0x020
@@ -1140,10 +1146,17 @@ public class MOS65C02 extends CPU {
                 | ((C > 0) ? 0x01 : 0));
     }
 
-    private void setStatus(byte b) {
+    public void setStatus(byte b) {
+        setStatus(b, false);
+    }
+
+    public void setStatus(byte b, boolean setBreakFlag) {
         N = (b & 0x080) != 0;
         V = (b & 0x040) != 0;
-        // B flag is unaffected in this way.
+        // B flag is normally unaffected in this way, can be bypassed for unit testing
+        if (setBreakFlag) {
+            B = (b & 0x010) != 0;
+        }
         D = (b & 0x08) != 0;
         I = (b & 0x04) != 0;
         Z = (b & 0x02) != 0;
@@ -1171,10 +1184,13 @@ public class MOS65C02 extends CPU {
             LOG.log(Level.WARNING, "BRK at ${0}", Integer.toString(getProgramCounter(), 16));
             dumpTrace();
         }
-        B = true;
+        programCounter++;
+        pushPC();
+        push((byte) (getStatus() | 0x010));
         // 65c02 clears D flag on BRK
+        I = true;
         D = false;
-        interruptSignalled = true;
+        setProgramCounter(getMemory().readWord(INT_VECTOR, TYPE.READ_DATA, true, false));
     }
 
     // Hardware IRQ generated
@@ -1191,10 +1207,10 @@ public class MOS65C02 extends CPU {
         }
         interruptSignalled = false;
         if (!I || B) {
-            I = false;
+            I = true;
             pushWord(getProgramCounter());
             push(getStatus());
-            I = true;
+            B = false;
             int newPC = getMemory().readWord(INT_VECTOR, TYPE.READ_DATA, true, false);
 //            System.out.println("Interrupt generated, setting PC to (" + Integer.toString(INT_VECTOR, 16) + ") = " + Integer.toString(newPC, 16));
             setProgramCounter(newPC);
@@ -1206,6 +1222,7 @@ public class MOS65C02 extends CPU {
     public void reset() {
         pushWord(getProgramCounter());
         push(getStatus());
+        setWaitCycles(0);
         //        STACK = 0x0ff;
 //        B = false;
         B = true;
@@ -1217,7 +1234,7 @@ public class MOS65C02 extends CPU {
 //        Z = true;
         int resetVector = getMemory().readWord(RESET_VECTOR, TYPE.READ_DATA, true, false);
         int newPC = resetVector;
-        LOG.log(Level.WARNING, "Reset called, setting PC to ({0}) = {1}", new Object[]{Integer.toString(RESET_VECTOR, 16), Integer.toString(newPC, 16)});
+        // LOG.log(Level.WARNING, "Reset called, setting PC to ({0}) = {1}", new Object[]{Integer.toString(RESET_VECTOR, 16), Integer.toString(newPC, 16)});
         setProgramCounter(newPC);
     }
 
