@@ -1207,10 +1207,10 @@ public class MOS65C02 extends CPU {
         }
         interruptSignalled = false;
         if (!I || B) {
-            I = true;
+            I = false;
             pushWord(getProgramCounter());
             push(getStatus());
-            B = false;
+            I = true;
             int newPC = getMemory().readWord(INT_VECTOR, TYPE.READ_DATA, true, false);
 //            System.out.println("Interrupt generated, setting PC to (" + Integer.toString(INT_VECTOR, 16) + ") = " + Integer.toString(newPC, 16));
             setProgramCounter(newPC);
