@@ -75,7 +75,9 @@ public class EnvelopeGenerator extends TimedGenerator {
         }
     }
 
+    int shape;
     public void setShape(int shape) {
+        this.shape = shape & 15;
         oddEven = false;
         counter = 0;
         cont = (shape & 8) != 0;

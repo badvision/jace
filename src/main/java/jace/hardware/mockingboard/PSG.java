@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import jace.hardware.CardMockingboard;
+
 /**
  * Implementation of the AY sound PSG chip. This class manages register values
  * and mixes the channels together (in the update method) The work of
@@ -224,6 +226,32 @@ public class PSG {
             case EnvShape -> envelopeGenerator.setShape(value);
             case PortA, PortB -> {
             }
+        }
+        if (CardMockingboard.DEBUG) {
+            debugStatus();
+        }   
+    }
+
+    String lastStatus = "";
+    public void debugStatus() {
+        String status = String.format("b%02X: A %03X %s %01X | B %03X %s %01X | C %03X %s %01X | N %03X | E %01X %04X", 
+            baseReg,
+            channels.get(0).period,
+            (channels.get(0).active ? "T" : "_") + (channels.get(0).noiseActive ? "N" : "_"),
+            channels.get(0).amplitude,
+            channels.get(1).period,
+            (channels.get(1).active ? "T" : "_") + (channels.get(1).noiseActive ? "N" : "_"),
+            channels.get(1).amplitude,
+            channels.get(2).period,
+            (channels.get(2).active ? "T" : "_") + (channels.get(2).noiseActive ? "N" : "_"),
+            channels.get(2).amplitude,
+            noiseGenerator.period,
+            envelopeGenerator.shape,
+            envelopeGenerator.period
+        );
+        if (!lastStatus.equals(status)) {
+            System.out.println(status);
+            lastStatus = status;
         }
     }
 
