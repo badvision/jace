@@ -51,7 +51,7 @@ public class TimedGenerator {
     }
 
     public void setPeriod(int _period) {
-        period = _period > 0 ? _period : 1;
+        period = _period;
         clocksPerPeriod = (period * stepsPerCycle());
         // set counter back... necessary?
 //        while (clocksPerPeriod > period) {
@@ -60,13 +60,12 @@ public class TimedGenerator {
     }
 
     protected int updateCounter() {
-        counter += cyclesPerSample;
-        int numStateChanges = 0;
-        // Skyfox and Genius use a period value of 001 for silence instead of setting volume to 0.
-        if (period == 1) {
-            counter = 0;
+        // Period == 0 means the generator is off
+        if (period <= 1 || clocksPerPeriod <= 1) {
             return 0;
         }
+        counter += cyclesPerSample;
+        int numStateChanges = 0;
         while (counter >= clocksPerPeriod) {
             counter -= clocksPerPeriod;
             numStateChanges++;
@@ -76,6 +75,6 @@ public class TimedGenerator {
 
     public void reset() {
         counter = 0;
-        period = 1;
+        period = 0;
     }
 }

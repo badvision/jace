@@ -162,10 +162,10 @@ public class CardMockingboard extends Card {
         if (e.getType().isRead()) {
             int val = controller.readRegister(register & 0x0f);
             e.setNewValue(val);
-            if (DEBUG) System.out.println("Chip " + chip + " Read "+Integer.toHexString(register & 0x0f)+" == "+val);
+            // if (DEBUG) System.out.println("Chip " + chip + " Read "+Integer.toHexString(register & 0x0f)+" == "+val);
         } else {
             controller.writeRegister(register & 0x0f, e.getNewValue());
-            if (DEBUG) System.out.println("Chip " + chip + " Write "+Integer.toHexString(register & 0x0f)+" == "+e.getNewValue());
+            // if (DEBUG) System.out.println("Chip " + chip + " Write "+Integer.toHexString(register & 0x0f)+" == "+e.getNewValue());
         }
         // Any firmware access will reset the idle counter and wake up the card, this allows the timers to start running again
         // Games such as "Skyfox" use the timer to detect if the card is present.
