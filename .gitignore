@@ -21,3 +21,4 @@ hs_err_pid*
 !/lib/nestedvm.jar
 _acme_tmp*
 .vscode/settings.json
+*.log
