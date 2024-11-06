@@ -151,13 +151,12 @@ public class CpuUnitTest {
                     ram.write(mem[0], (byte) mem[1], false, false);
                 }
                 // Step the CPU for each cycle
-                for (List<String> c : t.cycles()) {
+                for (@SuppressWarnings("unused") List<String> c : t.cycles()) {
                     if (BREAK_ON_FAIL) {
                         cpu.traceLength = 100;
                         cpu.setTraceEnabled(true);
                     }
                     cpu.doTick();
-                    // TODO: Check the memory accesses
                 }
                 // Check the final state
                 boolean passed = true;

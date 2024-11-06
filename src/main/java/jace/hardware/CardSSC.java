@@ -110,7 +110,7 @@ public class CardSSC extends Card {
     @Override
     public void setSlot(int slot) {
         try {
-            loadRom("/jace/data/SSC.rom");
+            loadRom();
         } catch (IOException ex) {
             Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -173,22 +173,25 @@ public class CardSSC extends Card {
         System.out.println("Client disconnected");
     }
 
-    public void loadRom(String path) throws IOException {
+    public void loadRom() throws IOException {
+        System.out.println("Loading SSC rom");
+        String path = "/jace/data/SSC.rom";
         // Load rom file, first 0x0700 bytes are C8 rom, last 0x0100 bytes are CX rom
         // CF00-CFFF are unused by the SSC
-        InputStream romFile = CardSSC.class.getResourceAsStream(path);
-        final int cxRomLength = 0x0100;
-        final int c8RomLength = 0x0700;
-        byte[] romxData = new byte[cxRomLength];
-        byte[] rom8Data = new byte[c8RomLength];
-        if (romFile.read(rom8Data) != c8RomLength) {
-            throw new IOException("Bad SSC rom size");
+        try (InputStream romFile = CardSSC.class.getResourceAsStream(path)) {
+            final int cxRomLength = 0x0100;
+            final int c8RomLength = 0x0700;
+            byte[] romxData = new byte[cxRomLength];
+            byte[] rom8Data = new byte[c8RomLength];
+            if (romFile.read(rom8Data) != c8RomLength) {
+                throw new IOException("Bad SSC rom size");
+            }
+            getC8Rom().loadData(rom8Data);
+            if (romFile.read(romxData) != cxRomLength) {
+                throw new IOException("Bad SSC rom size");
+            }
+            getCxRom().loadData(romxData);
         }
-        getC8Rom().loadData(rom8Data);
-        if (romFile.read(romxData) != cxRomLength) {
-            throw new IOException("Bad SSC rom size");
-        }
-        getCxRom().loadData(romxData);
     }
 
     @Override

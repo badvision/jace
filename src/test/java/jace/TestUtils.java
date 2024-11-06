@@ -18,9 +18,11 @@ package jace;
 import java.io.IOException;
 import java.util.Arrays;
 
+import jace.apple2e.RAM128k;
 import jace.core.CPU;
 import jace.core.Computer;
 import jace.core.Device;
+import jace.core.PagedMemory;
 import jace.core.RAM;
 import jace.core.RAMEvent.TYPE;
 import jace.core.Utility;
@@ -41,7 +43,8 @@ public class TestUtils {
         Emulator.withComputer(Computer::reconfigure);
     }
 
-    public static class FakeRAM extends RAM {
+    public static class FakeRAM extends RAM128k {
+        PagedMemory fakeMemory = new PagedMemory(0x0, PagedMemory.Type.RAM);
         byte[] memory = new byte[65536];
         public byte read(int address, TYPE eventType, boolean triggerEvent, boolean requireSyncronization) {
             return memory[address & 0x0ffff];
@@ -91,6 +94,22 @@ public class TestUtils {
 
         @Override
         public void resetState() {
+        }
+        @Override
+        public PagedMemory getAuxVideoMemory() {
+            return fakeMemory;
+        }
+        @Override
+        public PagedMemory getAuxMemory() {
+            return fakeMemory;
+        }
+        @Override
+        public PagedMemory getAuxLanguageCard() {
+            return fakeMemory;
+        }
+        @Override
+        public PagedMemory getAuxLanguageCard2() {
+            return fakeMemory;
         }
     }
 

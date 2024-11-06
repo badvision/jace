@@ -17,6 +17,8 @@
 package jace.hardware;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -53,6 +55,19 @@ public class CardHayesMicromodem extends CardSSC {
         SW2_CTS = 255;
         RECV_IRQ_ENABLED = false;
         TRANS_IRQ_ENABLED = false;
+    }
+
+    @Override
+    public void loadRom() throws IOException {
+        String path = "/jace/data/hayes-micromodem-8308a271.rom";
+        // Load rom file, first 0x0FF bytes are CX rom, next 0x0800 bytes are C8 rom
+        try (InputStream romFile = CardSSC.class.getResourceAsStream(path)) {
+            final int cxRomLength = 0x0100;
+            final int c8RomLength = 0x0800;
+            byte[] rom8Data = new byte[c8RomLength];
+            getC8Rom().loadData(rom8Data);
+            getCxRom().loadData(Arrays.copyOf(rom8Data, cxRomLength));
+        }
     }
 
     @Override
@@ -103,11 +118,6 @@ public class CardHayesMicromodem extends CardSSC {
                 setRingIndicator(false);
             }
         }
-    }
-
-    @Override
-    public void loadRom(String path) throws IOException {
-        // Do nothing -- there is no rom for this card right now.
     }
 
     /**
