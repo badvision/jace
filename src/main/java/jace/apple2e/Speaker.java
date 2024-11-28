@@ -191,34 +191,71 @@ public class Speaker extends Device {
      */
     @Override
     public void tick() {
-        if (speakerBit) {
-            level++;
-            if (showSound) {
-                VideoNTSC.CHANGE_BLACK_COLOR(40, 20, 20);
-            }
-        } else if (showSound) {
-            VideoNTSC.CHANGE_BLACK_COLOR(20,20,40);
+        if (shouldIncreaseLevel()) {
+            increaseLevel();
+        } else if (shouldChangeToAlternateSoundColor()) {
+            changeToAlternateSoundColor();
         }
-        if (idleCycles++ >= MAX_IDLE_CYCLES && (currentVolume <= 0 || !speakerBit)) {
-            suspend();
-            if (showSound) {
-                VideoNTSC.CHANGE_BLACK_COLOR(0,0,0);
-            }
-        }
-        counter += 1.0d;
-        if (counter >= TICKS_PER_SAMPLE) {
-            if (idleCycles >= MAX_IDLE_CYCLES) {
-                currentVolume -= fadeOffAmount;
-            }
-            playSample(level * currentVolume);
-            // Emulator.withComputer(c->c.getMotherboard().requestSpeed(this));
 
-            // Set level back to 0
-            level = 0;
-            // Set counter to 0
-            counter -= TICKS_PER_SAMPLE;
+        if (shouldSuspend()) {
+            suspend();
+            resetSoundColor();
+        }
+
+        updateCounter();
+        if (shouldProcessSample()) {
+            processSample();
         }
     }
+
+    private boolean shouldIncreaseLevel() {
+        return speakerBit;
+    }
+
+    private void increaseLevel() {
+        level++;
+        if (showSound) {
+            VideoNTSC.CHANGE_BLACK_COLOR(40, 20, 20);
+        }
+    }
+
+    private boolean shouldChangeToAlternateSoundColor() {
+        return !speakerBit && showSound;
+    }
+
+    private void changeToAlternateSoundColor() {
+        VideoNTSC.CHANGE_BLACK_COLOR(20, 20, 40);
+    }
+
+    private boolean shouldSuspend() {
+        return idleCycles++ >= MAX_IDLE_CYCLES && (currentVolume <= 0 || !speakerBit);
+    }
+
+    private void resetSoundColor() {
+        if (showSound) {
+            VideoNTSC.CHANGE_BLACK_COLOR(0, 0, 0);
+        }
+    }
+
+    private void updateCounter() {
+        counter += 1.0d;
+    }
+
+    private boolean shouldProcessSample() {
+        return counter >= TICKS_PER_SAMPLE;
+    }
+
+    private void processSample() {
+        if (idleCycles >= MAX_IDLE_CYCLES) {
+            currentVolume -= fadeOffAmount;
+        }
+        playSample(level * currentVolume);
+
+        // Reset level and counter
+        level = 0;
+        counter -= TICKS_PER_SAMPLE;
+    }
+
 
     private void toggleSpeaker(RAMEvent e) {
         // if (e.getType() == RAMEvent.TYPE.WRITE) {
