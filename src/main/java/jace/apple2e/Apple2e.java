@@ -1,18 +1,18 @@
-/** 
-* Copyright 2024 Brendan Robert
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*    http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-**/
+/**
+ * Copyright 2024 Brendan Robert
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ **/
 
 package jace.apple2e;
 
@@ -92,7 +92,7 @@ public class Apple2e extends Computer {
     public boolean clockEnabled = true;
     @ConfigurableField(name = "Accelerator Enabled", shortName = "zip", description = "If checked, add support for Zip/Transwarp", enablesDevice = true)
     public boolean acceleratorEnabled = true;
-    
+
     public Joystick joystick1;
     public Joystick joystick2;
     @ConfigurableField(name = "Activate Cheats", shortName = "cheat")
@@ -124,12 +124,12 @@ public class Apple2e extends Computer {
         return "Computer (Apple //e)";
     }
 
-    
+
     @Override
     public void coldStart() {
         RAM128k r = (RAM128k) getMemory();
         System.err.println("Cold starting computer: RESETTING SOFT SWITCHES");
-        r.resetState();            
+        r.resetState();
         for (SoftSwitches s : SoftSwitches.values()) {
             if ((s.getSwitch() instanceof VideoSoftSwitch)) {
                 s.getSwitch().reset();
@@ -137,7 +137,7 @@ public class Apple2e extends Computer {
         }
         // This isn't really authentic behavior but sometimes games like memory to have a consistent state when booting.
         r.zeroAllRam();
-        // Sather 4-15: 
+        // Sather 4-15:
         // An open Apple (left Apple) reset causes meaningless values to be stored in two locations
         // of every memory page from Page $01 through Page $BF before the power-up byte is checked.
         int offset = IRQ_VECTOR & 0x0ff;
@@ -174,7 +174,7 @@ public class Apple2e extends Computer {
         if (getMemory().getCard(slot).isPresent()) {
             if (type.getValue() != null && type.getValue().isInstance(getMemory().getCard(slot).get())) {
                 return;
-            }            
+            }
             getMemory().removeCard(slot);
         }
         if (type != null && type.getValue() != null) {
@@ -190,7 +190,7 @@ public class Apple2e extends Computer {
             return ramCard.getValue();
         }
     }
-    
+
     private boolean isMemoryConfigurationCorrect() {
         if (getMemory() == null) {
             return false;
@@ -223,122 +223,213 @@ public class Apple2e extends Computer {
     public final void reconfigure() {
         super.reconfigure();
 
+        // Handle headless mode
         if (Utility.isHeadlessMode()) {
-            joy1enabled = false;
-            joy2enabled = false;
+            disableJoysticks();
         }
 
+        // Validate motherboard
+        if (!validateMotherboard()) {
+            return;
+        }
+
+        // Perform configuration while motherboard is suspended
+        getMotherboard().whileSuspended(new Runnable() {
+            @Override
+            public void run() {
+                reconfigureSystem();
+            }
+        });
+    }
+
+    private void disableJoysticks() {
+        joy1enabled = false;
+        joy2enabled = false;
+    }
+
+    private boolean validateMotherboard() {
         if (getMotherboard() == null) {
             System.err.println("No motherboard, cannot reconfigure");
             Thread.dumpStack();
-            return;
+            return false;
         }
-        getMotherboard().whileSuspended(()-> {
-            // System.err.println("Reconfiguring computer...");
-            if (!isMemoryConfigurationCorrect()) {
-                System.out.println("Creating new ram using " + getDesiredMemoryConfiguration().getName());
-                setMemory(createMemory());
-            }
+        return true;
+    }
 
-            // Make sure all softswitches are configured after confirming memory exists
-            for (SoftSwitches s : SoftSwitches.values()) {
-                s.getSwitch().register();
-            }
+    private void reconfigureSystem() {
+        // Configure memory and ROM
+        configureMemoryAndROM();
 
-            try {
-                loadRom(true);
-            } catch (IOException e) {
-                Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, "Failed to load system rom ROMs", e);
-            }
-            
-            getMemory().configureActiveMemory();
+        // Initialize device set
+        Set<Device> newDeviceSet = configureDevices();
 
-            Set<Device> newDeviceSet = new HashSet<>();
+        // Configure cards and additional features
+        configureCardsAndFeatures(newDeviceSet);
 
-            if (acceleratorEnabled) {
-                if (accelerator == null) {
-                    accelerator = new ZipWarpAccelerator();
-                }
-                newDeviceSet.add(accelerator);
-            }
+        // Finalize configuration
+        finalizeMotherboardConfiguration(newDeviceSet);
+    }
 
-            if (joy1enabled) {
-                if (joystick1 == null) {
-                    joystick1 = new Joystick(0, this);
-                }
-                newDeviceSet.add(joystick1);
-            } else {
-                joystick1 = null;
-            }
+    private void configureMemoryAndROM() {
+        // Configure memory if needed
+        if (!isMemoryConfigurationCorrect()) {
+            System.out.println("Creating new ram using " + getDesiredMemoryConfiguration().getName());
+            setMemory(createMemory());
+        }
 
-            if (joy2enabled) {
-                if (joystick2 == null) {
-                    joystick2 = new Joystick(1, this);
-                }
-                newDeviceSet.add(joystick2);
-            } else {
-                joystick2 = null;
-            }
+        // Register soft switches
+        for (SoftSwitches s : SoftSwitches.values()) {
+            s.getSwitch().register();
+        }
 
-            if (clockEnabled) {
-                if (clock == null) {
-                    clock = new NoSlotClock();
-                }
-                newDeviceSet.add(clock);
-            } else {
-                clock = null;
-            }
+        // Load ROM
+        try {
+            loadRom(true);
+        } catch (IOException e) {
+            Logger.getLogger(Apple2e.class.getName()).log(Level.SEVERE, "Failed to load system rom ROMs", e);
+        }
 
-            if (!isVideoConfigurationCorrect()) {
-                setVideo(videoRenderer.getValue().create());
-            }
+        // Configure active memory
+        getMemory().configureActiveMemory();
+    }
 
-            // Add all new cards
-            insertCard(card1, 1);
-            insertCard(card2, 2);
-            insertCard(card3, 3);
-            insertCard(card4, 4);
-            insertCard(card5, 5);
-            insertCard(card6, 6);
-            insertCard(card7, 7);
-            if (enableHints) {
-                enableHints();
-            } else {
-                disableHints();
-            }
+    private Set<Device> configureDevices() {
+        Set<Device> newDeviceSet = new HashSet<>();
 
-            if (cheatEngine.getValue() == null) {
-                if (activeCheatEngine != null) {
-                    activeCheatEngine.detach();
-                    activeCheatEngine.suspend();
-                    activeCheatEngine = null;
-                }
-            } else {
-                if (activeCheatEngine != null && !cheatEngine.getValue().isInstance(activeCheatEngine)) {
-                    activeCheatEngine.detach();
-                    activeCheatEngine.suspend();
-                    activeCheatEngine = null;
-                }
-                if (activeCheatEngine == null && cheatEngine.getValue() != null) {
-                    activeCheatEngine = cheatEngine.getValue().create();
-                }
-                if (activeCheatEngine != null) {
-                    newDeviceSet.add(activeCheatEngine);
-                }
-            }
+        // Configure accelerator
+        configureAccelerator(newDeviceSet);
 
-            newDeviceSet.add(getCpu());
-            newDeviceSet.add(getVideo());
-            for (Optional<Card> c : getMemory().getAllCards()) {
-                c.ifPresent(newDeviceSet::add);
-            }                
-            if (showSpeedMonitors) {
-                newDeviceSet.add(fpsCounters);
+        // Configure joysticks
+        configureJoystick1(newDeviceSet);
+        configureJoystick2(newDeviceSet);
+
+        // Configure clock
+        configureClock(newDeviceSet);
+
+        // Configure video
+        configureVideo(newDeviceSet);
+
+        return newDeviceSet;
+    }
+
+    private void configureAccelerator(Set<Device> deviceSet) {
+        if (acceleratorEnabled) {
+            if (accelerator == null) {
+                accelerator = new ZipWarpAccelerator();
             }
-            getMotherboard().setAllDevices(newDeviceSet);
-            getMotherboard().attach();
-            getMotherboard().reconfigure();
-        });
+            deviceSet.add(accelerator);
+        }
+    }
+
+    private void configureJoystick1(Set<Device> deviceSet) {
+        if (joy1enabled) {
+            if (joystick1 == null) {
+                joystick1 = new Joystick(0, this);
+            }
+            deviceSet.add(joystick1);
+        } else {
+            joystick1 = null;
+        }
+    }
+
+    private void configureJoystick2(Set<Device> deviceSet) {
+        if (joy2enabled) {
+            if (joystick2 == null) {
+                joystick2 = new Joystick(1, this);
+            }
+            deviceSet.add(joystick2);
+        } else {
+            joystick2 = null;
+        }
+    }
+
+    private void configureClock(Set<Device> deviceSet) {
+        if (clockEnabled) {
+            if (clock == null) {
+                clock = new NoSlotClock();
+            }
+            deviceSet.add(clock);
+        } else {
+            clock = null;
+        }
+    }
+
+    private void configureVideo(Set<Device> deviceSet) {
+        if (!isVideoConfigurationCorrect()) {
+            setVideo(videoRenderer.getValue().create());
+        }
+    }
+
+    private void configureCardsAndFeatures(Set<Device> deviceSet) {
+        // Configure expansion cards
+        configureExpansionCards();
+
+        // Configure hints
+        configureHints();
+
+        // Configure cheat engine
+        configureCheatEngine(deviceSet);
+    }
+
+    private void configureExpansionCards() {
+        insertCard(card1, 1);
+        insertCard(card2, 2);
+        insertCard(card3, 3);
+        insertCard(card4, 4);
+        insertCard(card5, 5);
+        insertCard(card6, 6);
+        insertCard(card7, 7);
+    }
+
+    private void configureHints() {
+        if (enableHints) {
+            enableHints();
+        } else {
+            disableHints();
+        }
+    }
+
+    private void configureCheatEngine(Set<Device> deviceSet) {
+        if (cheatEngine.getValue() == null) {
+            if (activeCheatEngine != null) {
+                activeCheatEngine.detach();
+                activeCheatEngine.suspend();
+                activeCheatEngine = null;
+            }
+        } else {
+            if (activeCheatEngine != null && !cheatEngine.getValue().isInstance(activeCheatEngine)) {
+                activeCheatEngine.detach();
+                activeCheatEngine.suspend();
+                activeCheatEngine = null;
+            }
+            if (activeCheatEngine == null && cheatEngine.getValue() != null) {
+                activeCheatEngine = cheatEngine.getValue().create();
+            }
+            if (activeCheatEngine != null) {
+                deviceSet.add(activeCheatEngine);
+            }
+        }
+    }
+
+    private void finalizeMotherboardConfiguration(Set<Device> deviceSet) {
+        // Add core devices
+        deviceSet.add(getCpu());
+        deviceSet.add(getVideo());
+
+        // Add cards
+        for (Optional<Card> c : getMemory().getAllCards()) {
+            c.ifPresent(deviceSet::add);
+        }
+
+        // Add speed monitors if enabled
+        if (showSpeedMonitors) {
+            deviceSet.add(fpsCounters);
+        }
+
+        // Set devices and reconfigure motherboard
+        getMotherboard().setAllDevices(deviceSet);
+        getMotherboard().attach();
+        getMotherboard().reconfigure();
     }
 
     @Override
@@ -386,7 +477,7 @@ public class Apple2e extends Computer {
             O-A: Alt/Option
             C-A: Shortcut/Command
             Reset: Delete/Backspace"""
-        .split("\n")) {
+                .split("\n")) {
             int addr = 0x0401 + VideoDHGR.calculateTextOffset(row++);
             for (char c : s.toCharArray()) {
                 getMemory().write(addr++, (byte) (c | 0x080), false, true);
@@ -426,7 +517,7 @@ public class Apple2e extends Computer {
                     animationSchedule.cancel(true);
                 }
                 animationSchedule =
-                            animationTimer.scheduleAtFixedRate(doAnimation, 1250, 100, TimeUnit.MILLISECONDS);
+                        animationTimer.scheduleAtFixedRate(doAnimation, 1250, 100, TimeUnit.MILLISECONDS);
             }));
             // Latch to the PRODOS SYNTAX CHECK parser
             /*

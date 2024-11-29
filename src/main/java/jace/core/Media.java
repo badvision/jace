@@ -163,8 +163,14 @@ public class Media {
     }
 
     public java.time.Duration getCurrentTime() {
-        int sampleNumber = sampleBuffer.position() / (isStereo ? 2 : 1);
-        return java.time.Duration.ofMillis((long) (sampleNumber * 1000 / sampleRate));
+        // Explaining variables for better readability
+        int bufferPosition = sampleBuffer.position();
+        int channelCount = isStereo ? 2 : 1;
+        int sampleNumber = bufferPosition / channelCount;
+
+        long sampleDurationInMilliseconds = (long) (sampleNumber * 1000 / sampleRate);
+
+        return java.time.Duration.ofMillis(sampleDurationInMilliseconds);
     }
 
     public float getTotalDuration() {

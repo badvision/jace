@@ -1,18 +1,18 @@
-/** 
-* Copyright 2024 Brendan Robert
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*    http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-**/
+/**
+ * Copyright 2024 Brendan Robert
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ **/
 
 package jace.apple2e;
 
@@ -48,7 +48,7 @@ public class Speaker extends Device {
 
     static boolean fileOutputActive = false;
     static OutputStream out;
-    
+
     @ConfigurableField(category = "sound", name = "1mhz timing", description = "Force speaker output to 1mhz?")
     public static boolean force1mhz = true;
 
@@ -79,7 +79,7 @@ public class Speaker extends Device {
             }
         }
     }
-    
+
     /**
      * Counter tracks the number of cycles between sampling
      */
@@ -191,34 +191,71 @@ public class Speaker extends Device {
      */
     @Override
     public void tick() {
-        if (speakerBit) {
-            level++;
-            if (showSound) {
-                VideoNTSC.CHANGE_BLACK_COLOR(40, 20, 20);
-            }
-        } else if (showSound) {
-            VideoNTSC.CHANGE_BLACK_COLOR(20,20,40);
+        if (shouldIncreaseLevel()) {
+            increaseLevel();
+        } else if (shouldChangeToAlternateSoundColor()) {
+            changeToAlternateSoundColor();
         }
-        if (idleCycles++ >= MAX_IDLE_CYCLES && (currentVolume <= 0 || !speakerBit)) {
-            suspend();
-            if (showSound) {
-                VideoNTSC.CHANGE_BLACK_COLOR(0,0,0);
-            }
-        }
-        counter += 1.0d;
-        if (counter >= TICKS_PER_SAMPLE) {
-            if (idleCycles >= MAX_IDLE_CYCLES) {
-                currentVolume -= fadeOffAmount;
-            }
-            playSample(level * currentVolume);
-            // Emulator.withComputer(c->c.getMotherboard().requestSpeed(this));
 
-            // Set level back to 0
-            level = 0;
-            // Set counter to 0
-            counter -= TICKS_PER_SAMPLE;
+        if (shouldSuspend()) {
+            suspend();
+            resetSoundColor();
+        }
+
+        updateCounter();
+        if (shouldProcessSample()) {
+            processSample();
         }
     }
+
+    private boolean shouldIncreaseLevel() {
+        return speakerBit;
+    }
+
+    private void increaseLevel() {
+        level++;
+        if (showSound) {
+            VideoNTSC.CHANGE_BLACK_COLOR(40, 20, 20);
+        }
+    }
+
+    private boolean shouldChangeToAlternateSoundColor() {
+        return !speakerBit && showSound;
+    }
+
+    private void changeToAlternateSoundColor() {
+        VideoNTSC.CHANGE_BLACK_COLOR(20, 20, 40);
+    }
+
+    private boolean shouldSuspend() {
+        return idleCycles++ >= MAX_IDLE_CYCLES && (currentVolume <= 0 || !speakerBit);
+    }
+
+    private void resetSoundColor() {
+        if (showSound) {
+            VideoNTSC.CHANGE_BLACK_COLOR(0, 0, 0);
+        }
+    }
+
+    private void updateCounter() {
+        counter += 1.0d;
+    }
+
+    private boolean shouldProcessSample() {
+        return counter >= TICKS_PER_SAMPLE;
+    }
+
+    private void processSample() {
+        if (idleCycles >= MAX_IDLE_CYCLES) {
+            currentVolume -= fadeOffAmount;
+        }
+        playSample(level * currentVolume);
+
+        // Reset level and counter
+        level = 0;
+        counter -= TICKS_PER_SAMPLE;
+    }
+
 
     private void toggleSpeaker(RAMEvent e) {
         // if (e.getType() == RAMEvent.TYPE.WRITE) {
@@ -227,7 +264,7 @@ public class Speaker extends Device {
         speakerBit = !speakerBit;
         resetIdle();
     }
-    
+
     private void playSample(int sample) {
         try {
             if (buffer == null || !buffer.isAlive()) {
@@ -261,7 +298,7 @@ public class Speaker extends Device {
                 toggleFileOutput();
             }
         }
-        
+
     }
 
     /**
