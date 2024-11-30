@@ -564,7 +564,7 @@ public class Configuration implements Reconfigurable {
                     continue;
                 }
 //                System.out.println(fieldType);
-                val = Utility.deserializeString(String.valueOf(val), fieldType, false);
+                val = Utility.deserializeString(String.valueOf(val), fieldType);
 //                System.out.println("Setting "+node.subject.getName()+" property "+ff.getName()+" with value "+String.valueOf(val));
                 ff.set(node.subject, val);
             } catch (NoSuchFieldException ex) {

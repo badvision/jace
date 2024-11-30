@@ -65,6 +65,8 @@ public class Utility {
             return Integer.MAX_VALUE;
         }
 
+ 
+
         s = s.toLowerCase().replaceAll("[^a-zA-Z0-9\\s]", "");
         t = t.toLowerCase().replaceAll("[^a-zA-Z0-9\\s]", "");
         int m = s.length();
@@ -323,53 +325,12 @@ public class Utility {
         }
         return enumConstants.get(key);
     }
-
-    @SuppressWarnings("all")
-    public static Object deserializeString(String value, Class type, boolean hex) {
-        int radix = hex ? 16 : 10;
-        if (type.equals(Integer.TYPE) || type == Integer.class) {
-            value = value.replaceAll(hex ? "[^0-9\\-A-Fa-f]" : "[^0-9\\-]", "");
-            try {
-                return Integer.valueOf(value, radix);
-            } catch (NumberFormatException ex) {
-                return null;
-            }
-        } else if (type.equals(Short.TYPE) || type == Short.class) {
-            value = value.replaceAll(hex ? "[^0-9\\-\\.A-Fa-f]" : "[^0-9\\-\\.]", "");
-            try {
-                return Short.valueOf(value, radix);
-            } catch (NumberFormatException ex) {
-                return null;
-            }
-        } else if (type.equals(Long.TYPE) || type == Long.class) {
-            value = value.replaceAll(hex ? "[^0-9\\-\\.A-Fa-f]" : "[^0-9\\-\\.]", "");
-            try {
-                return Long.valueOf(value, radix);
-            } catch (NumberFormatException ex) {
-                return null;
-            }
-        } else if (type.equals(Byte.TYPE) || type == Byte.class) {
-            try {
-                value = value.replaceAll(hex ? "[^0-9\\-A-Fa-f]" : "[^0-9\\-]", "");
-                return Byte.valueOf(value, radix);
-            } catch (NumberFormatException ex) {
-                return null;
-            }
-        } else if (type.equals(Boolean.TYPE) || type == Boolean.class) {
-            return Boolean.valueOf(value);
-        } else if (type.equals(Float.TYPE) || type == Float.class) {
-            return Float.parseFloat(value);
-        } else if (type.equals(Double.TYPE) || type == Double.class) {
-            return Double.parseDouble(value);
-        } else if (type == File.class) {
-            return new File(String.valueOf(value));
-        } else if (type.isEnum()) {
-            value = value.replaceAll("[\\.\\s\\-]", "");
-            return findClosestEnumConstant(value, type);
-        }
-        return null;
+      final static DeserializerFactory factory = new DeserializerFactory();
+      
+          @SuppressWarnings("all")
+          public static Object deserializeString(String value, Class type) {
+              return factory.getDeserializer(type).deserialize(value);
     }
-
     public static Function<Boolean, Boolean> getNamedInvokableAction(String action) {
         InvokableActionRegistry registry = InvokableActionRegistry.getInstance();        
         List<InvokableAction> actionsList = new ArrayList<>(registry.getAllStaticActions());

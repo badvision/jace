@@ -66,14 +66,14 @@ import javafx.stage.Stage;
 public class EmulatorUILogic implements Reconfigurable {
 
     static Debugger debugger;
-
-    static {
-        debugger = new Debugger() {
-            @Override
-            public void updateStatus() {
-                enableDebug(true);
+    static DebuggerUI debugUI = new DebuggerUI();
+        static {
+            debugger = new Debugger() {
+                @Override
+                public void updateStatus() {
+                    debugUI.enableDebug(true);
                 MOS65C02 cpu = (MOS65C02) Emulator.withComputer(c->c.getCpu(), null);
-                updateCPURegisters(cpu);
+                debugUI.updateCPURegisters(cpu);
             }
         };
     }
@@ -84,32 +84,14 @@ public class EmulatorUILogic implements Reconfigurable {
     )
     public boolean showDrives = true;
 
-    public static void updateCPURegisters(MOS65C02 cpu) {
-//        DebuggerPanel debuggerPanel = Emulator.getFrame().getDebuggerPanel();
-//        debuggerPanel.valueA.setText(Integer.toHexString(cpu.A));
-//        debuggerPanel.valueX.setText(Integer.toHexString(cpu.X));
-//        debuggerPanel.valueY.setText(Integer.toHexString(cpu.Y));
-//        debuggerPanel.valuePC.setText(Integer.toHexString(cpu.getProgramCounter()));
-//        debuggerPanel.valueSP.setText(Integer.toHexString(cpu.getSTACK()));
-//        debuggerPanel.valuePC2.setText(cpu.getFlags());
-//        debuggerPanel.valueINST.setText(cpu.disassemble());
-    }
 
-    public static void enableDebug(boolean b) {
-//        DebuggerPanel debuggerPanel = Emulator.getFrame().getDebuggerPanel();
-//        debugger.setActive(b);
-//        debuggerPanel.enableDebug.setSelected(b);
-//        debuggerPanel.setBackground(
-//                b ? Color.RED : new Color(0, 0, 0x040));
-    }
+
 
     public static void enableTrace(boolean b) {
         Emulator.withComputer(c->c.getCpu().setTraceEnabled(b));
     }
 
-    public static void stepForward() {
-        debugger.step = true;
-    }
+    
 
     static void registerDebugger() {
         Emulator.withComputer(c->c.getCpu().setDebug(debugger));
