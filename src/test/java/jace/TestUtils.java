@@ -17,6 +17,8 @@ package jace;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import jace.apple2e.RAM128k;
 import jace.core.CPU;
@@ -40,6 +42,11 @@ import javafx.scene.image.WritableImage;
  * @author brobert
  */
 public class TestUtils {
+    private static final Logger LOG = Logger.getLogger(TestUtils.class.getName());
+    
+    private static final String VERBOSE_PROPERTY = "jace.test.verbose";
+    private static final boolean VERBOSE_MODE = Boolean.getBoolean(VERBOSE_PROPERTY);
+    
     private TestUtils() {
         // Utility class has no constructor
     }
@@ -399,39 +406,37 @@ public class TestUtils {
     
     /**
      * Sets up a mock video device for tests to prevent NPEs when accessing the
-     * floating bus or other video-related functionality.
+     * floating bus.
+     *
+     * @param <T> The type of Video implementation
+     * @param videoClass The class of the Video implementation to create and set up
      */
     public static <T extends Video> void setupMockVideo(Class<T> videoClass) {
         try {
-            Emulator.withComputer(c -> {
-                // If video is null or not the right type, replace it
-                if (c.getVideo() == null || !videoClass.isInstance(c.getVideo())) {
-                    // Create a new mock video instance
-                    Video mockVideo = null;
-                    
-                    if (videoClass.equals(MockVideoNTSC.class)) {
-                        mockVideo = new MockVideoNTSC();
-                    } else if (videoClass.equals(MockVideoDHGR.class)) {
-                        mockVideo = new MockVideoDHGR();
-                    } else {
-                        mockVideo = new MockVideo();
-                    }
-                    
-                    // Make sure the video is properly set up
-                    mockVideo.setMemory(c.getMemory());
-                    
-                    // Set the video on the computer
-                    c.setVideo(mockVideo);
-                    
-                    // Attach the video to the computer
-                    mockVideo.attach();
-                    
-                    System.out.println("Mock video initialized successfully: " + videoClass.getSimpleName());
+            // Create a new mock video instance
+            T videoInstance = videoClass.getDeclaredConstructor().newInstance();
+
+            // Configure and set the video in the computer
+            Emulator.withComputer(computer -> {
+                // Suspend the computer during setup
+                computer.getMotherboard().suspend();
+                try {
+                    // Attach the video
+                    computer.setVideo(videoInstance);
+                    videoInstance.attach();
+                } finally {
+                    // Resume the computer
+                    computer.getMotherboard().resume();
                 }
             });
+
+            // Log successful setup
+            if (VERBOSE_MODE) {
+                LOG.info("Mock video initialized successfully: " + videoClass.getSimpleName());
+            }
         } catch (Exception e) {
-            System.err.println("Error setting up mock video: " + e.getMessage());
-            e.printStackTrace();
+            LOG.log(Level.SEVERE, "Error setting up mock video: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to set up mock video", e);
         }
     }
     
@@ -461,8 +466,9 @@ public class TestUtils {
     }
     
     /**
-     * Configures the test environment to ensure headless mode
-     * and prevent JavaFX initialization.
+     * Configure the test environment to ensure it's set up for headless operation.
+     * This sets various system properties to prevent JavaFX initialization
+     * and places the application in test mode.
      */
     public static void configureTestEnvironment() {
         // Set system properties to disable JavaFX
@@ -481,12 +487,13 @@ public class TestUtils {
         // Prevent JaceApplication from initializing JavaFX toolkit
         JaceApplication.setupForTesting(true);
         
-        System.out.println("Test environment configured for headless mode");
+        LOG.fine("Test environment configured for headless mode");
     }
     
     /**
-     * Special test setup for CpuUnitTest to avoid JavaFX dependencies.
-     * This uses the headless mode and fake RAM to ensure reliable tests.
+     * Sets up the computer for CPU tests.
+     * This includes creating essential components, configuring the motherboard,
+     * setting up mock video, and clearing any cards/peripherals.
      */
     public static void setupForCpuTest() {
         // Configure test environment first
@@ -498,7 +505,9 @@ public class TestUtils {
             
             // Create bare minimum computer setup for CPU testing
             Emulator.withComputer(c -> {
-                System.out.println("CPU Test Setup - Creating essential components");
+                if (VERBOSE_MODE) {
+                    LOG.info("CPU Test Setup - Creating essential components");
+                }
                 
                 // Replace any existing RAM with FakeRAM to avoid bank switching issues
                 FakeRAM ram = new FakeRAM();
@@ -526,7 +535,9 @@ public class TestUtils {
                         throw new IllegalStateException("Video is null after setting it");
                     }
                     
-                    System.out.println("CPU Test Setup - Mock video initialized: " + c.getVideo().getClass().getSimpleName());
+                    if (VERBOSE_MODE) {
+                        LOG.info("CPU Test Setup - Mock video initialized: " + c.getVideo().getClass().getSimpleName());
+                    }
                     
                     // Disable all cards and peripherals
                     // In CPU tests we don't need any cards or peripherals
@@ -542,10 +553,11 @@ public class TestUtils {
                     // Verify floating bus access works
                     try {
                         byte floatingBus = c.getVideo().getFloatingBus();
-                        System.out.println("CPU Test Setup - Floating bus test successful (value: " + floatingBus + ")");
+                        if (VERBOSE_MODE) {
+                            LOG.info("CPU Test Setup - Floating bus test successful (value: " + floatingBus + ")");
+                        }
                     } catch (Exception e) {
-                        System.err.println("CPU Test Setup - Floating bus access failed: " + e.getMessage());
-                        e.printStackTrace();
+                        LOG.log(Level.WARNING, "CPU Test Setup - Floating bus access failed: " + e.getMessage(), e);
                         throw e;
                     }
                 } finally {
@@ -564,12 +576,13 @@ public class TestUtils {
                 if (c.getVideo() == null) {
                     throw new IllegalStateException("Video is null after CPU test setup - this should never happen");
                 }
-                System.out.println("CPU Test Setup - Final verification successful, video = " + c.getVideo().getClass().getSimpleName());
+                if (VERBOSE_MODE) {
+                    LOG.info("CPU Test Setup - Final verification successful, video = " + c.getVideo().getClass().getSimpleName());
+                }
             });
             
         } catch (Exception e) {
-            System.err.println("ERROR setting up CPU test environment: " + e.getMessage());
-            e.printStackTrace();
+            LOG.log(Level.SEVERE, "ERROR setting up CPU test environment: " + e.getMessage(), e);
             throw new RuntimeException("Failed to set up CPU test environment", e);
         }
     }

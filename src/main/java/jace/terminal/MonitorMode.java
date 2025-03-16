@@ -586,12 +586,25 @@ public class MonitorMode implements TerminalMode {
                 
                 hexValues.append(String.format("%02X ", value & 0xFF));
                 
-                // For ASCII representation, use '.' for non-printable characters
-                char c = (char)(value & 0xFF);
-                if (c >= 32 && c < 127) {
-                    asciiValues.append(c);
+                // For ASCII representation, mask high bit for Apple II character set
+                // Apple II text typically has high bit set (0x80-0xFF) for normal display
+                int maskedValue = value & 0x7F;  // Mask off high bit for ASCII display
+                
+                // Special handling for 0x7F and 0xFF - use medium shade character
+                if (value == 0x7F || value == 0xFF) {
+                    asciiValues.append('▒'); // Unicode U+2592 MEDIUM SHADE
                 } else {
-                    asciiValues.append('.');
+                    // Apple II control characters (0x00-0x1F) should be displayed as uppercase letters (add 0x40)
+                    if (maskedValue < 0x20) {
+                        maskedValue += 0x40;
+                    }
+                    
+                    char c = (char)maskedValue;
+                    if (c >= 32 && c < 127) {
+                        asciiValues.append(c);
+                    } else {
+                        asciiValues.append('.');
+                    }
                 }
             }
             

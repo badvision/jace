@@ -1,5 +1,7 @@
 package jace;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -17,6 +19,8 @@ import jace.core.Utility;
  * Provides common setup, teardown, and utility methods for tests.
  */
 public abstract class AbstractJaceTest {
+    
+    private static final Logger LOG = Logger.getLogger(AbstractJaceTest.class.getName());
     
     // Common test resources
     protected static Computer computer;
@@ -51,11 +55,10 @@ public abstract class AbstractJaceTest {
             ram = (RAM128k) computer.getMemory();
             setupComplete = true;
             
-            System.out.println("Setup complete for test class: " + 
+            LOG.fine("Setup complete for test class: " + 
                     Thread.currentThread().getStackTrace()[2].getClassName());
         } catch (Exception e) {
-            System.err.println("Error in test class setup: " + e.getMessage());
-            e.printStackTrace();
+            LOG.log(Level.SEVERE, "Error in test class setup: " + e.getMessage(), e);
         }
     }
     
@@ -82,7 +85,7 @@ public abstract class AbstractJaceTest {
         // Disable sound
         SoundMixer.MUTE = true;
         
-        System.out.println("Test environment configured for headless mode");
+        LOG.fine("Test environment configured for headless mode");
     }
     
     /**
@@ -104,11 +107,10 @@ public abstract class AbstractJaceTest {
             // Force garbage collection
             System.gc();
             
-            System.out.println("Teardown complete for test class: " + 
+            LOG.fine("Teardown complete for test class: " + 
                     Thread.currentThread().getStackTrace()[2].getClassName());
         } catch (Exception e) {
-            System.err.println("Error in test class teardown: " + e.getMessage());
-            e.printStackTrace();
+            LOG.log(Level.SEVERE, "Error in test class teardown: " + e.getMessage(), e);
         }
     }
     
@@ -156,8 +158,7 @@ public abstract class AbstractJaceTest {
             // Make sure emulator is in a valid but suspended state
             Emulator.withComputer(c -> c.getMotherboard().suspend());
         } catch (Exception e) {
-            System.err.println("Error in test setup: " + e.getMessage());
-            e.printStackTrace();
+            LOG.log(Level.SEVERE, "Error in test setup: " + e.getMessage(), e);
             throw new RuntimeException("Test setup failed", e);
         }
     }
@@ -182,8 +183,7 @@ public abstract class AbstractJaceTest {
             // Clear all RAM
             clearRAM();
         } catch (Exception e) {
-            System.err.println("Error in test teardown: " + e.getMessage());
-            e.printStackTrace();
+            LOG.log(Level.SEVERE, "Error in test teardown: " + e.getMessage(), e);
         }
     }
     

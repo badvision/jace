@@ -38,6 +38,7 @@ import jace.apple2e.MOS65C02;
 import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
 import jace.core.RAMEvent.TYPE;
+import java.util.logging.Logger;
 
 /**
  * Test that memory listeners fire appropriately.
@@ -49,6 +50,7 @@ public class MemoryTest {
     static RAM128k ram;
     static String MEMORY_TEST_COMMONS;
     static String MACHINE_IDENTIFICATION;
+    static final Logger LOG = Logger.getLogger(MemoryTest.class.getName());
 
     @BeforeClass
     public static void setupClass() throws IOException, URISyntaxException {
@@ -536,7 +538,7 @@ public class MemoryTest {
         resetSoftSwitches();
         
         for (int softswitch : testCase.softswitches) {
-            System.out.println("Setting softswitch " + Integer.toHexString(softswitch));
+            LOG.fine("Setting softswitch " + Integer.toHexString(softswitch));
             ram.write(softswitch, (byte) 0, true, false);
         }
         for (int i=0; i < testLocations.length; i++) {

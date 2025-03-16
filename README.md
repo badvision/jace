@@ -51,6 +51,46 @@ All other native dependencies are automatically downloaded as needed by Maven fo
 ### First time build note:
 Because Jace provides an annotation processor for compilation, there is a chicken-and-egg problem when building the first time.  Currently, this means the first time you compile, run `mvn install` twice.  You don't have to do this step again as long as Maven is able to find a previously build version of Jace to provide this annotation processor.  I tried to set up the profiles in the pom.xml so that it disables the annotation processor the first time you compile to avoid any issues.  If running in a CICD environment, keep in mind you will likely always need to run the "mvn install" step twice, but only if your goal is to build the entire application including the annotations (should not be needed for just running unit tests.)
 
+## Development
+
+### Running Tests
+Jace uses JUnit for testing. You can run tests using Maven:
+
+```bash
+# Run all tests
+mvn test
+
+# Run a specific test class
+mvn test -Dtest=ClassName
+
+# Run a specific test method
+mvn test -Dtest=ClassName#methodName
+```
+
+### Test Logging
+The test output is configured to be concise by default, showing only essential information. Two system properties can be used to control verbosity:
+
+- `jace.test.debug` - Enables debug output for terminal-related tests
+  ```bash
+  mvn test -Dtest=jace.terminal.MainModeTest -Djace.test.debug=true
+  ```
+
+- `jace.test.verbose` - Enables verbose output for CPU and video initialization
+  ```bash
+  mvn test -Djace.test.verbose=true
+  ```
+
+These properties allow you to see detailed information about the test environment setup, mock initialization, and test execution when needed, while keeping the default output clean.
+
+### Code Coverage
+JaCoCo is used for code coverage analysis. You can generate coverage reports with:
+
+```bash
+mvn jacoco:report
+```
+
+The coverage reports will be available in `target/site/jacoco/index.html` after running the above command.
+
 ## Support JACE:
 
 JACE will always be free, and remain Apache-licensed, but it does take considerable time to refine and add new features.  If you would like to show your support and encourage the author to keep maintaining this emulator, why not throw him some change to buy him a drink?  (The emulator was named for the Jack and Cokes consumed during its inception.)  Also, should you want to use Jace under the terms of the Apache-license for commercial works, you are under no obligation to contribute any source code modifications or royalties to me, but I would appreciate you credit and mention my project and let me know about it.

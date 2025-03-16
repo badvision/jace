@@ -7,6 +7,7 @@ import org.junit.Test;
 
 import jace.AbstractFXTest;
 import jace.TestUtils;
+import jace.core.VideoWriter;
 import javafx.scene.image.WritableImage;
 
 // This is mostly to provide execution coverage to catch null pointer or index out of range exceptions
@@ -51,7 +52,9 @@ public class VideoDHGRTest extends AbstractFXTest {
 
     @Test
     public void testGetYOffset() {
-        // Run through all possible combinations of soft switches to ensure the correct Y offset is returned each time
+        // Make sure _80STORE is OFF so PAGE2 works correctly
+        SoftSwitches._80STORE.getSwitch().setState(false);
+        
         SoftSwitches[] switches = {SoftSwitches.HIRES, SoftSwitches.TEXT, SoftSwitches.PAGE2, SoftSwitches._80COL, SoftSwitches.DHIRES, SoftSwitches.MIXED};
         for (int i=0; i < Math.pow(2.0, switches.length); i++) {
             String state = "";
@@ -61,8 +64,29 @@ public class VideoDHGRTest extends AbstractFXTest {
             }
             video.configureVideoMode();
             int address = video.getCurrentWriter().getYOffset(0);
-            int expected = SoftSwitches.TEXT.isOn() || SoftSwitches.HIRES.isOff() ? (SoftSwitches.PAGE2.isOn() ? 0x0800 : 0x0400) 
-            : (SoftSwitches.PAGE2.isOn() ? 0x04000 : 0x02000);
+            
+            // Calculate expected address based on actual video mode logic
+            boolean page2 = SoftSwitches.PAGE2.isOn() && SoftSwitches._80STORE.isOff();
+            
+            int expected;
+            if (SoftSwitches.TEXT.isOn()) {
+                // Text mode (including 80-column text)
+                expected = page2 ? 0x0800 : 0x0400;
+            } else if (SoftSwitches.HIRES.isOff()) {
+                // Lores mode (including double-lores when 80COL is ON)
+                expected = page2 ? 0x0800 : 0x0400;
+            } else {
+                // Hires mode (including double-hires when 80COL and DHIRES are ON)
+                expected = page2 ? 0x04000 : 0x02000;
+            }
+            
+            // To help debug the specific failure cases
+            if (expected != address) {
+                System.out.println("Failed case: " + state);
+                System.out.println("Expected: " + expected + ", Actual: " + address);
+                System.out.println("Current Writer: " + video.getCurrentWriter().getClass().getName());
+            }
+            
             assertEquals("Address for mode not correct: " + state, expected, address);
         }
     }

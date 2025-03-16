@@ -17,8 +17,10 @@
 package jace.terminal;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.PrintStream;
@@ -46,6 +48,7 @@ public class TerminalUIController {
     
     // Track current Terminal mode for UI display
     private static TerminalMode currentMode;
+    private static javafx.scene.control.Label modeLabel;
     
     /**
      * Set the current Terminal mode
@@ -55,6 +58,13 @@ public class TerminalUIController {
      */
     public static void setCurrentMode(TerminalMode mode) {
         currentMode = mode;
+        
+        // Update the mode label if available
+        if (modeLabel != null && mode != null) {
+            Platform.runLater(() -> {
+                modeLabel.setText(mode.getPrompt());
+            });
+        }
     }
     
     /**
@@ -89,8 +99,12 @@ public class TerminalUIController {
             
             Button sendButton = new Button("Send");
             
+            // Add a label to display the current mode 
+            modeLabel = new javafx.scene.control.Label("MAIN>");
+            modeLabel.setStyle("-fx-font-family: 'monospace'; -fx-font-weight: bold;");
+            
             // Arrange input components horizontally
-            HBox inputBox = new HBox(5, inputField, sendButton);
+            HBox inputBox = new HBox(5, modeLabel, inputField, sendButton);
             inputBox.setAlignment(Pos.CENTER_LEFT);
             HBox.setHgrow(inputField, Priority.ALWAYS);
             
@@ -101,7 +115,7 @@ public class TerminalUIController {
             layout.setPadding(new Insets(10));
             
             // Set up the scene
-            Scene scene = new Scene(layout, 600, 400);
+            Scene scene = new Scene(layout, 650, 400);
             terminalStage.setScene(scene);
             
             // Set up piped I/O - this allows communication between the UI and Terminal
@@ -115,7 +129,50 @@ public class TerminalUIController {
                 
                 // Create readers/writers for the Terminal
                 BufferedReader reader = new BufferedReader(new InputStreamReader(terminalInput));
-                PrintStream printStream = new PrintStream(terminalOutput, true);
+                
+                // Create a PrintStream with a custom OutputStream that formats output
+                PrintStream printStream = new PrintStream(new OutputStream() {
+                    private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                    
+                    @Override
+                    public void write(int b) throws IOException {
+                        // Pass through to the terminal output
+                        terminalOutput.write(b);
+                        
+                        // If newline, flush our buffer and process the line
+                        if (b == '\n') {
+                            final String line = buffer.toString("UTF-8");
+                            buffer.reset();
+                            
+                            // Format the output on the UI thread if needed
+                            Platform.runLater(() -> {
+                                try {
+                                    if (line.trim().endsWith(">")) {
+                                        // If prompt, ensure it's on its own line
+                                        if (!consoleOutput.getText().endsWith("\n\n")) {
+                                            consoleOutput.appendText("\n");
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    System.err.println("Error processing output: " + e);
+                                }
+                            });
+                        } else {
+                            // Add to our buffer
+                            buffer.write(b);
+                        }
+                    }
+                    
+                    @Override
+                    public void flush() throws IOException {
+                        terminalOutput.flush();
+                    }
+                    
+                    @Override
+                    public void close() throws IOException {
+                        terminalOutput.close();
+                    }
+                }, true);
                 
                 // Initialize the Terminal in a background thread - not on the JavaFX thread!
                 Thread terminalThread = new Thread(() -> {
@@ -166,9 +223,32 @@ public class TerminalUIController {
                             // Update UI - must be on JavaFX thread
                             Platform.runLater(() -> {
                                 try {
-                                    consoleOutput.appendText(finalLine + "\n");
-                                    // Auto-scroll to bottom
+                                    // Check for pure prompt lines first
+                                    if (finalLine.trim().matches(".*>\\s*$") && !finalLine.contains(":")) {
+                                        // Don't display pure prompt lines (they're shown in the input area)
+                                        return;
+                                    }
+                                    
+                                    // Handle lines containing both prompt and output
+                                    String processedLine = finalLine;
+                                    if (finalLine.contains("MONITOR>") || finalLine.contains("MAIN>") || 
+                                            finalLine.contains("ASSEMBLER>") || finalLine.contains("DEBUGGER>")) {
+                                        // Extract just the part after the prompt
+                                        int promptEnd = Math.max(
+                                            Math.max(finalLine.indexOf("MONITOR>") + 8, finalLine.indexOf("MAIN>") + 5),
+                                            Math.max(finalLine.indexOf("ASSEMBLER>") + 10, finalLine.indexOf("DEBUGGER>") + 9)
+                                        );
+                                        if (promptEnd > 4) { // Ensure we found a prompt
+                                            processedLine = finalLine.substring(promptEnd).trim();
+                                        }
+                                    }
+                                    
+                                    // Display the processed line (without the prompt)
+                                    consoleOutput.appendText(processedLine + "\n");
+                                    
+                                    // Force scroll to bottom with both methods to ensure it works
                                     consoleOutput.setScrollTop(Double.MAX_VALUE);
+                                    consoleOutput.positionCaret(consoleOutput.getText().length());
                                 } catch (Exception e) {
                                     System.err.println("Error updating console: " + e);
                                 }
@@ -185,6 +265,15 @@ public class TerminalUIController {
                     String command = inputField.getText().trim();
                     if (!command.isEmpty()) {
                         try {
+                            // Echo command to console output
+                            Platform.runLater(() -> {
+                                // Add the user command with a newline
+                                consoleOutput.appendText("\n" + command + "\n");
+                                // Force scroll to bottom with both methods to ensure it works
+                                consoleOutput.setScrollTop(Double.MAX_VALUE);
+                                consoleOutput.positionCaret(consoleOutput.getText().length());
+                            });
+                            
                             // Send command to terminal
                             uiToTerminal.write((command + "\n").getBytes());
                             uiToTerminal.flush();

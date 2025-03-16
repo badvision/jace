@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.logging.Logger;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -32,6 +33,8 @@ public class CpuUnitTest extends AbstractJaceTest {
     // The goal is to produce an output report that shows the number of tests that passed and failed
     // The output should be reported in a format compatible with junit but also capture multiple potential failures, not just the first faliure
 
+    private static final Logger LOG = Logger.getLogger(CpuUnitTest.class.getName());
+    
     TypeToken<Collection<TestRecord>> testCollectionType = new TypeToken<Collection<TestRecord>>(){};
     record TestResult(String source, String testName, boolean passed, String message) {}
     // Note cycles are a mix of int and string so the parser doesn't like to serialize that into well-formed objects
@@ -123,11 +126,11 @@ public class CpuUnitTest extends AbstractJaceTest {
             } else {
                 failedTests.add(result.testName());
                 if (failedTests.size() < 20) {
-                    System.err.println(result.source() + ";" + result.testName() + " " + "FAILED" + ": " + result.message());
+                    LOG.warning(result.source() + ";" + result.testName() + " " + "FAILED" + ": " + result.message());
                 }
             }
         }
-        System.err.println("Passed: " + passed + " Failed: " + failedTests.size());
+        LOG.info("Passed: " + passed + " Failed: " + failedTests.size());
         if (failedTests.size() > 0) {
             throw new RuntimeException("One or more tests failed, see log for details");
         }

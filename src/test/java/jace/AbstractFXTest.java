@@ -1,5 +1,7 @@
 package jace;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -12,6 +14,8 @@ import javafx.application.Platform;
  * Extends AbstractJaceTest with JavaFX initialization and cleanup.
  */
 public abstract class AbstractFXTest extends AbstractJaceTest {
+    
+    private static final Logger LOG = Logger.getLogger(AbstractFXTest.class.getName());
     
     // Flag to track if JavaFX runtime has been initialized
     protected static boolean fxInitialized = false;
@@ -28,7 +32,7 @@ public abstract class AbstractFXTest extends AbstractJaceTest {
         
         // Skip JavaFX initialization in test mode
         if (Utility.isTestMode()) {
-            System.out.println("Skipping JavaFX initialization in test mode");
+            LOG.fine("Skipping JavaFX initialization in test mode");
             return;
         }
         
@@ -37,9 +41,9 @@ public abstract class AbstractFXTest extends AbstractJaceTest {
             try {
                 fxInitialized = true;
                 Platform.startup(() -> {});
-                System.out.println("JavaFX initialized successfully");
+                LOG.fine("JavaFX initialized successfully");
             } catch (Exception e) {
-                System.err.println("Failed to initialize JavaFX: " + e.getMessage());
+                LOG.log(Level.SEVERE, "Failed to initialize JavaFX: " + e.getMessage(), e);
                 // Continue without JavaFX in test mode
                 Utility.setTestMode(true);
             }

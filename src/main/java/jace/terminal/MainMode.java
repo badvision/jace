@@ -20,6 +20,8 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import jace.Emulator;
 import jace.apple2e.MOS65C02;
@@ -29,6 +31,8 @@ import jace.apple2e.SoftSwitches;
  * Main command mode for the Terminal
  */
 public class MainMode implements TerminalMode {
+    private static final Logger LOG = Logger.getLogger(MainMode.class.getName());
+    
     private final JaceTerminal terminal;
     private final PrintStream output;
     private final Map<String, Consumer<String[]>> commands = new HashMap<>();
@@ -40,6 +44,7 @@ public class MainMode implements TerminalMode {
         this.terminal = terminal;
         this.output = terminal.getOutput();
         initCommands();
+        LOG.fine("MainMode initialized");
     }
 
     private void initCommands() {
@@ -125,6 +130,8 @@ public class MainMode implements TerminalMode {
                 "Saves a block of memory to a binary file.\nUsage: savebin <filename> <address> <size> (or sb <filename> <address> <size>)\n"
                         +
                         "Address and size can be decimal or hex with $ or 0x prefix.");
+        
+        LOG.fine("Commands initialized");
     }
 
     private void addAlias(String alias, String command) {
@@ -153,10 +160,12 @@ public class MainMode implements TerminalMode {
 
         Consumer<String[]> handler = commands.get(cmd);
         if (handler != null) {
+            LOG.fine("Processing command: " + cmd);
             handler.accept(args);
             return true;
         }
 
+        LOG.info("Unknown command received: " + cmd);
         output.println("Unknown command: " + cmd);
         return false;
     }
@@ -201,6 +210,7 @@ public class MainMode implements TerminalMode {
 
     private void toggleSoftSwitchLogging(String[] args) {
         softSwitchLoggingEnabled = !softSwitchLoggingEnabled;
+        LOG.info("SoftSwitch logging " + (softSwitchLoggingEnabled ? "enabled" : "disabled"));
         output.println("SoftSwitch logging " + (softSwitchLoggingEnabled ? "enabled" : "disabled"));
 
         // TODO: Implement actual listener on SoftSwitch state changes when enabled
@@ -214,6 +224,7 @@ public class MainMode implements TerminalMode {
                 SoftSwitches sw = SoftSwitches.valueOf(switchName);
                 output.println(sw.toString() + " = " + (sw.isOn() ? "ON" : "OFF"));
             } catch (IllegalArgumentException e) {
+                LOG.info("Unknown softswitch requested: " + switchName);
                 output.println("Unknown softswitch: " + switchName);
             }
         } else {
@@ -249,9 +260,11 @@ public class MainMode implements TerminalMode {
 
                 output.println("  Flags: " + flags.toString());
             } else {
+                LOG.warning("CPU not available for register display");
                 output.println("CPU not available");
             }
         } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error displaying CPU registers", e);
             output.println("Error accessing CPU: " + e.getMessage());
         }
     }
@@ -269,6 +282,7 @@ public class MainMode implements TerminalMode {
         try {
             MOS65C02 cpu = getCPU();
             if (cpu == null) {
+                LOG.warning("CPU not available for register setting");
                 output.println("CPU not available");
                 return;
             }
@@ -312,14 +326,18 @@ public class MainMode implements TerminalMode {
                         cpu.C = parseBooleanValue(valueStr) ? 1 : 0;
                         break;
                     default:
+                        LOG.info("Unknown register requested: " + register);
                         output.println("Unknown register: " + register);
                         return;
                 }
+                LOG.fine("Register " + register + " set to " + valueStr);
                 output.println("Register " + register + " set to " + valueStr);
             } catch (NumberFormatException e) {
+                LOG.info("Invalid value format for register: " + valueStr);
                 output.println("Invalid value format: " + valueStr);
             }
         } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error setting CPU register", e);
             output.println("Error accessing CPU: " + e.getMessage());
         }
     }
@@ -356,8 +374,10 @@ public class MainMode implements TerminalMode {
             Emulator.withComputer(computer -> {
                 computer.coldStart();
                 output.println("Apple II reset performed");
+                LOG.info("Apple II reset performed");
             });
         } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error performing system reset", e);
             output.println("Error accessing computer: " + e.getMessage());
         }
     }
@@ -368,6 +388,7 @@ public class MainMode implements TerminalMode {
             try {
                 steps = Integer.parseInt(args[0]);
             } catch (NumberFormatException e) {
+                LOG.info("Invalid step count: " + args[0]);
                 output.println("Invalid step count: " + args[0]);
                 return;
             }
@@ -377,6 +398,7 @@ public class MainMode implements TerminalMode {
         try {
             Emulator.withComputer(computer -> {
                 output.println("Stepping CPU for " + stepCount + " cycles...");
+                LOG.fine("Stepping CPU for " + stepCount + " cycles");
                 computer.getMotherboard().whileSuspended(() -> {
                     for (int i = 0; i < stepCount; i++) {
                         computer.getCpu().tick();
@@ -386,6 +408,7 @@ public class MainMode implements TerminalMode {
                 showRegisters();
             });
         } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error stepping CPU", e);
             output.println("Error accessing computer: " + e.getMessage());
         }
     }
@@ -398,6 +421,7 @@ public class MainMode implements TerminalMode {
             try {
                 cycles = Integer.parseInt(args[0]);
             } catch (NumberFormatException e) {
+                LOG.info("Invalid cycle count: " + args[0]);
                 output.println("Invalid cycle count: " + args[0]);
                 return;
             }
@@ -411,6 +435,7 @@ public class MainMode implements TerminalMode {
                     breakpoint = Integer.parseInt(args[1]) & 0xFFFF;
                 }
             } catch (NumberFormatException e) {
+                LOG.info("Invalid breakpoint address: " + args[1]);
                 output.println("Invalid breakpoint address: " + args[1]);
                 return;
             }
@@ -419,8 +444,10 @@ public class MainMode implements TerminalMode {
         final int cycleCount = cycles;
         final int breakAddr = breakpoint;
 
-        output.println("Running CPU for " + (cycleCount == -1 ? "unlimited" : cycleCount) + " cycles" +
-                (breakAddr != -1 ? " or until PC=$" + String.format("%04X", breakAddr) : ""));
+        String cycleMsg = "Running CPU for " + (cycleCount == -1 ? "unlimited" : cycleCount) + " cycles" +
+                (breakAddr != -1 ? " or until PC=$" + String.format("%04X", breakAddr) : "");
+        LOG.info(cycleMsg);
+        output.println(cycleMsg);
 
         // TODO: Implement actual run logic with breakpoint support
         try {
@@ -431,6 +458,7 @@ public class MainMode implements TerminalMode {
                 output.println("CPU resumed, press Ctrl+C to interrupt");
             });
         } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error running CPU", e);
             output.println("Error accessing computer: " + e.getMessage());
         }
     }
@@ -444,6 +472,7 @@ public class MainMode implements TerminalMode {
         String drive = args[0];
         String filename = args[1];
 
+        LOG.info("Disk insertion requested for drive " + drive + ": " + filename);
         // TODO: Implement disk insertion
         output.println("Disk insertion not yet implemented");
     }
@@ -456,6 +485,7 @@ public class MainMode implements TerminalMode {
 
         String drive = args[0];
 
+        LOG.info("Disk ejection requested for drive " + drive);
         // TODO: Implement disk ejection
         output.println("Disk ejection not yet implemented");
     }
@@ -476,10 +506,12 @@ public class MainMode implements TerminalMode {
                 address = Integer.parseInt(args[1]) & 0xFFFF;
             }
         } catch (NumberFormatException e) {
+            LOG.info("Invalid address format: " + args[1]);
             output.println("Invalid address: " + args[1]);
             return;
         }
 
+        LOG.info("Binary load requested: " + filename + " at $" + Integer.toHexString(address));
         // TODO: Implement binary loading
         output.println("Binary loading not yet implemented");
     }
@@ -506,10 +538,13 @@ public class MainMode implements TerminalMode {
                 size = Integer.parseInt(args[2]) & 0xFFFF;
             }
         } catch (NumberFormatException e) {
+            LOG.info("Invalid address or size format");
             output.println("Invalid address or size");
             return;
         }
 
+        LOG.info("Binary save requested: " + filename + " from $" + 
+                Integer.toHexString(address) + " size $" + Integer.toHexString(size));
         // TODO: Implement binary saving
         output.println("Binary saving not yet implemented");
     }
@@ -517,10 +552,11 @@ public class MainMode implements TerminalMode {
     /**
      * Helper method to get CPU from the emulator
      */
-    private MOS65C02 getCPU() {
+    protected MOS65C02 getCPU() {
         try {
             return (MOS65C02) terminal.getEmulator().withComputer(c -> c.getCpu(), null);
         } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error getting CPU: {0}", e.getMessage());
             output.println("Error getting CPU: " + e.getMessage());
             return null;
         }
