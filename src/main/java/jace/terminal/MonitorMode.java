@@ -81,6 +81,8 @@ public class MonitorMode implements TerminalMode {
         commands.put("search", this::searchMemory);
         commands.put("disasm", this::disassembleMemory);
         commands.put("back", args -> terminal.setMode("main"));
+        commands.put("debug", args -> terminal.setMode("debugger"));
+        commands.put("quit", args -> terminal.setMode("main"));
         
         // Add single-letter aliases
         addAlias("e", "examine");
@@ -91,6 +93,7 @@ public class MonitorMode implements TerminalMode {
         addAlias("s", "search");
         addAlias("l", "disasm");  // 'l' for 'list'
         addAlias("b", "back");
+        addAlias("dbg", "debug");
         
         // Command-specific help
         commandHelp.put("examine", "Displays memory contents at the specified address.\n" +
@@ -162,6 +165,8 @@ public class MonitorMode implements TerminalMode {
                 "  L              - Continue disassembly from where last left off");
         
         commandHelp.put("back", "Returns to main mode.\nUsage: back (or b)");
+        
+        commandHelp.put("debug", "Enters debugger mode.\nUsage: debug");
     }
     
     private void addAlias(String alias, String command) {
@@ -180,6 +185,20 @@ public class MonitorMode implements TerminalMode {
     
     @Override
     public boolean processCommand(String command) {
+        // Check for simple single-letter commands
+        command = command.trim();
+        
+        // Handle q to return to main menu and qq to exit
+        if ("q".equals(command)) {
+            terminal.setMode("main");
+            return true;
+        }
+        
+        if ("qq".equals(command)) {
+            terminal.stop();
+            return true;
+        }
+        
         // Special case for the single L command to continue disassembly
         if (SINGLE_LIST_PATTERN.matcher(command).matches()) {
             // Continue disassembly from last address
@@ -187,7 +206,7 @@ public class MonitorMode implements TerminalMode {
             return true;
         }
         
-        String[] parts = command.trim().split("\\s+", 2);
+        String[] parts = command.split("\\s+", 2);
         String cmd = parts[0].toLowerCase();
         String[] args = parts.length > 1 ? parts[1].split("\\s+") : new String[0];
         
@@ -305,31 +324,32 @@ public class MonitorMode implements TerminalMode {
     
     @Override
     public void printHelp() {
-        output.println("Apple II Monitor Mode");
-        output.println("This mode emulates the Apple II monitor, allowing you to examine and modify memory.");
-        output.println("");
-        output.println("Commands:");
-        output.println("  examine addr [count]     - Examine memory (or e addr [count])");
-        output.println("  deposit addr val [val2]  - Deposit values in memory (or d addr val [val2])");
-        output.println("  fill start end val       - Fill memory with a value (or f start end val)");
-        output.println("  move src dest count      - Move a block of memory (or m src dest count)");
-        output.println("  compare src dest count   - Compare memory blocks (or c src dest count)");
-        output.println("  search start end val     - Search for bytes (or s start end val)");
-        output.println("  disasm addr [count]      - Disassemble code (or l addr [count])");
-        output.println("  back                     - Return to main mode (or b)");
-        output.println("");
-        output.println("Apple II style syntax is also supported:");
-        output.println("  XXXX                     - Examine single byte at address XXXX");
-        output.println("  XXXX:YY ZZ...            - Store bytes YY, ZZ, etc. starting at XXXX");
-        output.println("  XXXXG                    - Execute code at XXXX");
-        output.println("  XXXXL                    - Disassemble code at XXXX");
-        output.println("  L                        - Continue disassembly from last location");
-        output.println("  XXXX.YYYY                - Examine memory from XXXX to YYYY (inclusive)");
-        output.println("  MXXXX                    - Use main memory bank for operations");
-        output.println("  XXXXX                    - Use auxiliary memory bank for operations");
-        output.println("");
-        output.println("Use help <command> for detailed help on a specific command.");
-        output.println("  exit/quit                  - Exit the Terminal");
+        output.println("Monitor commands:");
+        output.println("  examine/e  addr [count]    - Display memory");
+        output.println("  deposit/d  addr val [...]  - Modify memory");
+        output.println("  fill/f     start end val   - Fill memory with value");
+        output.println("  move/m     src dest count  - Copy memory");
+        output.println("  compare/c  addr1 addr2 len - Compare memory regions");
+        output.println("  search/s   start end val   - Search for byte value");
+        output.println("  disasm/l   addr [count]    - Disassemble code");
+        output.println("  debug/dbg                  - Enter debugger mode");
+        output.println("  back/b/q                   - Return to main menu");
+        output.println("  qq                         - Exit terminal");
+        output.println();
+        output.println("Monitor shortcuts:");
+        output.println("  addr       - Examine memory at address");
+        output.println("  addr:val   - Deposit value(s) at address");
+        output.println("  addrG      - Execute code at address");
+        output.println("  addrL      - Disassemble at address");
+        output.println("  L          - Continue disassembly");
+        output.println("  start.end  - Examine memory range");
+        output.println();
+        output.println("Use M prefix for main memory, X for aux memory:");
+        output.println("  M2000      - Examine main memory at $2000");
+        output.println("  X300:42    - Store $42 in aux memory at $300");
+        output.println("  M2000.20FF - Examine main memory from $2000-$20FF");
+        output.println();
+        output.println("Type help <command> for detailed help on a command");
     }
     
     @Override

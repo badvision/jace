@@ -136,27 +136,12 @@ public class TerminalUIController {
                     
                     @Override
                     public void write(int b) throws IOException {
-                        // Pass through to the terminal output
+                        // Pass through to the terminal output without any special handling
                         terminalOutput.write(b);
                         
-                        // If newline, flush our buffer and process the line
+                        // If newline, flush our buffer
                         if (b == '\n') {
-                            final String line = buffer.toString("UTF-8");
                             buffer.reset();
-                            
-                            // Format the output on the UI thread if needed
-                            Platform.runLater(() -> {
-                                try {
-                                    if (line.trim().endsWith(">")) {
-                                        // If prompt, ensure it's on its own line
-                                        if (!consoleOutput.getText().endsWith("\n\n")) {
-                                            consoleOutput.appendText("\n");
-                                        }
-                                    }
-                                } catch (Exception e) {
-                                    System.err.println("Error processing output: " + e);
-                                }
-                            });
                         } else {
                             // Add to our buffer
                             buffer.write(b);
@@ -231,15 +216,26 @@ public class TerminalUIController {
                                     
                                     // Handle lines containing both prompt and output
                                     String processedLine = finalLine;
-                                    if (finalLine.contains("MONITOR>") || finalLine.contains("MAIN>") || 
-                                            finalLine.contains("ASSEMBLER>") || finalLine.contains("DEBUGGER>")) {
-                                        // Extract just the part after the prompt
-                                        int promptEnd = Math.max(
-                                            Math.max(finalLine.indexOf("MONITOR>") + 8, finalLine.indexOf("MAIN>") + 5),
-                                            Math.max(finalLine.indexOf("ASSEMBLER>") + 10, finalLine.indexOf("DEBUGGER>") + 9)
-                                        );
-                                        if (promptEnd > 4) { // Ensure we found a prompt
-                                            processedLine = finalLine.substring(promptEnd).trim();
+                                    
+                                    // Check for the various prompt types
+                                    String[] prompts = {"MONITOR>", "MAIN>", "ASSEMBLER>", "DEBUG>"};
+                                    for (String prompt : prompts) {
+                                        if (finalLine.contains(prompt)) {
+                                            int promptIndex = finalLine.indexOf(prompt);
+                                            int promptEnd = promptIndex + prompt.length();
+                                            
+                                            // Only process if the prompt is at the beginning of the line
+                                            // or preceded only by whitespace
+                                            if (promptIndex == 0 || finalLine.substring(0, promptIndex).trim().isEmpty()) {
+                                                // Extract everything after the prompt
+                                                if (promptEnd < finalLine.length()) {
+                                                    processedLine = finalLine.substring(promptEnd).trim();
+                                                } else {
+                                                    // If it's just a prompt with nothing after it, skip displaying
+                                                    return;
+                                                }
+                                                break;
+                                            }
                                         }
                                     }
                                     

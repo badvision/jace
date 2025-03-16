@@ -150,6 +150,12 @@ public class MainMode implements TerminalMode {
 
     @Override
     public boolean processCommand(String command) {
+        // Handle exit command
+        if ("qq".equals(command.trim())) {
+            terminal.stop();
+            return true;
+        }
+        
         String[] parts = command.trim().split("\\s+", 2);
         String cmd = parts[0].toLowerCase();
         String[] args = parts.length > 1 ? parts[1].split("\\s+") : new String[0];
@@ -173,9 +179,11 @@ public class MainMode implements TerminalMode {
     @Override
     public void printHelp() {
         output.println("Available commands:");
-        output.println("  monitor (m)    - Enter monitor mode (memory examination and manipulation)");
-        output.println("  assembler (a)  - Enter assembler mode (assembly language input)");
-        output.println("  debugger (d)   - Enter debugger mode (advanced control and inspection)");
+        output.println("  monitor/m       - Enter Monitor mode");
+        output.println("  assembler/a     - Enter Assembler mode");
+        output.println("  debugger/d      - Enter Debugger mode");
+        output.println("  qq              - Exit terminal");
+        output.println();
         output.println("  swlog (sl)     - Toggle softswitch state change logging");
         output.println("  swstate (ss)   - Display current state of all softswitches");
         output.println("  registers (r)  - Display CPU registers");

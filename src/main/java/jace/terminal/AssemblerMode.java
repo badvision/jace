@@ -46,8 +46,14 @@ public class AssemblerMode implements TerminalMode {
         command = command.trim();
         
         // Check for exit command
-        if ("exit".equalsIgnoreCase(command) || "quit".equalsIgnoreCase(command)) {
+        if ("exit".equalsIgnoreCase(command) || "quit".equalsIgnoreCase(command) || "q".equals(command)) {
             terminal.setMode("main");
+            return true;
+        }
+        
+        // Check for quit terminal command
+        if ("qq".equals(command)) {
+            terminal.stop();
             return true;
         }
         
@@ -58,8 +64,9 @@ public class AssemblerMode implements TerminalMode {
     @Override
     public void printHelp() {
         output.println("Assembler Mode Commands:");
-        output.println("  exit/quit     - Exit assembler mode");
-        output.println("  ?/help        - Show this help");
+        output.println("  exit/quit/q  - Return to main menu");
+        output.println("  qq           - Exit terminal");
+        output.println("  ?/help       - Show this help");
         output.println();
         output.println("Assembler mode is not yet implemented");
     }
