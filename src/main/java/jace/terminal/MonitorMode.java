@@ -96,9 +96,9 @@ public class MonitorMode implements TerminalMode {
         commandHelp.put("examine", "Displays memory contents at the specified address.\n" +
                 "Usage: examine addr [count] (or e addr [count])\n" +
                 "  addr  - Memory address in hex\n" +
-                "  count - Number of bytes to display (default: 16)\n" +
+                "  count - Number of bytes to display (default: 1)\n" +
                 "Examples:\n" +
-                "  examine 2000    - Show 16 bytes starting at $2000\n" +
+                "  examine 2000    - Show single byte at $2000\n" +
                 "  e C000 32       - Show 32 bytes starting at $C000\n" +
                 "Range syntax is also supported:\n" +
                 "  2000.20FF       - Show all bytes from $2000 to $20FF (inclusive)\n" +
@@ -246,7 +246,10 @@ public class MonitorMode implements TerminalMode {
                                  MemoryMode.ACTIVE;
                 }
                 
-                hexDump(addr, 16);
+                // Display only a single byte when a single address is specified
+                byte value = readMemory(addr);
+                output.println(String.format("%04X: %02X", addr, value & 0xFF));
+                lastExaminedAddress = addr + 1;
                 return true;
             }
         } else if (POKE_PATTERN.matcher(command).matches()) {
@@ -316,7 +319,7 @@ public class MonitorMode implements TerminalMode {
         output.println("  back                     - Return to main mode (or b)");
         output.println("");
         output.println("Apple II style syntax is also supported:");
-        output.println("  XXXX                     - Examine 16 bytes at address XXXX");
+        output.println("  XXXX                     - Examine single byte at address XXXX");
         output.println("  XXXX:YY ZZ...            - Store bytes YY, ZZ, etc. starting at XXXX");
         output.println("  XXXXG                    - Execute code at XXXX");
         output.println("  XXXXL                    - Disassemble code at XXXX");
@@ -353,9 +356,17 @@ public class MonitorMode implements TerminalMode {
         
         try {
             int address = parseAddress(args[0]);
-            int count = args.length > 1 ? parseCount(args[1]) : 16; // Default to 16 bytes
+            int count = args.length > 1 ? parseCount(args[1]) : 1; // Default to 1 byte
             
-            hexDump(address, count);
+            if (count == 1) {
+                // Display single byte
+                byte value = readMemory(address);
+                output.println(String.format("%04X: %02X", address, value & 0xFF));
+                lastExaminedAddress = address + 1;
+            } else {
+                // Display multiple bytes
+                hexDump(address, count);
+            }
         } catch (NumberFormatException e) {
             output.println("Invalid address or count format");
         }
@@ -689,7 +700,7 @@ public class MonitorMode implements TerminalMode {
                         return ram128k.getMainMemory().getMemoryPage(address)[address & 0xFF];
                     }
                 } else {
-                    return ram.read(address, RAMEvent.TYPE.READ, false, false);
+                    return ram.read(address, RAMEvent.TYPE.READ, true, false);
                 }
             }
         } catch (Exception e) {
