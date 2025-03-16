@@ -1,8 +1,10 @@
 package jace.apple2e;
-import static jace.TestUtils.*;
-
-import org.junit.Before;
-import org.junit.Test;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -12,12 +14,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLDecoder;
+
+import org.junit.Before;
+import org.junit.Test;
+
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
@@ -25,13 +25,7 @@ import com.google.gson.reflect.TypeToken;
 import jace.AbstractJaceTest;
 import jace.Emulator;
 import jace.TestUtils;
-import jace.core.Computer;
-import jace.core.RAM;
-import jace.core.SoundMixer;
 import jace.core.RAMEvent.TYPE;
-import jace.JaceApplication;
-import jace.apple2e.MOS65C02;
-import jace.core.Utility;
 
 public class CpuUnitTest extends AbstractJaceTest {
     // This will loop through each of the files in 65x02_unit_tests/wdc65c02 and run the tests in each file

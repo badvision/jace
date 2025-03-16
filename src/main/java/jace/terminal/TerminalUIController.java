@@ -16,6 +16,13 @@
 
 package jace.terminal;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.io.PrintStream;
+
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -30,16 +37,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.io.PrintStream;
-
-import jace.Emulator;
-import jace.apple2e.Apple2e;
 
 /**
  * Controller class for managing Terminal UI windows
@@ -162,8 +159,7 @@ public class TerminalUIController {
                 
                 // Set up a reader thread to get output from the Terminal to the UI
                 Thread readerThread = new Thread(() -> {
-                    try {
-                        BufferedReader uiReader = new BufferedReader(new InputStreamReader(terminalToUi));
+                    try (BufferedReader uiReader = new BufferedReader(new InputStreamReader(terminalToUi))) {                        
                         String line;
                         while ((line = uiReader.readLine()) != null) {
                             final String finalLine = line;

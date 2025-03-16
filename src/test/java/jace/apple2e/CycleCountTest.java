@@ -15,12 +15,11 @@
  */
 package jace.apple2e;
 
-import org.junit.Test;
 import org.junit.Before;
+import org.junit.Test;
 
 import jace.AbstractJaceTest;
 import jace.Emulator;
-import jace.JaceApplication;
 import jace.ProgramException;
 import jace.TestProgram;
 import jace.TestUtils;

@@ -19,24 +19,17 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import jace.apple2e.RAM128k;
-import jace.apple2e.SoftSwitches;
-import jace.apple2e.VideoDHGR;
-import jace.apple2e.VideoNTSC;
-import jace.config.Configuration;
 import jace.core.CPU;
 import jace.core.Computer;
 import jace.core.Device;
-import jace.core.Motherboard;
 import jace.core.PagedMemory;
 import jace.core.RAM;
 import jace.core.RAMEvent.TYPE;
-import jace.core.SoundMixer;
 import jace.core.Utility;
 import jace.core.Video;
 import jace.core.VideoWriter;
 import jace.ide.HeadlessProgram;
 import jace.ide.Program;
-import javafx.application.Platform;
 import javafx.scene.image.WritableImage;
 
 /**

@@ -16,19 +16,18 @@
 
 package jace.terminal;
 
-import jace.Emulator;
-import jace.apple2e.MOS65C02;
-import jace.apple2e.RAM128k;
-import jace.apple2e.SoftSwitches;
-import jace.core.RAM;
-import jace.core.RAMEvent;
-
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import jace.Emulator;
+import jace.apple2e.MOS65C02;
+import jace.apple2e.RAM128k;
+import jace.core.RAM;
+import jace.core.RAMEvent;
 
 /**
  * Monitor mode for the Terminal - emulates the Apple II monitor

@@ -17,13 +17,11 @@
 package jace.terminal;
 
 import java.io.PrintStream;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
 import jace.Emulator;
-import jace.apple2e.Apple2e;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.SoftSwitches;
 
@@ -37,34 +35,34 @@ public class MainMode implements TerminalMode {
     private final Map<String, String> commandAliases = new HashMap<>();
     private final Map<String, String> commandHelp = new HashMap<>();
     private boolean softSwitchLoggingEnabled = false;
-    
+
     public MainMode(JaceTerminal terminal) {
         this.terminal = terminal;
         this.output = terminal.getOutput();
         initCommands();
     }
-    
+
     private void initCommands() {
         commands.put("monitor", args -> terminal.setMode("monitor"));
         commands.put("assembler", args -> terminal.setMode("assembler"));
         commands.put("debugger", args -> terminal.setMode("debugger"));
-        
+
         commands.put("swlog", this::toggleSoftSwitchLogging);
         commands.put("swstate", this::showSoftSwitchState);
-        
+
         commands.put("registers", args -> showRegisters());
         commands.put("setregister", this::setRegister);
-        
+
         commands.put("reset", args -> performReset());
         commands.put("step", this::stepCPU);
         commands.put("run", this::runCPU);
-        
+
         commands.put("insertdisk", this::insertDisk);
         commands.put("ejectdisk", this::ejectDisk);
-        
+
         commands.put("loadbin", this::loadBinary);
         commands.put("savebin", this::saveBinary);
-        
+
         addAlias("m", "monitor");
         addAlias("a", "assembler");
         addAlias("d", "debugger");
@@ -79,77 +77,90 @@ public class MainMode implements TerminalMode {
         addAlias("ed", "ejectdisk");
         addAlias("lb", "loadbin");
         addAlias("sb", "savebin");
-        
-        commandHelp.put("monitor", "Enters monitor mode for memory examination and manipulation.\nUsage: monitor (or m)");
+
+        commandHelp.put("monitor",
+                "Enters monitor mode for memory examination and manipulation.\nUsage: monitor (or m)");
         commandHelp.put("assembler", "Enters assembler mode for assembly language input.\nUsage: assembler (or a)");
         commandHelp.put("debugger", "Enters debugger mode for advanced debugging.\nUsage: debugger (or d)");
-        
+
         commandHelp.put("swlog", "Toggles logging of softswitch state changes.\nUsage: swlog (or sl)");
-        commandHelp.put("swstate", "Displays the current state of all softswitches.\nUsage: swstate [switch_name] (or ss [switch_name])\n" +
-                "If switch_name is provided, only shows that specific switch.");
-        
+        commandHelp.put("swstate",
+                "Displays the current state of all softswitches.\nUsage: swstate [switch_name] (or ss [switch_name])\n"
+                        +
+                        "If switch_name is provided, only shows that specific switch.");
+
         commandHelp.put("registers", "Displays current CPU register values.\nUsage: registers (or r)");
-        commandHelp.put("setregister", "Sets a CPU register to a specific value.\nUsage: setregister <register> <value> (or sr <register> <value>)\n" +
-                "Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C\n" +
-                "Values can be decimal, hex with $ prefix, or hex with 0x prefix.");
-        
+        commandHelp.put("setregister",
+                "Sets a CPU register to a specific value.\nUsage: setregister <register> <value> (or sr <register> <value>)\n"
+                        +
+                        "Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C\n" +
+                        "Values can be decimal, hex with $ prefix, or hex with 0x prefix.");
+
         commandHelp.put("reset", "Resets the Apple II.\nUsage: reset (or re)");
-        
-        commandHelp.put("step", "Steps the CPU for a specified number of cycles.\nUsage: step [count] (or s [count])\n" +
-                "If count is omitted, steps for 1 cycle.");
-        
+
+        commandHelp.put("step",
+                "Steps the CPU for a specified number of cycles.\nUsage: step [count] (or s [count])\n" +
+                        "If count is omitted, steps for 1 cycle.");
+
         commandHelp.put("run", "Runs the CPU for a specified number of cycles or until a breakpoint is hit.\n" +
                 "Usage: run [count] [#breakpoint] (or g [count] [#breakpoint])\n" +
                 "If count is omitted, runs for 1,000,000 cycles.\n" +
                 "If breakpoint is specified with # prefix, stops when that address is reached.");
-        
-        commandHelp.put("insertdisk", "Inserts a disk image into a specified drive.\nUsage: insertdisk d<drive_number> (or id d<drive_number>)\n" +
-                "Example: insertdisk d1");
-        
-        commandHelp.put("ejectdisk", "Ejects a disk from a specified drive.\nUsage: ejectdisk d<drive_number> (or ed d<drive_number>)\n" +
-                "Example: ejectdisk d2");
-        
-        commandHelp.put("loadbin", "Loads a binary file at a specified memory address.\nUsage: loadbin <filename> <address> (or lb <filename> <address>)\n" +
-                "Address can be decimal or hex with $ or 0x prefix.");
-        
-        commandHelp.put("savebin", "Saves a block of memory to a binary file.\nUsage: savebin <filename> <address> <size> (or sb <filename> <address> <size>)\n" +
-                "Address and size can be decimal or hex with $ or 0x prefix.");
+
+        commandHelp.put("insertdisk",
+                "Inserts a disk image into a specified drive.\nUsage: insertdisk d<drive_number> (or id d<drive_number>)\n"
+                        +
+                        "Example: insertdisk d1");
+
+        commandHelp.put("ejectdisk",
+                "Ejects a disk from a specified drive.\nUsage: ejectdisk d<drive_number> (or ed d<drive_number>)\n" +
+                        "Example: ejectdisk d2");
+
+        commandHelp.put("loadbin",
+                "Loads a binary file at a specified memory address.\nUsage: loadbin <filename> <address> (or lb <filename> <address>)\n"
+                        +
+                        "Address can be decimal or hex with $ or 0x prefix.");
+
+        commandHelp.put("savebin",
+                "Saves a block of memory to a binary file.\nUsage: savebin <filename> <address> <size> (or sb <filename> <address> <size>)\n"
+                        +
+                        "Address and size can be decimal or hex with $ or 0x prefix.");
     }
-    
+
     private void addAlias(String alias, String command) {
         commandAliases.put(alias, command);
     }
-    
+
     @Override
     public String getName() {
         return "Main";
     }
-    
+
     @Override
     public String getPrompt() {
         return "JACE> ";
     }
-    
+
     @Override
     public boolean processCommand(String command) {
         String[] parts = command.trim().split("\\s+", 2);
         String cmd = parts[0].toLowerCase();
         String[] args = parts.length > 1 ? parts[1].split("\\s+") : new String[0];
-        
+
         if (commandAliases.containsKey(cmd)) {
             cmd = commandAliases.get(cmd);
         }
-        
+
         Consumer<String[]> handler = commands.get(cmd);
         if (handler != null) {
             handler.accept(args);
             return true;
         }
-        
+
         output.println("Unknown command: " + cmd);
         return false;
     }
-    
+
     @Override
     public void printHelp() {
         output.println("Available commands:");
@@ -171,30 +182,30 @@ public class MainMode implements TerminalMode {
         output.println("  help/?  <cmd>   - Show detailed help for a specific command");
         output.println("  exit/quit       - Exit the Terminal");
     }
-    
+
     @Override
     public boolean printCommandHelp(String command) {
         if (commandAliases.containsKey(command)) {
             command = commandAliases.get(command);
         }
-        
+
         if (commandHelp.containsKey(command)) {
             output.println(commandHelp.get(command));
             return true;
         }
-        
+
         return false;
     }
-    
+
     // Command implementations
-    
+
     private void toggleSoftSwitchLogging(String[] args) {
         softSwitchLoggingEnabled = !softSwitchLoggingEnabled;
         output.println("SoftSwitch logging " + (softSwitchLoggingEnabled ? "enabled" : "disabled"));
-        
+
         // TODO: Implement actual listener on SoftSwitch state changes when enabled
     }
-    
+
     private void showSoftSwitchState(String[] args) {
         if (args.length > 0) {
             // Show specific softswitch state
@@ -213,7 +224,7 @@ public class MainMode implements TerminalMode {
             }
         }
     }
-    
+
     private void showRegisters() {
         try {
             MOS65C02 cpu = getCPU();
@@ -224,7 +235,7 @@ public class MainMode implements TerminalMode {
                 output.println("  Y: $" + String.format("%02X", cpu.Y & 0xFF));
                 output.println("  PC: $" + String.format("%04X", cpu.getProgramCounter()));
                 output.println("  S: $" + String.format("%02X", cpu.STACK & 0xFF));
-                
+
                 // Status flags
                 StringBuilder flags = new StringBuilder();
                 flags.append(cpu.N ? "N" : "n");
@@ -235,7 +246,7 @@ public class MainMode implements TerminalMode {
                 flags.append(cpu.I ? "I" : "i");
                 flags.append(cpu.Z ? "Z" : "z");
                 flags.append(cpu.C > 0 ? "C" : "c");
-                
+
                 output.println("  Flags: " + flags.toString());
             } else {
                 output.println("CPU not available");
@@ -244,24 +255,24 @@ public class MainMode implements TerminalMode {
             output.println("Error accessing CPU: " + e.getMessage());
         }
     }
-    
+
     private void setRegister(String[] args) {
         if (args.length < 2) {
             output.println("Usage: setregister <register> <value>");
             output.println("  Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C");
             return;
         }
-        
+
         String register = args[0].toUpperCase();
         String valueStr = args[1];
-        
+
         try {
             MOS65C02 cpu = getCPU();
             if (cpu == null) {
                 output.println("CPU not available");
                 return;
             }
-            
+
             try {
                 switch (register) {
                     case "A":
@@ -312,7 +323,7 @@ public class MainMode implements TerminalMode {
             output.println("Error accessing CPU: " + e.getMessage());
         }
     }
-    
+
     private int parseByteValue(String value) {
         if (value.startsWith("$")) {
             return Integer.parseInt(value.substring(1), 16) & 0xFF;
@@ -322,7 +333,7 @@ public class MainMode implements TerminalMode {
             return Integer.parseInt(value) & 0xFF;
         }
     }
-    
+
     private int parseWordValue(String value) {
         if (value.startsWith("$")) {
             return Integer.parseInt(value.substring(1), 16) & 0xFFFF;
@@ -332,14 +343,14 @@ public class MainMode implements TerminalMode {
             return Integer.parseInt(value) & 0xFFFF;
         }
     }
-    
+
     private boolean parseBooleanValue(String value) {
-        return "1".equals(value) || 
-               "true".equalsIgnoreCase(value) || 
-               "on".equalsIgnoreCase(value) || 
-               "yes".equalsIgnoreCase(value);
+        return "1".equals(value) ||
+                "true".equalsIgnoreCase(value) ||
+                "on".equalsIgnoreCase(value) ||
+                "yes".equalsIgnoreCase(value);
     }
-    
+
     private void performReset() {
         try {
             Emulator.withComputer(computer -> {
@@ -350,7 +361,7 @@ public class MainMode implements TerminalMode {
             output.println("Error accessing computer: " + e.getMessage());
         }
     }
-    
+
     private void stepCPU(String[] args) {
         int steps = 1;
         if (args.length > 0) {
@@ -361,7 +372,7 @@ public class MainMode implements TerminalMode {
                 return;
             }
         }
-        
+
         final int stepCount = steps;
         try {
             Emulator.withComputer(computer -> {
@@ -378,11 +389,11 @@ public class MainMode implements TerminalMode {
             output.println("Error accessing computer: " + e.getMessage());
         }
     }
-    
+
     private void runCPU(String[] args) {
         int cycles = 1000000; // Default to 1 million cycles
-        int breakpoint = -1;  // No breakpoint by default
-        
+        int breakpoint = -1; // No breakpoint by default
+
         if (args.length > 0) {
             try {
                 cycles = Integer.parseInt(args[0]);
@@ -391,7 +402,7 @@ public class MainMode implements TerminalMode {
                 return;
             }
         }
-        
+
         if (args.length > 1) {
             try {
                 if (args[1].startsWith("$")) {
@@ -404,59 +415,60 @@ public class MainMode implements TerminalMode {
                 return;
             }
         }
-        
+
         final int cycleCount = cycles;
         final int breakAddr = breakpoint;
-        
-        output.println("Running CPU for " + (cycleCount == -1 ? "unlimited" : cycleCount) + " cycles" + 
-                       (breakAddr != -1 ? " or until PC=$" + String.format("%04X", breakAddr) : ""));
-                       
+
+        output.println("Running CPU for " + (cycleCount == -1 ? "unlimited" : cycleCount) + " cycles" +
+                (breakAddr != -1 ? " or until PC=$" + String.format("%04X", breakAddr) : ""));
+
         // TODO: Implement actual run logic with breakpoint support
         try {
             Emulator.withComputer(computer -> {
                 computer.getMotherboard().resume();
-                // This would need to be properly implemented with a separate thread and monitoring
+                // This would need to be properly implemented with a separate thread and
+                // monitoring
                 output.println("CPU resumed, press Ctrl+C to interrupt");
             });
         } catch (Exception e) {
             output.println("Error accessing computer: " + e.getMessage());
         }
     }
-    
+
     private void insertDisk(String[] args) {
         if (args.length < 2) {
             output.println("Usage: insertdisk <drive> <filename>");
             return;
         }
-        
+
         String drive = args[0];
         String filename = args[1];
-        
+
         // TODO: Implement disk insertion
         output.println("Disk insertion not yet implemented");
     }
-    
+
     private void ejectDisk(String[] args) {
         if (args.length < 1) {
             output.println("Usage: ejectdisk <drive>");
             return;
         }
-        
+
         String drive = args[0];
-        
+
         // TODO: Implement disk ejection
         output.println("Disk ejection not yet implemented");
     }
-    
+
     private void loadBinary(String[] args) {
         if (args.length < 2) {
             output.println("Usage: loadbin <filename> <address>");
             return;
         }
-        
+
         String filename = args[0];
         int address;
-        
+
         try {
             if (args[1].startsWith("$")) {
                 address = Integer.parseInt(args[1].substring(1), 16) & 0xFFFF;
@@ -467,27 +479,27 @@ public class MainMode implements TerminalMode {
             output.println("Invalid address: " + args[1]);
             return;
         }
-        
+
         // TODO: Implement binary loading
         output.println("Binary loading not yet implemented");
     }
-    
+
     private void saveBinary(String[] args) {
         if (args.length < 3) {
             output.println("Usage: savebin <filename> <address> <size>");
             return;
         }
-        
+
         String filename = args[0];
         int address, size;
-        
+
         try {
             if (args[1].startsWith("$")) {
                 address = Integer.parseInt(args[1].substring(1), 16) & 0xFFFF;
             } else {
                 address = Integer.parseInt(args[1]) & 0xFFFF;
             }
-            
+
             if (args[2].startsWith("$")) {
                 size = Integer.parseInt(args[2].substring(1), 16) & 0xFFFF;
             } else {
@@ -497,11 +509,11 @@ public class MainMode implements TerminalMode {
             output.println("Invalid address or size");
             return;
         }
-        
+
         // TODO: Implement binary saving
         output.println("Binary saving not yet implemented");
     }
-    
+
     /**
      * Helper method to get CPU from the emulator
      */
@@ -513,4 +525,4 @@ public class MainMode implements TerminalMode {
             return null;
         }
     }
-} 
+}

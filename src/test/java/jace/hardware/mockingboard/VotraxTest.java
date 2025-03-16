@@ -8,7 +8,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import org.junit.After;
 import org.junit.Before;
@@ -17,7 +16,6 @@ import org.junit.Test;
 import jace.AbstractFXTest;
 import jace.core.SoundMixer;
 import jace.core.SoundMixer.SoundBuffer;
-import jace.core.SoundMixer.SoundError;
 import jace.core.Utility;
 
 public class VotraxTest extends AbstractFXTest {

@@ -211,8 +211,6 @@ public abstract class AbstractJaceTest {
      * This can be used when you need to isolate tests from real memory.
      */
     protected void setupFakeRAM() {
-        RAM oldRam = computer.getMemory();
-        
         // Create a new FakeRAM instance
         RAM fakeRam = TestUtils.initFakeRam();
         ram = (RAM128k) fakeRam;
