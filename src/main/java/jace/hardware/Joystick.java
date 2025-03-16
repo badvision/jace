@@ -56,19 +56,29 @@ import javafx.scene.input.MouseEvent;
 @Stateful
 public class Joystick extends Device {
     static {
-        Platform.runLater(()->{
-            GLFW.glfwInit();
-            // Load joystick mappings from resources
-            // First read the file into a ByteBuffer
-            try (InputStream inputStream = Joystick.class.getResourceAsStream("/jace/data/gamecontrollerdb.txt")) {
-                // Throw it into a string
-                String mappings = new String(inputStream.readAllBytes());
-                parseGameControllerDB(mappings);
+        // Only initialize GLFW and joystick support if we're not in headless mode
+        if (!Utility.isHeadlessMode()) {
+            try {
+                Platform.runLater(()->{
+                    GLFW.glfwInit();
+                    // Load joystick mappings from resources
+                    // First read the file into a ByteBuffer
+                    try (InputStream inputStream = Joystick.class.getResourceAsStream("/jace/data/gamecontrollerdb.txt")) {
+                        // Throw it into a string
+                        String mappings = new String(inputStream.readAllBytes());
+                        parseGameControllerDB(mappings);
+                    } catch (Exception e) {
+                        System.err.println("Failed to load joystick mappings; error: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                });
             } catch (Exception e) {
-                System.err.println("Failed to load joystick mappings; error: " + e.getMessage());
+                System.err.println("Failed to initialize joystick support: " + e.getMessage());
                 e.printStackTrace();
             }
-        });
+        } else {
+            System.out.println("Joystick initialization skipped for headless mode");
+        }
     }
 
     static public class ControllerMapping {
@@ -270,9 +280,19 @@ public class Joystick extends Device {
 
     public Joystick(int port, Computer computer) {
         super();
-        if (JaceApplication.getApplication() == null) {
+        // Skip GUI initialization in headless mode
+        if (JaceApplication.getApplication() == null || Utility.isHeadlessMode()) {
+            this.port = port;
+            if (port == 0) {
+                xSwitch = (MemorySoftSwitch) SoftSwitches.PDL0.getSwitch();
+                ySwitch = (MemorySoftSwitch) SoftSwitches.PDL1.getSwitch();
+            } else {
+                xSwitch = (MemorySoftSwitch) SoftSwitches.PDL2.getSwitch();
+                ySwitch = (MemorySoftSwitch) SoftSwitches.PDL3.getSwitch();
+            }
             return;
         }
+        
         Scene scene = JaceApplication.getApplication().primaryStage.getScene();
         // Register a mouse handler on the primary stage that tracks the 
         // mouse x/y position as a percentage of window width and height

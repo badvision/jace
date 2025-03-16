@@ -134,18 +134,65 @@ public class Utility {
         return score * adjustment * adjustment;
     }
 
-    private static boolean isHeadless = false;
+    private static boolean headlessMode = false;
+    private static boolean videoEnabled = true;
+    private static boolean testMode = false;
 
-    public static void setHeadlessMode(boolean headless) {
-        isHeadless = headless;
+    /**
+     * Set whether we are running in headless mode (no UI)
+     * @param mode true if headless, false otherwise
+     */
+    public static void setHeadlessMode(boolean mode) {
+        headlessMode = mode;
     }
 
+    /**
+     * Check if we are running in headless mode
+     * @return true if running headless, false otherwise
+     */
     public static boolean isHeadlessMode() {
-        return isHeadless;
+        return headlessMode;
+    }
+
+    /**
+     * Set whether we are running in test mode
+     * @param mode true if running in test mode, false otherwise
+     */
+    public static void setTestMode(boolean mode) {
+        testMode = mode;
+        if (mode) {
+            // Test mode implies headless mode
+            setHeadlessMode(true);
+            setVideoEnabled(false);
+        }
+    }
+
+    /**
+     * Check if we are running in test mode
+     * @return true if running in test mode, false otherwise
+     */
+    public static boolean isTestMode() {
+        return testMode || "true".equals(System.getProperty("jace.test"));
+    }
+
+    /**
+     * Set whether video is enabled
+     * @param mode true if video should be enabled, false otherwise
+     */
+    public static void setVideoEnabled(boolean mode) {
+        videoEnabled = mode;
+    }
+
+    /**
+     * Check if video is enabled
+     * @return true if video is enabled, false otherwise
+     */
+    public static boolean isVideoEnabled() {
+        return videoEnabled && !isHeadlessMode();
     }
 
     public static Optional<Image> loadIcon(String filename) {
-        if (isHeadless) {
+        if (isHeadlessMode()) {
             return Optional.empty();
         }
         InputStream stream = Utility.class.getResourceAsStream("/jace/data/" + filename);
@@ -157,7 +204,7 @@ public class Utility {
     }
 
     public static Optional<Label> loadIconLabel(String filename) {
-        if (isHeadless) {
+        if (isHeadlessMode()) {
             return Optional.empty();
         }
         Optional<Image> img = loadIcon(filename);

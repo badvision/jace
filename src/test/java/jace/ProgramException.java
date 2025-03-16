@@ -2,6 +2,18 @@ package jace;
 
 import jace.apple2e.MOS65C02;
 
+/**
+ * Exception class specifically for test program execution errors.
+ * <p>
+ * This exception is used to provide detailed stack traces when running assembly
+ * instructions through the TestProgram framework. When tests execute assembly code
+ * directly within the emulator, this exception captures the point of failure and 
+ * provides context about which specific assembly instruction caused the error.
+ * <p>
+ * The breakpoint number helps identify the exact location in the test program
+ * where the failure occurred, allowing for more precise debugging of emulator
+ * functionality.
+ */
 public class ProgramException extends Exception {
     int breakpointNumber;
     String processorStats;

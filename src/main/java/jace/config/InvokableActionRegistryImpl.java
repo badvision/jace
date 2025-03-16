@@ -222,5 +222,14 @@ public class InvokableActionRegistryImpl extends InvokableActionRegistry {
                 logger.log(Level.SEVERE, "Error invoking jace.core.Computer.resume", ex);
             }
         });
+        
+        annotation = createInvokableAction("Open Terminal", "debug", "Open a terminal for interacting with the emulator", "Open Terminal;Show Terminal;Console;Command Line", true, false, new String[]{"ctrl+shift+t"});
+        putStaticAction(annotation.name(), jace.EmulatorUILogic.class, annotation, (b) -> {
+            try {
+                jace.EmulatorUILogic.openTerminalWindow();
+            } catch (Exception ex) {
+                logger.log(Level.SEVERE, "Error invoking jace.EmulatorUILogic.openTerminalWindow", ex);
+            }
+        });
     }
 }

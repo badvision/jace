@@ -34,48 +34,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
-import jace.Emulator;
+import jace.AbstractJaceTest;
 import jace.ProgramException;
 import jace.TestProgram;
-import jace.TestUtils;
-import jace.core.Computer;
 import jace.core.RAMEvent.TYPE;
-import jace.core.SoundMixer;
 
 /**
  * Basic test functionality to assert correct 6502 decode and execution.
  *
  * @author blurry
  */
-public class Full65C02Test {
+public class Full65C02Test extends AbstractJaceTest {
 
-    static Computer computer;
-    public static MOS65C02 cpu;
-    static RAM128k ram;
-
-    @BeforeClass
-    public static void setupClass() {
-        TestUtils.initComputer();
-        SoundMixer.MUTE = true;
-        computer = Emulator.withComputer(c->c, null);
-        cpu = (MOS65C02) computer.getCpu();
-        ram = (RAM128k) computer.getMemory();
-    }
-
-    @AfterClass
-    public static void teardownClass() {
-    }
-
-    @Before
-    public void setup() {
-        computer.pause();
-        cpu.clearState();
-    }
+    // Use inherited static computer, cpu, and ram fields
 
     @Test
     /* ADC: All CPU flags/modes */

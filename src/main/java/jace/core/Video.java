@@ -87,8 +87,14 @@ public abstract class Video extends TimedDevice {
     public Video() {
         super();
         initLookupTables();
-        video = new WritableImage(560, 192);
-        visible = new WritableImage(560, 192);
+        if (Utility.isVideoEnabled()) {
+            video = new WritableImage(560, 192);
+            visible = new WritableImage(560, 192);
+        } else {
+            // Create minimal stubs for testing when video is disabled
+            video = null;
+            visible = null;
+        }
         vPeriod = 0;
         hPeriod = 0;
         _forceRefresh();
@@ -131,7 +137,9 @@ public abstract class Video extends TimedDevice {
     };
 
     public void redraw() {
-        javafx.application.Platform.runLater(redrawScreen);
+        if (Utility.isVideoEnabled() && video != null) {
+            javafx.application.Platform.runLater(redrawScreen);
+        }
     }
 
     public void vblankStart() {
@@ -150,6 +158,11 @@ public abstract class Video extends TimedDevice {
 
     @Override
     public void tick() {
+        // Skip video processing if video is disabled
+        if (!Utility.isVideoEnabled()) {
+            return;
+        }
+        
         addWaitCycles(waitsPerCycle);
         if (y < APPLE_SCREEN_LINES) setScannerLocation(currentWriter.getYOffset(y));
         setFloatingBus(getMemory().readRaw(scannerAddress + x));
@@ -225,6 +238,10 @@ public abstract class Video extends TimedDevice {
     public static int hblankOffsetY = 1;
 
     private void draw(int xVal) {
+        if (!Utility.isVideoEnabled() || video == null) {
+            return;
+        }
+        
         if (lineDirty || forceRedrawRowCount > 0 || currentWriter.isRowDirty(y)) {
             lineDirty = true;
             currentWriter.displayByte(video, xVal, y, textOffset[y], hiresOffset[y]);
@@ -271,10 +288,16 @@ public abstract class Video extends TimedDevice {
             alternatives = "redraw",
             defaultKeyMapping = {"ctrl+shift+r"})
     public static void forceRefresh() {
+        if (!Utility.isVideoEnabled()) {
+            return;
+        }
         Emulator.withVideo(v->v._forceRefresh());
     }
 
     protected void _forceRefresh() {
+        if (!Utility.isVideoEnabled()) {
+            return;
+        }
         lineDirty = true;
         screenDirty = true;
         forceRedrawRowCount = APPLE_SCREEN_LINES + 1;
@@ -286,6 +309,9 @@ public abstract class Video extends TimedDevice {
     }
 
     public Image getFrameBuffer() {
+        if (!Utility.isVideoEnabled() || visible == null) {
+            return null;
+        }
         return visible;
     }
 }

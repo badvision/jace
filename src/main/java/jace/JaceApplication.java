@@ -9,6 +9,7 @@ import jace.apple2e.MOS65C02;
 import jace.core.Computer;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
+import jace.core.SoundMixer;
 import jace.core.Utility;
 import jace.ui.MetacheatUI;
 import javafx.application.Application;
@@ -122,13 +123,6 @@ public class JaceApplication extends Application {
     }
 
     /**
-     * @param args the command line arguments
-     */
-    public static void main(String[] args) {
-        launch(args);
-    }
-
-    /**
      * Start the computer and make sure it runs through the expected rom routine
      * for cold boot
      */
@@ -169,5 +163,31 @@ public class JaceApplication extends Application {
             c.getMemory().resetState();
             c.warmStart();
         });
+    }
+
+    /**
+     * Set up the emulator for unit testing purposes
+     * @param minimals true if only minimal components should be initialized
+     * @return true if successful
+     */
+    public static boolean setupForTesting(boolean minimals) {
+        try {
+            // Set headless mode
+            Utility.setHeadlessMode(true);
+            Utility.setVideoEnabled(false);
+            
+            // Disable sound
+            SoundMixer.MUTE = true;
+            
+            // Create a new emulator with minimal configuration
+            if (minimals && Emulator.getInstance() == null) {
+                Emulator.resetForTesting();
+            }
+            
+            return true;
+        } catch (Exception ex) {
+            System.err.println("Error during test setup: " + ex.getMessage());
+            return false;
+        }
     }
 }

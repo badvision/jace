@@ -146,6 +146,15 @@
                                     </ImageView>
                                  </graphic>
                               </Button>
+                              <Button contentDisplay="TOP" mnemonicParsing="false" styleClass="uiActionButton" text="Open Terminal">
+                                 <graphic>
+                                    <ImageView>
+                                       <image>
+                                          <Image url="@../styles/icons/terminal.png" />
+                                       </image>
+                                    </ImageView>
+                                 </graphic>
+                              </Button>
                            </children>
                         </TilePane>
                         <TilePane alignment="TOP_RIGHT" hgap="5.0" vgap="5.0" HBox.hgrow="ALWAYS">

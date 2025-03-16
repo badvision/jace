@@ -6,6 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import jace.AbstractFXTest;
+import jace.TestUtils;
 import javafx.scene.image.WritableImage;
 
 // This is mostly to provide execution coverage to catch null pointer or index out of range exceptions
@@ -15,8 +16,12 @@ public class VideoNTSCTest extends AbstractFXTest {
     private VideoNTSC video;
 
     @Before
-    public void setUp() {        
-        video = new VideoNTSC();
+    public void setUp() {
+        // Ensure we have a properly configured mock NTSC video
+        TestUtils.setupMockVideoNTSC();
+        
+        // Get the current video instance (which is now our MockVideoNTSC)
+        video = (VideoNTSC) jace.Emulator.withComputer(c -> c.getVideo(), null);
     }
 
     @Test
@@ -81,5 +86,4 @@ public class VideoNTSCTest extends AbstractFXTest {
             VideoNTSC.setVideoMode(mode, false);
         }
     }
-
 }

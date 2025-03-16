@@ -19,17 +19,30 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import jace.apple2e.RAM128k;
+import jace.apple2e.SoftSwitches;
+import jace.apple2e.VideoDHGR;
+import jace.apple2e.VideoNTSC;
+import jace.config.Configuration;
 import jace.core.CPU;
 import jace.core.Computer;
 import jace.core.Device;
+import jace.core.Motherboard;
 import jace.core.PagedMemory;
 import jace.core.RAM;
 import jace.core.RAMEvent.TYPE;
+import jace.core.SoundMixer;
 import jace.core.Utility;
+import jace.core.Video;
+import jace.core.VideoWriter;
 import jace.ide.HeadlessProgram;
 import jace.ide.Program;
+import javafx.application.Platform;
+import javafx.scene.image.WritableImage;
 
 /**
+ * Utility methods for test cases.
+ * Contains methods for setting up the test environment, creating mock components,
+ * and managing the emulator state during tests.
  *
  * @author brobert
  */
@@ -49,6 +62,7 @@ public class TestUtils {
         public byte read(int address, TYPE eventType, boolean triggerEvent, boolean requireSyncronization) {
             return memory[address & 0x0ffff];
         }
+
         public byte readRaw(int address) {
             return memory[address & 0x0ffff];
         }
@@ -69,22 +83,27 @@ public class TestUtils {
 
         @Override
         public void reconfigure() {
+            // Nothing needed
         }
 
         @Override
         public void configureActiveMemory() {
+            // Nothing needed
         }
 
         @Override
         protected void loadRom(String path) throws IOException {
+            // Nothing needed
         }
 
         @Override
         public void attach() {
+            // Nothing needed
         }
 
         @Override
         public void performExtendedCommand(int i) {
+            // Nothing needed
         }
 
         @Override
@@ -114,15 +133,23 @@ public class TestUtils {
     }
 
     public static void clearFakeRam(RAM ram) {
-        Arrays.fill(((FakeRAM) ram).memory, (byte) 0);
+        if (ram instanceof FakeRAM fakeRam) {
+            Arrays.fill(fakeRam.memory, (byte) 0);
+        }
     }
 
     public static RAM initFakeRam() {
-        RAM ram = new FakeRAM();
+        FakeRAM ram = new FakeRAM();
+        
+        // Initialize memory to zero
+        Arrays.fill(ram.memory, (byte) 0);
+        
+        // Set up the CPU to use this memory
         Emulator.withComputer(c -> {
             c.setMemory(ram);
             c.getCpu().setMemory(ram);
         });
+        
         return ram;
     }
 
@@ -169,5 +196,388 @@ public class TestUtils {
                 return name;
             }
         };
+    }
+
+    /**
+     * Base class for all mock video implementations.
+     * Contains common methods that are reused across all mock video types.
+     */
+    public static abstract class BaseMockVideo extends jace.core.Video {
+        private byte floatingBus = 0;
+        
+        public BaseMockVideo() {
+            super();
+        }
+        
+        @Override
+        public void doPostDraw() {
+            // No-op for testing
+        }
+        
+        @Override
+        public void vblankStart() {
+            // No-op for testing
+        }
+        
+        @Override
+        public void vblankEnd() {
+            // No-op for testing
+        }
+        
+        @Override
+        public void hblankStart(javafx.scene.image.WritableImage screen, int y, boolean isDirty) {
+            // No-op for testing - ignore screen parameter for headless operation
+        }
+        
+        @Override
+        public byte getFloatingBus() {
+            return floatingBus;
+        }
+        
+        public void setFloatingBus(byte value) {
+            this.floatingBus = value;
+        }
+        
+        @Override
+        public void tick() {
+            // No-op for testing - prevent any actual video processing
+        }
+        
+        @Override
+        public void configureVideoMode() {
+            // No-op for testing, subclasses can override if needed
+        }
+        
+        @Override
+        public WritableImage getFrameBuffer() {
+            // Return a minimal frame buffer for headless tests
+            return new WritableImage(1, 1);
+        }
+        
+        protected void showBW(WritableImage screen, int x, int y, int dhgrWord) {
+            // No-op for testing
+        }
+        
+        protected void showDhgr(WritableImage screen, int x, int y, int dhgrWord) {
+            // No-op for testing
+        }
+        
+        protected void displayLores(WritableImage screen, int xOffset, int y, int rowAddress) {
+            // No-op for testing
+        }
+        
+        protected void displayDoubleLores(WritableImage screen, int xOffset, int y, int rowAddress) {
+            // No-op for testing
+        }
+    }
+
+    /**
+     * A simple mock Video implementation for testing.
+     * This prevents NPEs when accessing the video component or floating bus.
+     */
+    public static class MockVideo extends Video {
+        public MockVideoWriter mockWriter;
+        
+        public MockVideo() {
+            super();
+            mockWriter = new MockVideoWriter();
+            setCurrentWriter(mockWriter);
+        }
+        
+        @Override
+        public void attach() {
+            // Do nothing in the mock implementation
+        }
+        
+        @Override
+        public void detach() {
+            // Do nothing in the mock implementation
+        }
+        
+        @Override
+        public byte getFloatingBus() {
+            // Return a fixed value for predictable tests
+            return (byte) 0xEA;  // NOP instruction for predictable tests
+        }
+        
+        @Override
+        public void vblankEnd() {
+            // Do nothing
+        }
+        
+        @Override
+        public void hblankStart(WritableImage screen, int y, boolean isDirty) {
+            // Do nothing
+        }
+        
+        @Override
+        public void configureVideoMode() {
+            // Do nothing
+        }
+        
+        @Override
+        public void doPostDraw() {
+            // Do nothing
+        }
+        
+        @Override
+        public String getDeviceName() {
+            return "MockVideo";
+        }
+    }
+    
+    /**
+     * A mock implementation of VideoWriter for tests
+     */
+    public static class MockVideoWriter extends VideoWriter {
+        @Override
+        public void displayByte(WritableImage screen, int xOffset, int y, int yTextOffset, int yGraphicsOffset) {
+            // Do nothing in mock implementation
+        }
+        
+        @Override
+        public int getYOffset(int y) {
+            // Return a reasonable default offset
+            return 0x0400; // Text page 1 base address
+        }
+    }
+    
+    /**
+     * A specialized mock for NTSC video tests
+     */
+    public static class MockVideoNTSC extends jace.apple2e.VideoNTSC {
+        @Override
+        public void doPostDraw() {
+            // Do nothing in mock implementation
+        }
+        
+        @Override
+        public void vblankEnd() {
+            // Do nothing in mock implementation
+        }
+        
+        @Override
+        public void hblankStart(WritableImage screen, int y, boolean isDirty) {
+            // Do nothing in mock implementation
+        }
+        
+        @Override
+        public byte getFloatingBus() {
+            // Return a fixed value for predictable tests
+            return (byte) 0xEA;  // NOP instruction for predictable tests
+        }
+        
+        @Override
+        public String getDeviceName() {
+            return "MockVideoNTSC";
+        }
+    }
+    
+    /**
+     * A specialized mock for DHGR video tests
+     */
+    public static class MockVideoDHGR extends jace.apple2e.VideoDHGR {
+        @Override
+        public void doPostDraw() {
+            // Do nothing in mock implementation
+        }
+        
+        @Override
+        public void vblankEnd() {
+            // Do nothing in mock implementation
+        }
+        
+        @Override
+        public void hblankStart(WritableImage screen, int y, boolean isDirty) {
+            // Do nothing in mock implementation
+        }
+        
+        @Override
+        public byte getFloatingBus() {
+            // Return a fixed value for predictable tests
+            return (byte) 0xEA;  // NOP instruction for predictable tests
+        }
+        
+        @Override
+        public String getDeviceName() {
+            return "MockVideoDHGR";
+        }
+    }
+    
+    /**
+     * Sets up a mock video device for tests to prevent NPEs when accessing the
+     * floating bus or other video-related functionality.
+     */
+    public static <T extends Video> void setupMockVideo(Class<T> videoClass) {
+        try {
+            Emulator.withComputer(c -> {
+                // If video is null or not the right type, replace it
+                if (c.getVideo() == null || !videoClass.isInstance(c.getVideo())) {
+                    // Create a new mock video instance
+                    Video mockVideo = null;
+                    
+                    if (videoClass.equals(MockVideoNTSC.class)) {
+                        mockVideo = new MockVideoNTSC();
+                    } else if (videoClass.equals(MockVideoDHGR.class)) {
+                        mockVideo = new MockVideoDHGR();
+                    } else {
+                        mockVideo = new MockVideo();
+                    }
+                    
+                    // Make sure the video is properly set up
+                    mockVideo.setMemory(c.getMemory());
+                    
+                    // Set the video on the computer
+                    c.setVideo(mockVideo);
+                    
+                    // Attach the video to the computer
+                    mockVideo.attach();
+                    
+                    System.out.println("Mock video initialized successfully: " + videoClass.getSimpleName());
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("Error setting up mock video: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Sets up a standard mock video device for tests.
+     */
+    public static void setupMockVideo() {
+        setupMockVideo(MockVideo.class);
+    }
+    
+    /**
+     * Sets up a specialized NTSC mock video for NTSC-specific tests.
+     * Use this method instead of setupMockVideo() for tests that need
+     * an actual VideoNTSC implementation.
+     */
+    public static void setupMockVideoNTSC() {
+        setupMockVideo(MockVideoNTSC.class);
+    }
+    
+    /**
+     * Sets up a specialized DHGR mock video for DHGR-specific tests.
+     * Use this method instead of setupMockVideo() for tests that need
+     * an actual VideoDHGR implementation.
+     */
+    public static void setupMockVideoDHGR() {
+        setupMockVideo(MockVideoDHGR.class);
+    }
+    
+    /**
+     * Configures the test environment to ensure headless mode
+     * and prevent JavaFX initialization.
+     */
+    public static void configureTestEnvironment() {
+        // Set system properties to disable JavaFX
+        System.setProperty("java.awt.headless", "true");
+        System.setProperty("testfx.robot", "glass");
+        System.setProperty("testfx.headless", "true");
+        System.setProperty("prism.order", "sw");
+        System.setProperty("prism.text", "t2k");
+        System.setProperty("glass.platform", "Monocle");
+        System.setProperty("monocle.platform", "Headless");
+        
+        // Set test mode flag
+        System.setProperty("jace.test", "true");
+        Utility.setTestMode(true);
+        
+        // Prevent JaceApplication from initializing JavaFX toolkit
+        JaceApplication.setupForTesting(true);
+        
+        System.out.println("Test environment configured for headless mode");
+    }
+    
+    /**
+     * Special test setup for CpuUnitTest to avoid JavaFX dependencies.
+     * This uses the headless mode and fake RAM to ensure reliable tests.
+     */
+    public static void setupForCpuTest() {
+        // Configure test environment first
+        configureTestEnvironment();
+        
+        try {
+            // Initialize emulator explicitly for CPU tests
+            Emulator.resetForTesting();
+            
+            // Create bare minimum computer setup for CPU testing
+            Emulator.withComputer(c -> {
+                System.out.println("CPU Test Setup - Creating essential components");
+                
+                // Replace any existing RAM with FakeRAM to avoid bank switching issues
+                FakeRAM ram = new FakeRAM();
+                c.setMemory(ram);
+                
+                // Suspend the computer's motherboard before making changes
+                // This prevents any timing issues during setup
+                c.getMotherboard().suspend();
+                
+                try {                    
+                    // Create and set up mock video to prevent NPEs
+                    MockVideo mockVideo = new MockVideo();
+                    
+                    // Set the video before attaching to ensure consistent state
+                    c.setVideo(mockVideo);
+                    
+                    // Now attach the video to register listeners
+                    mockVideo.attach();
+                    
+                    // Double-check the video writer is properly set
+                    mockVideo.setCurrentWriter(mockVideo.mockWriter);
+                    
+                    // Verify the video is properly initialized
+                    if (c.getVideo() == null) {
+                        throw new IllegalStateException("Video is null after setting it");
+                    }
+                    
+                    System.out.println("CPU Test Setup - Mock video initialized: " + c.getVideo().getClass().getSimpleName());
+                    
+                    // Disable all cards and peripherals
+                    // In CPU tests we don't need any cards or peripherals
+                    for (int slot = 1; slot <= 7; slot++) {
+                        c.getMemory().removeCard(slot);
+                    }
+                    
+                    // Final verification of video state
+                    if (c.getVideo() == null || !(c.getVideo() instanceof MockVideo)) {
+                        throw new IllegalStateException("Mock video not properly initialized after setup");
+                    }
+                    
+                    // Verify floating bus access works
+                    try {
+                        byte floatingBus = c.getVideo().getFloatingBus();
+                        System.out.println("CPU Test Setup - Floating bus test successful (value: " + floatingBus + ")");
+                    } catch (Exception e) {
+                        System.err.println("CPU Test Setup - Floating bus access failed: " + e.getMessage());
+                        e.printStackTrace();
+                        throw e;
+                    }
+                } finally {
+                    // Resume the motherboard with our modified configuration
+                    // Note: The motherboard will immediately be suspended again in the next step
+                    c.getMotherboard().resume();
+                }
+                
+                // Configure the computer without reconfiguration
+                // This ensures a clean, suspended state
+                c.getMotherboard().suspend();
+            });
+            
+            // Verify the video setup after all initialization
+            Emulator.withComputer(c -> {
+                if (c.getVideo() == null) {
+                    throw new IllegalStateException("Video is null after CPU test setup - this should never happen");
+                }
+                System.out.println("CPU Test Setup - Final verification successful, video = " + c.getVideo().getClass().getSimpleName());
+            });
+            
+        } catch (Exception e) {
+            System.err.println("ERROR setting up CPU test environment: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to set up CPU test environment", e);
+        }
     }
 }

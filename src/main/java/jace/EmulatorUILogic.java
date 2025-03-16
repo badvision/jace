@@ -33,6 +33,11 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import java.awt.Desktop;
+import java.net.URI;
+import java.net.URISyntaxException;
+import javafx.scene.control.Button;
+
 import jace.apple2e.MOS65C02;
 import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
@@ -47,12 +52,17 @@ import jace.ide.IdeController;
 import javafx.application.Platform;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 /**
@@ -454,7 +464,37 @@ public class EmulatorUILogic implements Reconfigurable {
             alternatives = "info;credits",
             defaultKeyMapping = {"ctrl+shift+."})
     public static void showAboutWindow() {
-        //TODO: Implement
+        Stage aboutStage = new Stage(javafx.stage.StageStyle.UTILITY);
+        aboutStage.initModality(Modality.APPLICATION_MODAL);
+        aboutStage.setTitle("About Jace");
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(20));
+        content.setAlignment(Pos.CENTER);
+
+        Label titleLabel = new Label("Jace");
+        titleLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+
+        Label authorLabel = new Label("Created by Brendan Robert");
+        authorLabel.setStyle("-fx-font-size: 14px;");
+
+        Hyperlink githubLink = new Hyperlink("https://github.com/badvision/jace");
+        githubLink.setOnAction(e -> {
+            try {
+                Desktop.getDesktop().browse(new URI("https://github.com/badvision/jace"));
+            } catch (IOException | URISyntaxException ex) {
+                // Handle exception
+            }
+        });
+
+        Button closeButton = new Button("Close");
+        closeButton.setOnAction(e -> aboutStage.close());
+
+        content.getChildren().addAll(titleLabel, authorLabel, githubLink, closeButton);
+
+        Scene scene = new Scene(content);
+        aboutStage.setScene(scene);
+        aboutStage.showAndWait();
     }    
 
     public static boolean confirm(String message) {
@@ -557,5 +597,16 @@ public class EmulatorUILogic implements Reconfigurable {
 
     @Override
     public void reconfigure() {
+    }
+
+    @InvokableAction(
+            name = "Open Terminal",
+            category = "debug",
+            description = "Open a terminal for interacting with the emulator",
+            alternatives = "Open Terminal;Show Terminal;Console;Command Line",
+            defaultKeyMapping = "ctrl+shift+t")
+    public static void openTerminalWindow() {
+        // Delegate to the TerminalUIController
+        jace.terminal.TerminalUIController.openTerminalWindow();
     }
 }

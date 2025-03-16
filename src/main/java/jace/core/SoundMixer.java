@@ -26,6 +26,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
 import org.lwjgl.BufferUtils;
@@ -94,36 +96,120 @@ public class SoundMixer extends Device {
         }
     }
 
+    /**
+     * Executes a sound-related function in the sound thread and returns the result.
+     * Handles errors and retries.
+     * 
+     * @param <T> The return type of the operation
+     * @param operation The sound operation to perform
+     * @param action Description of the action for logging
+     * @return The result of the operation or null if an error occurred
+     * @throws SoundError If the operation fails
+     */
     public static <T> T performSoundFunction(Callable<T> operation, String action) throws SoundError {
         return performSoundFunction(operation, action, false);
     }
 
+    /**
+     * Executes a sound-related function in the sound thread and returns the result.
+     * Handles errors and can optionally ignore errors.
+     * 
+     * @param <T> The return type of the operation
+     * @param operation The sound operation to perform
+     * @param action Description of the action for logging
+     * @param ignoreError Whether to ignore errors during execution
+     * @return The result of the operation or null if an error occurred
+     * @throws SoundError If the operation fails and ignoreError is false
+     */
     public static <T> T performSoundFunction(Callable<T> operation, String action, boolean ignoreError) throws SoundError {
-        Future<T> result = soundThreadExecutor.submit(operation);
-        try {
-            Future<Integer> error = soundThreadExecutor.submit(AL10::alGetError);
-            int err;
-            err = error.get();
-            if (!ignoreError && DEBUG_SOUND) {
-                if (err != AL10.AL_NO_ERROR) {
-                    System.err.println(">>>SOUND ERROR " + AL10.alGetString(err) + " when performing action: " + action);
-                    // throw new SoundError(AL10.alGetString(err));
-                }
+        // Return null if in headless mode without throwing an error
+        if (Utility.isHeadlessMode() || !PLAYBACK_DRIVER_DETECTED) {
+            if (DEBUG_SOUND) {
+                System.out.println("Sound action skipped (headless mode or no driver): " + action);
             }
-            return result.get();
-        } catch (ExecutionException e) {
-            System.out.println("Error when executing sound action: " + e.getMessage());
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            // Do nothing: sound is probably being reset
+            return null;
         }
+        
+        // If sound is muted during tests and this is not an initialization action,
+        // don't attempt actual sound operations
+        if (MUTE && !action.toLowerCase().contains("init") && !PLAYBACK_INITIALIZED) {
+            if (DEBUG_SOUND) {
+                System.out.println("Sound action skipped (muted): " + action);
+            }
+            return null;
+        }
+        
+        try {
+            Future<T> result = soundThreadExecutor.submit(operation);
+            Future<Integer> error = soundThreadExecutor.submit(AL10::alGetError);
+            
+            // Use timeouts to avoid hanging
+            T value = null;
+            try {
+                value = result.get(2, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                result.cancel(true);
+                throw new SoundError("Timeout while executing sound operation: " + action);
+            }
+            
+            int err;
+            try {
+                err = error.get(1, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                error.cancel(true);
+                if (ignoreError) {
+                    return value;
+                }
+                throw new SoundError("Timeout getting OpenAL error status");
+            }
+            
+            if (!ignoreError && err != AL10.AL_NO_ERROR) {
+                String errorMessage = AL10.alGetString(err);
+                if (DEBUG_SOUND) {
+                    System.err.println(">>>SOUND ERROR " + errorMessage + " when performing action: " + action);
+                }
+                throw new SoundError(errorMessage);
+            }
+            
+            return value;
+        } catch (ExecutionException e) {
+            if (DEBUG_SOUND) {
+                System.err.println("Error when executing sound action: " + e.getMessage());
+                e.printStackTrace();
+            }
+            if (!ignoreError) {
+                throw new SoundError("Sound operation failed: " + e.getMessage());
+            }
+        } catch (InterruptedException e) {
+            // Sound is probably being reset
+            if (DEBUG_SOUND) {
+                System.out.println("Sound operation interrupted: " + action);
+            }
+            Thread.currentThread().interrupt();
+        }
+        
         return null;
     }
 
+    /**
+     * Executes a sound-related operation in the sound thread.
+     * 
+     * @param operation The operation to perform
+     * @param action Description of the action for logging
+     * @throws SoundError If the operation fails
+     */
     public static void performSoundOperation(Runnable operation, String action) throws SoundError {        
         performSoundOperation(operation, action, false);
     }
 
+    /**
+     * Executes a sound-related operation in the sound thread.
+     * 
+     * @param operation The operation to perform
+     * @param action Description of the action for logging
+     * @param ignoreError Whether to ignore errors during execution
+     * @throws SoundError If the operation fails and ignoreError is false
+     */
     public static void performSoundOperation(Runnable operation, String action, boolean ignoreError) throws SoundError {
         performSoundFunction(()->{
             operation.run();
@@ -135,28 +221,97 @@ public class SoundMixer extends Device {
         soundThreadExecutor.submit(operation, action);
     }
 
+    /**
+     * Initializes the OpenAL sound system.
+     * This method is safe to call multiple times; it will only initialize once.
+     */
     public static void initSound() {
         if (Utility.isHeadlessMode()) {
             return;
         }
+        
         try {
             performSoundOperation(()->{
-                if (!PLAYBACK_INITIALIZED) {                
-                    audioDevice = ALC10.alcOpenDevice(defaultDeviceName);
-                    audioContext = ALC10.alcCreateContext(audioDevice, new int[]{0});
-                    ALC10.alcMakeContextCurrent(audioContext);
-                    audioCapabilities = ALC.createCapabilities(audioDevice);
-                    audioLibCapabilities = AL.createCapabilities(audioCapabilities);
-                    if (!audioLibCapabilities.OpenAL10) {
+                if (!PLAYBACK_INITIALIZED) {
+                    try {
+                        // First check if we have a device before trying to open it
+                        if (defaultDeviceName == null) {
+                            defaultDeviceName = ALC10.alcGetString(0, ALC10.ALC_DEFAULT_DEVICE_SPECIFIER);
+                            if (defaultDeviceName == null) {
+                                Logger.getLogger(SoundMixer.class.getName()).warning("No default OpenAL device found");
+                                PLAYBACK_DRIVER_DETECTED = false;
+                                return;
+                            }
+                        }
+                        
+                        // Try to open the audio device
+                        audioDevice = ALC10.alcOpenDevice(defaultDeviceName);
+                        if (audioDevice == 0) {
+                            Logger.getLogger(SoundMixer.class.getName()).warning("Failed to open OpenAL device");
+                            PLAYBACK_DRIVER_DETECTED = false;
+                            return;
+                        }
+                        
+                        // Create and make current an audio context
+                        audioContext = ALC10.alcCreateContext(audioDevice, new int[]{0});
+                        if (audioContext == 0) {
+                            Logger.getLogger(SoundMixer.class.getName()).warning("Failed to create OpenAL context");
+                            PLAYBACK_DRIVER_DETECTED = false;
+                            ALC10.alcCloseDevice(audioDevice);
+                            return;
+                        }
+                        
+                        if (!ALC10.alcMakeContextCurrent(audioContext)) {
+                            Logger.getLogger(SoundMixer.class.getName()).warning("Failed to make OpenAL context current");
+                            PLAYBACK_DRIVER_DETECTED = false;
+                            ALC10.alcDestroyContext(audioContext);
+                            ALC10.alcCloseDevice(audioDevice);
+                            return;
+                        }
+                        
+                        // Create capabilities
+                        audioCapabilities = ALC.createCapabilities(audioDevice);
+                        audioLibCapabilities = AL.createCapabilities(audioCapabilities);
+                        
+                        if (!audioLibCapabilities.OpenAL10) {
+                            PLAYBACK_DRIVER_DETECTED = false;
+                            Logger.getLogger(SoundMixer.class.getName()).warning("OpenAL 1.0 not supported");
+                            Emulator.withComputer(c->c.mixer.detach());
+                            return;
+                        }
+                        
+                        PLAYBACK_INITIALIZED = true;
+                        PLAYBACK_DRIVER_DETECTED = true;
+                        Logger.getLogger(SoundMixer.class.getName()).info("Sound system initialized successfully");
+                    } catch (Exception e) {
                         PLAYBACK_DRIVER_DETECTED = false;
-                        Logger.getLogger(SoundMixer.class.getName()).warning("OpenAL 1.0 not supported");
-                        Emulator.withComputer(c->c.mixer.detach());
+                        PLAYBACK_INITIALIZED = false;
+                        Logger.getLogger(SoundMixer.class.getName()).warning("Error initializing OpenAL: " + e.getMessage());
+                        
+                        // Clean up resources if initialization failed
+                        try {
+                            if (audioContext != 0) {
+                                ALC10.alcMakeContextCurrent(0);
+                                ALC10.alcDestroyContext(audioContext);
+                                audioContext = 0;
+                            }
+                            if (audioDevice != 0) {
+                                ALC10.alcCloseDevice(audioDevice);
+                                audioDevice = 0;
+                            }
+                        } catch (Exception cleanup) {
+                            // Ignore cleanup errors
+                        }
                     }
-                    PLAYBACK_INITIALIZED = true;
                 } else {
-                    ALC10.alcMakeContextCurrent(audioContext);
+                    // If already initialized, just make the context current
+                    try {
+                        ALC10.alcMakeContextCurrent(audioContext);
+                    } catch (Exception e) {
+                        Logger.getLogger(SoundMixer.class.getName()).warning("Error making context current: " + e.getMessage());
+                    }
                 }
-            }, "Initalize audio device");
+            }, "Initialize audio device", true);
         } catch (SoundError e) {
             PLAYBACK_DRIVER_DETECTED = false;
             Logger.getLogger(SoundMixer.class.getName()).warning("Error when initializing sound: " + e.getMessage());

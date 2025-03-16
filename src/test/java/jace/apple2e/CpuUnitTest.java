@@ -2,7 +2,6 @@ package jace.apple2e;
 import static jace.TestUtils.*;
 
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,24 +22,22 @@ import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 
+import jace.AbstractJaceTest;
 import jace.Emulator;
+import jace.TestUtils;
 import jace.core.Computer;
 import jace.core.RAM;
 import jace.core.SoundMixer;
 import jace.core.RAMEvent.TYPE;
+import jace.JaceApplication;
+import jace.apple2e.MOS65C02;
+import jace.core.Utility;
 
-public class CpuUnitTest {
+public class CpuUnitTest extends AbstractJaceTest {
     // This will loop through each of the files in 65x02_unit_tests/wdc65c02 and run the tests in each file
     // The goal is to produce an output report that shows the number of tests that passed and failed
     // The output should be reported in a format compatible with junit but also capture multiple potential failures, not just the first faliure
 
-    static Computer computer;
-    static MOS65C02 cpu;
-    static RAM ram;
-
-    public static enum Operation {
-        read, write
-    }
     TypeToken<Collection<TestRecord>> testCollectionType = new TypeToken<Collection<TestRecord>>(){};
     record TestResult(String source, String testName, boolean passed, String message) {}
     // Note cycles are a mix of int and string so the parser doesn't like to serialize that into well-formed objects
@@ -49,20 +46,47 @@ public class CpuUnitTest {
 
     public static boolean BREAK_ON_FAIL = false;
 
-    @BeforeClass
-    public static void setUp() {
-        initComputer();
-        SoundMixer.MUTE = true;
-        computer = Emulator.withComputer(c->c, null);
-        cpu = (MOS65C02) computer.getCpu();
-        ram = initFakeRam();
-    }
-
     @Before
-    public void resetState() {
-        // Reinit memory on each test to avoid weird side effects
-        cpu.reset();
-        cpu.resume();
+    @Override
+    public void commonSetup() {
+        try {
+            // Set up test environment with all JavaFX components disabled and reliable CPU test setup
+            // This handles everything needed for CPU tests: headless mode, mock video, FakeRAM, etc.
+            TestUtils.setupForCpuTest();
+            
+            // Get references to core components for testing
+            computer = Emulator.withComputer(c->c, null);
+            if (computer == null) {
+                throw new IllegalStateException("Computer not initialized");
+            }
+            
+            cpu = (MOS65C02) computer.getCpu();
+            if (cpu == null) {
+                throw new IllegalStateException("CPU not initialized");
+            }
+            
+            // Get reference to the FakeRAM (should already be set up by setupForCpuTest)
+            if (!(computer.getMemory() instanceof TestUtils.FakeRAM)) {
+                throw new IllegalStateException("FakeRAM not properly initialized");
+            }
+            ram = (TestUtils.FakeRAM) computer.getMemory();
+            
+            // Reset CPU to a clean state for each test
+            cpu.clearState();
+            cpu.reset();
+            cpu.resume();
+            
+            // Clear RAM to a zero state for each test
+            TestUtils.clearFakeRam(ram);
+            
+            // Verify that our test setup is working properly (video should already be initialized by setupForCpuTest)
+            if (computer.getVideo() == null || !(computer.getVideo() instanceof TestUtils.MockVideo)) {
+                throw new IllegalStateException("Mock video not properly initialized by setupForCpuTest");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Failed to set up test environment", e);
+        }
     }
 
     // Make a list of tests to skip
@@ -71,6 +95,7 @@ public class CpuUnitTest {
     };
 
     public static String TEST_FOLDER = "/65x02_unit_tests/wdc65c02/v1";
+    
     @Test
     public void testAll() throws IOException, URISyntaxException {
         // Read all the files in the directory

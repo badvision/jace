@@ -13,7 +13,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <mainClass>jace.JaceApplication</mainClass>
+        <mainClass>jace.JaceLauncher</mainClass>
         <netbeans.hint.license>apache20</netbeans.hint.license>
         <lwjgl.version>3.3.4</lwjgl.version>
     </properties>
@@ -31,7 +31,7 @@
                 <artifactId>gluonfx-maven-plugin</artifactId>
                 <version>1.0.23</version>
                 <configuration>
-                    <mainClass>jace.JaceApplication</mainClass>
+                    <mainClass>jace.JaceLauncher</mainClass>
                     <resourcesList>ceAppl
                         <resource>.*</resource>
                     </resourcesList>
@@ -46,7 +46,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>jace/jace.JaceApplication</mainClass>
+                    <mainClass>jace/jace.JaceLauncher</mainClass>
                     <executions>
                         <execution>
                             <!-- Default configuration for running -->
@@ -126,7 +126,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
+                <version>0.8.12</version>
                 <configuration>
                     <excludes>
                         <exclude>jace/assembly/AcmeCrossAssembler.class</exclude>
@@ -163,6 +163,38 @@
                                     </limits>
                                 </rule>
                             </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <!-- Set a global timeout for all tests -->
+                    <forkedProcessTimeoutInSeconds>30</forkedProcessTimeoutInSeconds>
+                    <rerunFailingTestsCount>0</rerunFailingTestsCount>
+                    <!-- Add additional configuration to fix ProgramException class loading issue -->
+                    <additionalClasspathElements>
+                        <additionalClasspathElement>${project.build.testOutputDirectory}</additionalClasspathElement>
+                    </additionalClasspathElements>
+                    <useSystemClassLoader>true</useSystemClassLoader>
+                    <useManifestOnlyJar>false</useManifestOnlyJar>
+                </configuration>
+                <executions>
+                    <!-- Special configuration for sound tests -->
+                    <execution>
+                        <id>sound-tests</id>
+                        <configuration>
+                            <includes>
+                                <include>**/Sound*.java</include>
+                                <include>**/Votrax*.java</include>
+                            </includes>
+                            <forkedProcessTimeoutInSeconds>60</forkedProcessTimeoutInSeconds>
+                            <systemPropertyVariables>
+                                <java.awt.headless>false</java.awt.headless>
+                            </systemPropertyVariables>
                         </configuration>
                     </execution>
                 </executions>

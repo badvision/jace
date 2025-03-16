@@ -15,13 +15,15 @@
  */
 package jace.apple2e;
 
-import static jace.TestUtils.initComputer;
-
-import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.Before;
 
+import jace.AbstractJaceTest;
+import jace.Emulator;
+import jace.JaceApplication;
 import jace.ProgramException;
 import jace.TestProgram;
+import jace.TestUtils;
 import jace.core.SoundMixer;
 
 
@@ -30,12 +32,16 @@ import jace.core.SoundMixer;
  * like vapor lock and speaker sound work as expected.
  * @author brobert
  */
-public class CycleCountTest {
+public class CycleCountTest extends AbstractJaceTest {
 
-    @BeforeClass
-    public static void setupClass() {
-        initComputer();
-        SoundMixer.MUTE = true;
+    @Before
+    @Override
+    public void commonSetup() {
+        // Call the parent setup which handles most initialization
+        super.commonSetup();
+        
+        // Ensure we have a properly configured mock video
+        TestUtils.setupMockVideo();
     }
 
     /**
@@ -50,6 +56,18 @@ public class CycleCountTest {
      */
     @Test
     public void testDirectBeeperCycleCount() throws ProgramException {
+        // Ensure test environment is properly configured
+        TestUtils.configureTestEnvironment();
+        SoundMixer.MUTE = true;
+        
+        // Make sure video is properly set up before the test runs
+        Emulator.withComputer(c -> {
+            if (c.getVideo() == null || !(c.getVideo() instanceof TestUtils.MockVideo)) {
+                TestUtils.setupMockVideo();
+            }
+        });
+        
+        // Run the test
         new TestProgram("""
             SPKR = $C030
                     jmp BELL

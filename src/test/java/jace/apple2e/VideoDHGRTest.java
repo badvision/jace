@@ -6,6 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import jace.AbstractFXTest;
+import jace.TestUtils;
 import javafx.scene.image.WritableImage;
 
 // This is mostly to provide execution coverage to catch null pointer or index out of range exceptions
@@ -15,8 +16,12 @@ public class VideoDHGRTest extends AbstractFXTest {
     private VideoDHGR video;
 
     @Before
-    public void setUp() {        
-        video = new VideoDHGR();
+    public void setUp() {
+        // Ensure we have a properly configured mock DHGR video
+        TestUtils.setupMockVideoDHGR();
+        
+        // Get the current video instance (which is now our MockVideoDHGR)
+        video = (VideoDHGR) jace.Emulator.withComputer(c -> c.getVideo(), null);
     }
 
     @Test

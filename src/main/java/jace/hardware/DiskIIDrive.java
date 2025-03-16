@@ -259,6 +259,9 @@ public class DiskIIDrive implements MediaConsumer {
     // This reduces the number of Optional checks when rapidly accessing the disk drive.
     long lastAdded = 0;
     public void addIndicator() {
+        if (!icon.isPresent()) {
+            return;
+        }
         long now = System.currentTimeMillis();
         if (lastAdded == 0 || now - lastAdded >= 500) {
             EmulatorUILogic.addIndicator(this, icon.get());
@@ -267,6 +270,9 @@ public class DiskIIDrive implements MediaConsumer {
     }
 
     public void removeIndicator() {
+        if (!icon.isPresent()) {
+            return;
+        }
         if (lastAdded > 0) {
             EmulatorUILogic.removeIndicator(this, icon.get());
             lastAdded = 0;

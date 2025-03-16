@@ -70,6 +70,17 @@ public class Emulator {
         instance = null;
     }
     
+    /**
+     * Reset the emulator for testing - this ensures a clean state
+     * This should only be called by test code
+     */
+    public static void resetForTesting() {
+        Emulator.abort();
+        logic = null;
+        // Create a new instance immediately to ensure it's available
+        instance = new Emulator();
+    }
+    
     public static Emulator getInstance() {
         if (instance == null) {
             instance = new Emulator();
@@ -78,7 +89,10 @@ public class Emulator {
     }
     
     private static Apple2e getComputer() {
-        return getInstance().computer;        
+        if (instance == null) {
+            getInstance();
+        }
+        return instance.computer;
     }
 
     public static void whileSuspended(Consumer<Apple2e> action) {
