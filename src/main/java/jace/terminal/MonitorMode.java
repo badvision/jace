@@ -19,6 +19,7 @@ package jace.terminal;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,8 +38,17 @@ public class MonitorMode implements TerminalMode {
     private final PrintStream output;
     private int lastExaminedAddress = 0;
     private int lastDisassemblyAddress = 0;
-    private boolean useMainMemory = true;
-    private boolean useAuxMemory = false;
+    
+    /**
+     * Enum representing different memory addressing modes
+     */
+    public enum MemoryMode {
+        MAIN,   // Use main memory bank
+        AUX,    // Use auxiliary memory bank
+        ACTIVE  // Use active memory configuration
+    }
+    
+    private MemoryMode memoryMode = MemoryMode.ACTIVE;
     
     // Regex patterns for monitor commands
     private static final Pattern EXAMINE_PATTERN = Pattern.compile("^([Mm]|[Xx])?([0-9A-Fa-f]{1,4})$");
@@ -46,6 +56,7 @@ public class MonitorMode implements TerminalMode {
     private static final Pattern GO_PATTERN = Pattern.compile("^([0-9A-Fa-f]{1,4})[Gg]$");
     private static final Pattern LIST_PATTERN = Pattern.compile("^([0-9A-Fa-f]{1,4})[Ll]$");
     private static final Pattern SINGLE_LIST_PATTERN = Pattern.compile("^[Ll]$");
+    private static final Pattern RANGE_PATTERN = Pattern.compile("^([Mm]|[Xx])?([0-9A-Fa-f]{1,4})\\.([0-9A-Fa-f]{1,4})$");
     
     private final Map<String, Consumer<String[]>> commands = new HashMap<>();
     private final Map<String, String> commandAliases = new HashMap<>();
@@ -88,7 +99,11 @@ public class MonitorMode implements TerminalMode {
                 "  count - Number of bytes to display (default: 16)\n" +
                 "Examples:\n" +
                 "  examine 2000    - Show 16 bytes starting at $2000\n" +
-                "  e C000 32       - Show 32 bytes starting at $C000");
+                "  e C000 32       - Show 32 bytes starting at $C000\n" +
+                "Range syntax is also supported:\n" +
+                "  2000.20FF       - Show all bytes from $2000 to $20FF (inclusive)\n" +
+                "  M2000.20FF      - Same as above, using main memory bank\n" +
+                "  X2000.20FF      - Same as above, using auxiliary memory bank");
         
         commandHelp.put("deposit", "Writes values to memory at the specified address.\n" +
                 "Usage: deposit addr value [value2...] (or d addr value [value2...])\n" +
@@ -188,6 +203,35 @@ public class MonitorMode implements TerminalMode {
             return true;
         }
         
+        // Check for range dump pattern (xxxx.yyyy)
+        if (RANGE_PATTERN.matcher(command).matches()) {
+            Matcher m = RANGE_PATTERN.matcher(command);
+            if (m.find()) {
+                String bankSpec = m.group(1);
+                String startAddrStr = m.group(2);
+                String endAddrStr = m.group(3);
+                
+                int startAddr = Integer.parseInt(startAddrStr, 16);
+                int endAddr = Integer.parseInt(endAddrStr, 16);
+                
+                if (bankSpec != null) {
+                    memoryMode = bankSpec.equalsIgnoreCase("M") ? MemoryMode.MAIN : 
+                                 bankSpec.equalsIgnoreCase("X") ? MemoryMode.AUX : 
+                                 MemoryMode.ACTIVE;
+                }
+                
+                // Calculate number of bytes to dump (inclusive)
+                int count = endAddr - startAddr + 1;
+                if (count <= 0) {
+                    output.println("End address must be greater than or equal to start address");
+                    return true;
+                }
+                
+                hexDump(startAddr, count);
+                return true;
+            }
+        }
+        
         // Check for traditional monitor syntax patterns
         if (EXAMINE_PATTERN.matcher(command).matches()) {
             Matcher m = EXAMINE_PATTERN.matcher(command);
@@ -197,8 +241,9 @@ public class MonitorMode implements TerminalMode {
                 int addr = Integer.parseInt(addrStr, 16);
                 
                 if (bankSpec != null) {
-                    useMainMemory = bankSpec.equalsIgnoreCase("M");
-                    useAuxMemory = bankSpec.equalsIgnoreCase("X");
+                    memoryMode = bankSpec.equalsIgnoreCase("M") ? MemoryMode.MAIN : 
+                                 bankSpec.equalsIgnoreCase("X") ? MemoryMode.AUX : 
+                                 MemoryMode.ACTIVE;
                 }
                 
                 hexDump(addr, 16);
@@ -215,8 +260,9 @@ public class MonitorMode implements TerminalMode {
                 String[] valueTokens = valuesStr.trim().split("\\s+");
                 
                 if (bankSpec != null) {
-                    useMainMemory = bankSpec.equalsIgnoreCase("M");
-                    useAuxMemory = bankSpec.equalsIgnoreCase("X");
+                    memoryMode = bankSpec.equalsIgnoreCase("M") ? MemoryMode.MAIN : 
+                                 bankSpec.equalsIgnoreCase("X") ? MemoryMode.AUX : 
+                                 MemoryMode.ACTIVE;
                 }
                 
                 for (String token : valueTokens) {
@@ -230,9 +276,13 @@ public class MonitorMode implements TerminalMode {
             if (m.find()) {
                 String addrStr = m.group(1);
                 int addr = Integer.parseInt(addrStr, 16);
-                // Execute code at address
-                Emulator.withComputer(c -> c.getCpu().setProgramCounter(addr));
-                output.println("Execution started at $" + Integer.toHexString(addr).toUpperCase());
+                // Execute code at address using the terminal's emulator
+                if (terminal.getEmulator() != null) {
+                    terminal.getEmulator().withComputer(c -> c.getCpu().setProgramCounter(addr));
+                    output.println("Execution started at $" + Integer.toHexString(addr).toUpperCase());
+                } else {
+                    output.println("No emulator connected. Make sure Jace is running or was started with --terminal.");
+                }
                 return true;
             }
         } else if (LIST_PATTERN.matcher(command).matches()) {
@@ -271,6 +321,9 @@ public class MonitorMode implements TerminalMode {
         output.println("  XXXXG                    - Execute code at XXXX");
         output.println("  XXXXL                    - Disassemble code at XXXX");
         output.println("  L                        - Continue disassembly from last location");
+        output.println("  XXXX.YYYY                - Examine memory from XXXX to YYYY (inclusive)");
+        output.println("  MXXXX                    - Use main memory bank for operations");
+        output.println("  XXXXX                    - Use auxiliary memory bank for operations");
         output.println("");
         output.println("Use help <command> for detailed help on a specific command.");
         output.println("  exit/quit                  - Exit the Terminal");
@@ -549,19 +602,38 @@ public class MonitorMode implements TerminalMode {
         
         int address = startAddress;
         for (int i = 0; i < instructionCount; i++) {
-            String disasm = disassembleInstruction(address);
-            output.println(String.format("%04X: %s", address, disasm));
-            
-            // Find length of instruction (assumes disassembly of form "AA BB CC MNEMONIC")
-            String[] parts = disasm.trim().split("\\s+");
-            int byteCount = 1; // Default to 1 byte
-            for (int j = 0; j < parts.length; j++) {
-                if (parts[j].matches("[0-9A-Fa-f]{2}")) {
-                    byteCount++;
-                } else {
-                    break;
-                }
+            // Get instruction size from the opcode's addressing mode
+            byte opcode = readMemory(address);
+
+            int byteCount = getInstructionSize(opcode & 0xFF);
+
+            String disasm = getCPU().disassemble(address);
+
+            // Show the address (6 chars: 4 for address, 2 for ": ")
+            output.print(String.format("%04X: ", address));
+
+            // Show the hex values of the bytes for the instruction
+            StringBuilder hexBytes = new StringBuilder();
+            for (int j = 0; j < byteCount; j++) {
+                hexBytes.append(String.format("%02X ", readMemory(address + j) & 0xFF));
             }
+            
+            // Calculate required padding - we want disassembly to start at 20th character
+            // Address takes 6 characters (4 for address, 2 for ": ")
+            // Each byte takes 3 characters (2 for hex, 1 for space)
+            int totalWidth = 20;  // Target width for alignment
+            int currentWidth = 6 + (hexBytes.length());  // 6 for address, plus hex bytes
+            int paddingNeeded = Math.max(0, totalWidth - currentWidth);
+            
+            // Add padding
+            for (int j = 0; j < paddingNeeded; j++) {
+                hexBytes.append(' ');
+            }
+            
+            output.print(hexBytes);
+            
+            // Then show the disassembled instruction
+            output.println(disasm);
             
             address = (address + byteCount) & 0xFFFF;
         }
@@ -569,33 +641,50 @@ public class MonitorMode implements TerminalMode {
         lastDisassemblyAddress = address;
     }
     
-    private String disassembleInstruction(int address) {
-        try {
-            MOS65C02 cpu = getCPU();
-            if (cpu != null) {
-                int saved = cpu.getProgramCounter();
-                cpu.setProgramCounter(address);
-                String disasm = cpu.disassemble();
-                cpu.setProgramCounter(saved);
-                return disasm;
-            }
-        } catch (Exception e) {
-            output.println("Error disassembling: " + e.getMessage());
+    /**
+     * Gets the size of an instruction based on its opcode
+     * 
+     * @param opcode The opcode byte
+     * @return The size of the instruction in bytes
+     */
+    private int getInstructionSize(int opcode) {
+        MOS65C02.OPCODE op = MOS65C02.opcodes[opcode];
+        if (op == null) {
+            return 1;
+        } else {
+            return op.getMode().getSize();            
         }
-        
-        // Fallback: just show the byte if we can't disassemble
-        byte value = readMemory(address);
-        return String.format("%02X                ???", value & 0xFF);
     }
     
-    private byte readMemory(int address) {
+    /**
+     * Read memory based on the specified memory mode
+     * 
+     * If the address is larger than 0xC000, assume we are using active memory
+     * because otherwise we're likely to get an index out of bounds exception
+     * 
+     * @param address The memory address to read
+     * @param mode The memory mode to use (MAIN, AUX, or ACTIVE)
+     * @return The byte value at the specified address
+     */
+    private byte readMemory(int address, MemoryMode mode) {
         try {
+            if (terminal.getEmulator() == null) {
+                // Try to reconnect to the emulator
+                if (Emulator.instance != null) {
+                    output.println("Reconnecting to emulator...");
+                    terminal.initializeEmulator();
+                } else {
+                    output.println("No emulator connected. Make sure Jace is running or was started with --terminal.");
+                    return 0;
+                }
+            }
+            
             RAM ram = terminal.getEmulator().withComputer(c -> c.getMemory(), null);
             if (ram != null) {
-                if (ram instanceof RAM128k) {
+                if (ram instanceof RAM128k && mode != MemoryMode.ACTIVE && address < 0xC000) {
                     RAM128k ram128k = (RAM128k) ram;
-                    if (useAuxMemory) {
-                        return ram128k.getAuxVideoMemory().getMemoryPage(address)[address & 0xFF];
+                    if (mode == MemoryMode.AUX) {
+                        return ram128k.getAuxMemory().getMemoryPage(address)[address & 0xFF];
                     } else {
                         return ram128k.getMainMemory().getMemoryPage(address)[address & 0xFF];
                     }
@@ -610,14 +699,28 @@ public class MonitorMode implements TerminalMode {
         return 0;
     }
     
+    /**
+     * Read memory using the current memory mode
+     * @param address Address to read from
+     * @return Byte value at the address
+     */
+    private byte readMemory(int address) {
+        return readMemory(address, memoryMode);
+    }
+    
     private void writeMemory(int address, byte value) {
         try {
+            if (terminal.getEmulator() == null) {
+                output.println("No emulator connected. Make sure Jace is running or was started with --terminal.");
+                return;
+            }
+            
             terminal.getEmulator().withComputer(c -> {
                 RAM ram = c.getMemory();
-                if (ram instanceof RAM128k) {
+                if (ram instanceof RAM128k && memoryMode != MemoryMode.ACTIVE && address < 0xC000) {
                     RAM128k ram128k = (RAM128k) ram;
-                    if (useAuxMemory) {
-                        byte[] page = ram128k.getAuxVideoMemory().getMemoryPage(address);
+                    if (memoryMode == MemoryMode.AUX) {
+                        byte[] page = ram128k.getAuxMemory().getMemoryPage(address);
                         page[address & 0xFF] = value;
                     } else {
                         byte[] page = ram128k.getMainMemory().getMemoryPage(address);
@@ -664,6 +767,16 @@ public class MonitorMode implements TerminalMode {
     
     private MOS65C02 getCPU() {
         try {
+            if (terminal.getEmulator() == null) {
+                // Try to reconnect to the emulator
+                if (Emulator.instance != null) {
+                    output.println("Reconnecting to emulator...");
+                    terminal.initializeEmulator();
+                } else {
+                    output.println("No emulator connected. Make sure Jace is running or was started with --terminal.");
+                    return null;
+                }
+            }
             return (MOS65C02) terminal.getEmulator().withComputer(c -> c.getCpu(), null);
         } catch (Exception e) {
             output.println("Error getting CPU: " + e.getMessage());

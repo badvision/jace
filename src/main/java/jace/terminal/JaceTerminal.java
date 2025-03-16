@@ -195,6 +195,14 @@ public class JaceTerminal {
      * will check if the emulator is already initialized
      */
     public void initializeEmulator() {
+        // Check if there's already a running emulator instance
+        if (Emulator.instance != null) {
+            // Connect to the existing emulator
+            this.emulator = new EmulatorAdapter();
+            output.println("Connected to existing emulator instance");
+            return;
+        }
+        
         // Create a real emulator adapter
         this.emulator = new EmulatorAdapter();
     }

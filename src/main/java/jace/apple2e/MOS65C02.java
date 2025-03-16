@@ -72,7 +72,6 @@ public class MOS65C02 extends CPU {
     public boolean warnAboutExtendedOpcodes = false;
 
     public MOS65C02() {
-        initOpcodes();
         clearState();
     }
 
@@ -497,16 +496,16 @@ public class MOS65C02 extends CPU {
             this.calculator = calc;
         }
 
-        public String formatMode(int pc, MOS65C02 cpu) {
+        public String formatMode(int address, MOS65C02 cpu) {
             if (implied) {
                 return "";
             } else {
-                int b1 = 0x00ff & cpu.getMemory().readRaw((pc + 1) & 0x0FFFF);
+                int b1 = 0x00ff & cpu.getMemory().readRaw((address + 1) & 0x0FFFF);
                 if (relative) {
-                    String R = wordString(pc + 2 + (byte) b1);
+                    String R = wordString(address + 2 + (byte) b1);
                     return f1 + R;
                 } else if (twoByte) {
-                    int b2 = 0x00ff & cpu.getMemory().readRaw((pc + 2) & 0x0FFFF);
+                    int b2 = 0x00ff & cpu.getMemory().readRaw((address + 2) & 0x0FFFF);
                     return f1 + byte2(b2) + byte2(b1) + f2;
                 } else {
                     return f1 + byte2(b1) + f2;
@@ -1020,9 +1019,9 @@ public class MOS65C02 extends CPU {
             this.processor = processor;
         }
     }
-    private final OPCODE[] opcodes = new OPCODE[256];
+    static public final OPCODE[] opcodes = new OPCODE[256];
 
-    private void initOpcodes() {
+    static {
         for (OPCODE o : OPCODE.values()) {
             opcodes[o.getCode()] = o;
         }
@@ -1286,26 +1285,25 @@ public class MOS65C02 extends CPU {
     }
 
     public String disassemble() {
-        int pc = getProgramCounter();
-//        RAM ram = cpu.getMemory();
-        int op = getMemory().readRaw(pc);
+        return disassemble(getProgramCounter());
+    }
+    
+    /**
+     * Disassembles an instruction at the specified address without changing the program counter.
+     * 
+     * @param address The address to disassemble from
+     * @return A string containing the disassembly of the instruction
+     */
+    public String disassemble(int address) {
+        int op = getMemory().readRaw(address);
         OPCODE o = opcodes[op & 0x0ff];
         if (o == null) {
             return "???";
         }
-        String format = o.getMode().formatMode(pc, this);
-//        format = format.replaceAll("~1", byte2(b1));
-//        format = format.replaceAll("~2", byte2(b2));
-//        format = format.replaceAll("R", R);
-        /*
-         String mem = wordString(pc) + ":" + byte2(op) + " " +
-         ((o.getMode().getSize() > 1) ?
-         byte2(b1) : "  " ) + " " +
-         ((o.getMode().getSize() > 2) ?
-         byte2(b2) : "  " ) + "  ";
-         */
+        String format = o.getMode().formatMode(address, this);
         return String.format("%s %s", o.getCommand().toString(), format);
     }
+    
     private boolean pageBoundaryPenalty = false;
     private boolean applyPageBoundaryPenalty = false;
     private void setPageBoundaryPenalty(boolean b) {
