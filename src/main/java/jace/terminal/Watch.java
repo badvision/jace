@@ -3,7 +3,6 @@ package jace.terminal;
 import jace.Emulator;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
-import jace.terminal.MonitorMode.MemoryMode;
 
 /**
  * Watch class to track memory changes

@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,116 +53,11 @@ public class MonitorMode implements TerminalMode {
     private static final List<Integer> persistentBreakpoints = new ArrayList<>();
     private static final Map<String, PersistentWatch> persistentWatches = new HashMap<>();
     private static final Map<Integer, PersistentCheat> persistentCheats = new HashMap<>();
+    private static final Logger LOG = Logger.getLogger(MonitorMode.class.getName());
     
-    /**
-     * Memory access mode
-     */
-    public enum MemoryMode {
-        MAIN,   // Use main memory bank
-        AUX,    // Use auxiliary memory bank
-        ACTIVE  // Use active memory configuration
-    }
-    
-    /**
-     * Represents an address with its associated memory mode
-     */
-    private static class AddressWithMode {
-        private final int address;
-        private final MemoryMode mode;
-        
-        /**
-         * Creates a new AddressWithMode with the specified address and mode
-         * 
-         * @param address The memory address
-         * @param mode The memory access mode
-         */
-        public AddressWithMode(int address, MemoryMode mode) {
-            this.address = address;
-            this.mode = mode;
-        }
-        
-        /**
-         * Parses an address string that may have a mode prefix (M or X)
-         * 
-         * @param addrStr The address string to parse
-         * @return An AddressWithMode object
-         * @throws NumberFormatException if the address is not a valid hex number
-         */
-        public static AddressWithMode parse(String addrStr, MemoryMode defaultMode) {
-            String modePrefix = null;
-            
-            // Check for mode prefix
-            if (addrStr.startsWith("M") || addrStr.startsWith("m")) {
-                modePrefix = "M";
-                addrStr = addrStr.substring(1);
-            } else if (addrStr.startsWith("X") || addrStr.startsWith("x")) {
-                modePrefix = "X";
-                addrStr = addrStr.substring(1);
-            }
-            
-            // Parse the address
-            int address = Integer.parseInt(addrStr, 16);
-            
-            // Determine the mode
-            MemoryMode mode = determineMemoryMode(modePrefix, defaultMode);
-            
-            return new AddressWithMode(address, mode);
-        }
-        
-        /**
-         * @return The memory address
-         */
-        public int getAddress() {
-            return address;
-        }
-        
-        /**
-         * @return The memory mode
-         */
-        public MemoryMode getMode() {
-            return mode;
-        }
-        
-        /**
-         * @return Whether this address is in main memory
-         */
-        public boolean isMainMemory() {
-            return mode == MemoryMode.MAIN;
-        }
-        
-        /**
-         * @return Whether this address is in auxiliary memory
-         */
-        public boolean isAuxMemory() {
-            return mode == MemoryMode.AUX;
-        }
-        
-        /**
-         * @return Boolean flag for RAM access (null for active, false for main, true for aux)
-         */
-        public Boolean getAuxFlag() {
-            if (mode == MemoryMode.MAIN) {
-                return false;
-            } else if (mode == MemoryMode.AUX) {
-                return true;
-            } else {
-                return null;
-            }
-        }
-        
-        /**
-         * @return String representation with mode prefix if applicable
-         */
-        @Override
-        public String toString() {
-            String modePrefix = (mode == MemoryMode.MAIN) ? "M" : (mode == MemoryMode.AUX) ? "X" : "";
-            return String.format("%s$%04X", modePrefix, address);
-        }
-    }
     
     // Keep track of active monitors to manage resources
     private static final List<MonitorMode> activeMonitors = new ArrayList<>();
-    
     
     private static final List<Watch> watches = new ArrayList<>();
     private static final Map<Integer, Cheat> cheats = new HashMap<>();
@@ -200,6 +97,16 @@ public class MonitorMode implements TerminalMode {
         // Restore persistent state
         restorePersistedState();
     }
+
+    /**
+     * Get the CPU from the emulator
+     * This method is made public to allow overriding in tests
+     * 
+     * @return The CPU instance or null if not available
+     */
+    public MOS65C02 getCpu() {
+        return (MOS65C02) Emulator.withComputer(computer -> computer.getCpu(), null);
+    }
     
     private void initDebugger() {
         debugger = new Debugger() {
@@ -208,8 +115,8 @@ public class MonitorMode implements TerminalMode {
                 if (!isActive()) {
                     return;
                 }
-                
-                MOS65C02 cpu = (MOS65C02) Emulator.withComputer(c->c.getCpu(), null);
+                                
+                MOS65C02 cpu = getCpu();
                 if (cpu != null) {
                     int pc = cpu.getProgramCounter();
                     
@@ -251,29 +158,27 @@ public class MonitorMode implements TerminalMode {
      * @param totalSteps The total number of steps or 0 if not stepping
      */
     private void displayCurrentInstruction(int stepNum, int totalSteps) {
-        Emulator.withComputer(computer -> {
-            MOS65C02 cpu = (MOS65C02) computer.getCpu();
-            if (cpu != null) {
-                int pc = cpu.getProgramCounter();
-                String disasm = cpu.disassemble(pc);
-                
-                // Calculate padding (min 2 spaces, but with less total width)
-                int padding = Math.max(2, 20 - disasm.length());
-                StringBuilder paddingStr = new StringBuilder();
-                for (int i = 0; i < padding; i++) {
-                    paddingStr.append(" ");
-                }
-                
-                // Build the output string
-                String stepInfo = (stepNum > 0 && totalSteps > 0) ? String.format(" (%d/%d)", stepNum, totalSteps) : "";
-                
-                // Ensure we always show the full 4-digit address
-                output.printf("%04X: %s%sA:%02X X:%02X Y:%02X S:%02X [%s]%s%n", 
-                    pc, disasm, paddingStr, 
-                    cpu.A & 0xFF, cpu.X & 0xFF, cpu.Y & 0xFF, cpu.STACK & 0xFF, 
-                    cpu.getFlags(), stepInfo);
+        MOS65C02 cpu = getCpu();
+        if (cpu != null) {
+            int pc = cpu.getProgramCounter();
+            String disasm = cpu.disassemble(pc);
+            
+            // Calculate padding (min 2 spaces, but with less total width)
+            int padding = Math.max(2, 20 - disasm.length());
+            StringBuilder paddingStr = new StringBuilder();
+            for (int i = 0; i < padding; i++) {
+                paddingStr.append(" ");
             }
-        });
+            
+            // Build the output string
+            String stepInfo = (stepNum > 0 && totalSteps > 0) ? String.format(" (%d/%d)", stepNum, totalSteps) : "";
+            
+            // Ensure we always show the full 4-digit address
+            output.printf("%04X: %s%sA:%02X X:%02X Y:%02X S:%02X [%s]%s%n", 
+                pc, disasm, paddingStr, 
+                cpu.A & 0xFF, cpu.X & 0xFF, cpu.Y & 0xFF, cpu.STACK & 0xFF, 
+                cpu.getFlags(), stepInfo);
+        }
     }
     
     private void initCommands() {
@@ -293,6 +198,8 @@ public class MonitorMode implements TerminalMode {
         commands.put("pause", args -> pauseEmulation());
         commands.put("resume", args -> resumeEmulation());
         commands.put("cpu", args -> showCpuState());
+        commands.put("registers", args -> showRegisters());
+        commands.put("setregister", this::setRegister);
         commands.put("break", this::handleBreakpoint);
         commands.put("breaklist", args -> listBreakpoints());
         commands.put("step", this::handleStep);
@@ -319,6 +226,8 @@ public class MonitorMode implements TerminalMode {
         // Debugger aliases - shorter forms
         addAlias("p", "pause");
         addAlias("r", "resume");
+        addAlias("sr", "setregister");
+        addAlias("reg", "registers");
         addAlias("b", "break");
         addAlias("bl", "breaklist");
         addAlias("s", "step");
@@ -372,6 +281,17 @@ public class MonitorMode implements TerminalMode {
         commandHelp.put("pause", "Pauses the emulation.\nUsage: pause (or p)");
         commandHelp.put("resume", "Resumes the emulation.\nUsage: resume (or r)");
         commandHelp.put("cpu", "Displays the current CPU state.\nUsage: cpu");
+        commandHelp.put("registers", "Displays current CPU register values.\n" +
+                "Usage: registers (or reg)\n" +
+                "Shows the current values of all CPU registers and flags.");
+        commandHelp.put("setregister", "Sets a CPU register to a specific value.\n" +
+                "Usage: setregister <register> <value> (or sr <register> <value>)\n" +
+                "  Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C\n" +
+                "  Values can be decimal, hex with $ prefix, or hex with 0x prefix\n" +
+                "Examples:\n" +
+                "  setregister A $FF     - Set accumulator to $FF\n" +
+                "  sr PC $C000           - Set program counter to $C000\n" +
+                "  sr X 42               - Set X register to decimal 42");
         commandHelp.put("break", "Manages breakpoints.\n" +
                 "Usage: break addr              - Add a breakpoint at address\n" +
                 "       break -addr             - Remove a breakpoint at address\n" +
@@ -406,7 +326,7 @@ public class MonitorMode implements TerminalMode {
     
     @Override
     public String getPrompt() {
-        return "* ";
+        return "*";
     }
     
     @Override
@@ -454,7 +374,7 @@ public class MonitorMode implements TerminalMode {
         }
         
         // No matching command found
-        output.println("Unknown command: " + command);
+        LOG.log(Level.INFO, "Unknown command: {0}", command);
         return false;
     }
     
@@ -482,18 +402,16 @@ public class MonitorMode implements TerminalMode {
     }
     
     private void showCpuState() {
-        Emulator.withComputer(computer -> {
-            MOS65C02 cpu = (MOS65C02) computer.getCpu();
-            if (cpu != null) {
-                output.println("CPU State:");
-                output.printf("PC=$%04X  A=$%02X  X=$%02X  Y=$%02X  SP=$%02X%n", 
-                    cpu.getProgramCounter(), cpu.A, cpu.X, cpu.Y, cpu.STACK);
-                output.printf("Flags: %s%n", cpu.getFlags());
-                
-                // Also display current instruction
-                displayCurrentInstruction();
-            }
-        });
+        MOS65C02 cpu = getCpu();
+        if (cpu != null) {
+            output.println("CPU State:");
+            output.printf("PC=$%04X  A=$%02X  X=$%02X  Y=$%02X  SP=$%02X%n", 
+                cpu.getProgramCounter(), cpu.A, cpu.X, cpu.Y, cpu.STACK);
+            output.printf("Flags: %s%n", cpu.getFlags());
+            
+            // Also display current instruction
+            displayCurrentInstruction();
+        }
     }
     
     private void handleBreakpoint(String[] args) {
@@ -859,14 +777,14 @@ public class MonitorMode implements TerminalMode {
     
     private void listCheats() {
         if (cheats.isEmpty()) {
-            output.println("No cheats active");
+            output.println("No active cheats");
             return;
         }
-        
+
         output.println("Active cheats:");
-        for (Map.Entry<Integer, Cheat> entry : cheats.entrySet()) {
-            output.println("  " + entry.getValue());
-        }
+        cheats.forEach((addr, cheat) -> {
+            output.printf("  $%04X = $%02X (%s)%n", addr, cheat.value, cheat.mode);
+        });
     }
     
     private void handleRunTo(String[] args) {
@@ -914,11 +832,7 @@ public class MonitorMode implements TerminalMode {
     private AddressWithMode parseAddressWithMode(String addrStr) {
         return AddressWithMode.parse(addrStr, memoryMode);
     }
-    
-    private MemoryMode determineMemoryMode(String modePrefix) {
-        return determineMemoryMode(modePrefix, memoryMode);
-    }
-    
+
     /**
      * Determines memory mode from prefix
      * 
@@ -926,7 +840,7 @@ public class MonitorMode implements TerminalMode {
      * @param defaultMode The default mode to use if no prefix specified
      * @return The determined memory mode
      */
-    private static MemoryMode determineMemoryMode(String modePrefix, MemoryMode defaultMode) {
+    static MemoryMode determineMemoryMode(String modePrefix, MemoryMode defaultMode) {
         if (modePrefix != null) {
             if (modePrefix.equalsIgnoreCase("M")) {
                 return MemoryMode.MAIN;
@@ -965,6 +879,8 @@ public class MonitorMode implements TerminalMode {
         output.println("  pause | p                   Pause emulation");
         output.println("  resume | r                  Resume emulation");
         output.println("  cpu                         Display CPU registers and status");
+        output.println("  registers/reg               Display detailed CPU registers");
+        output.println("  setregister/sr <reg> <val>  Set CPU register value");
         output.println("  step | s [count]            Step through instruction(s)");
         output.println("  ");
         output.println("Breakpoints:");
@@ -1047,6 +963,20 @@ public class MonitorMode implements TerminalMode {
                 return true;
             case "cpu":
                 output.println("cpu - Displays the current CPU state (registers and flags)");
+                return true;
+            case "registers":
+            case "reg":
+                output.println("registers | reg - Displays current CPU register values");
+                return true;
+            case "setregister":
+            case "sr":
+                output.println("setregister <reg> <val> - Sets a CPU register to a specific value");
+                output.println("  Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C");
+                output.println("  Values can be decimal, hex with $ prefix, or hex with 0x prefix");
+                output.println("Examples:");
+                output.println("  setregister A $FF     - Set accumulator to $FF");
+                output.println("  sr PC $C000           - Set program counter to $C000");
+                output.println("  sr X 42               - Set X register to decimal 42");
                 return true;
             case "break":
             case "b":
@@ -1476,36 +1406,30 @@ public class MonitorMode implements TerminalMode {
             pauseEmulation();
         }
         
-        Emulator.withComputer(computer -> {
-            // Set the program counter to the target address
-            computer.getCpu().setProgramCounter(address);
+        getCpu().setProgramCounter(address);
             
-            // Always activate the debugger when executing code with breakpoints set
-            if (!debugger.getBreakpoints().isEmpty()) {
-                debugger.setActive(true);
-                output.println("Execution started at $" + Integer.toHexString(address).toUpperCase() + 
-                               " (breakpoint detection active)");
-            } else {
-                output.println("Execution started at $" + Integer.toHexString(address).toUpperCase());
-            }
-            
-            // If there's a breakpoint at this exact address, don't resume - it would just immediately hit
-            if (hasBreakpointAtEntry) {
-                output.printf("Breakpoint hit at $%04X%n", address);
-                displayCurrentInstruction();
-                // Keep emulation paused
-                isPaused = true;
-                output.flush();  // Flush to ensure UI updates immediately
-            } else {
-                // Resume emulation to execute
+        // Always activate the debugger when executing code with breakpoints set
+        if (!debugger.getBreakpoints().isEmpty()) {
+            debugger.setActive(true);
+            output.println("Execution started at $" + Integer.toHexString(address).toUpperCase() + 
+                            " (breakpoint detection active)");
+        } else {
+            output.println("Execution started at $" + Integer.toHexString(address).toUpperCase());
+        }
+        
+        // If there's a breakpoint at this exact address, don't resume - it would just immediately hit
+        if (hasBreakpointAtEntry) {
+            output.printf("Breakpoint hit at $%04X%n", address);
+            displayCurrentInstruction();
+            // Keep emulation paused
+            isPaused = true;
+        } else {
+            // Resume emulation to execute
+            Emulator.withComputer(computer -> {
                 computer.getMotherboard().resume();
-                isPaused = false;
-            }
-        });
-    }
-    
-    private void disassembleCode(int startAddress, int instructionCount) {
-        disassembleCode(startAddress, instructionCount, true);
+            });
+            isPaused = false;
+        }
     }
     
     private void disassembleCode(int startAddress, int instructionCount, boolean showMemoryBytes) {
@@ -1614,107 +1538,130 @@ public class MonitorMode implements TerminalMode {
         }
     }
     
-    // Watch class to track memory access
-    private static class Watch {
-        final MonitorMode monitor;
-        final String name;
-        final int address;
-        final MemoryMode mode;
-        
-        private RAMListener readListener;
-        private RAMListener writeListener;
-        
-        public Watch(MonitorMode monitor, String name, int address, MemoryMode mode) {
-            this.monitor = monitor;
-            this.name = name;
-            this.address = address;
-            this.mode = mode;
+    /**
+     * Display CPU registers in detail
+     */
+    protected void showRegisters() {
+        MOS65C02 cpu = getCpu();
+        if (cpu != null) {
+            output.println("CPU Registers:");
+            output.println("  A: $" + String.format("%02X", cpu.getAccumulator() & 0xFF));
+            output.println("  X: $" + String.format("%02X", cpu.getXRegister() & 0xFF));
+            output.println("  Y: $" + String.format("%02X", cpu.getYRegister() & 0xFF));
+            output.println("  PC: $" + String.format("%04X", cpu.getProgramCounter()));
+            output.println("  S: $" + String.format("%02X", cpu.getStackPointer() & 0xFF));
+
+            // Status flags
+            StringBuilder flags = new StringBuilder();
+            flags.append(cpu.isNegativeFlag() ? "N" : "n");
+            flags.append(cpu.isOverflowFlag() ? "V" : "v");
+            flags.append("-");
+            flags.append(cpu.isBreakFlag() ? "B" : "b");
+            flags.append(cpu.isDecimalFlag() ? "D" : "d");
+            flags.append(cpu.isInterruptFlag() ? "I" : "i");
+            flags.append(cpu.isZeroFlag() ? "Z" : "z");
+            flags.append(cpu.isCarryFlag() ? "C" : "c");
+
+            output.println("  Flags: " + flags.toString());
             
-            // Only add listeners if this is associated with an active monitor
-            if (monitor != null) {
-                createListeners();
-            }
-        }
-        
-        private void createListeners() {
-            // Create separate listeners for READ and WRITE events
-            final Boolean auxFlag = monitor.determineAuxFlag(mode);
-            
-            Emulator.withMemory(ram -> {
-                // READ listener - show the value being read
-                readListener = ram.observe("WatchRead:" + address, RAMEvent.TYPE.READ, address, auxFlag, 
-                    event -> {
-                        byte value = (byte) event.getNewValue();
-                        monitor.output.printf("Watch %s: READ $%02X from $%04X%n", 
-                            name, value & 0xFF, address);
-                        
-                        // Display current CPU state
-                        monitor.displayCurrentInstruction();
-                    });
-                
-                // WRITE listener - show old and new values
-                writeListener = ram.observe("WatchWrite:" + address, RAMEvent.TYPE.WRITE, address, auxFlag, 
-                    event -> {
-                        byte oldValue = (byte) event.getOldValue();
-                        byte newValue = (byte) event.getNewValue();
-                        monitor.output.printf("Watch %s: WRITE $%02X (was $%02X) to $%04X%n", 
-                            name, newValue & 0xFF, oldValue & 0xFF, address);
-                            
-                        // Display current CPU state
-                        monitor.displayCurrentInstruction();
-                    });
-            });
-        }
-        
-        public void remove() {
-            if (readListener != null || writeListener != null) {
-                Emulator.withMemory(ram -> {
-                    // Remove both listeners
-                    if (readListener != null) {
-                        ram.removeListener(readListener);
-                    }
-                    if (writeListener != null) {
-                        ram.removeListener(writeListener);
-                    }
-                });
-            }
-        }
-        
-        @Override
-        public String toString() {
-            String modePrefix = (mode == MemoryMode.MAIN) ? "M" : 
-                              (mode == MemoryMode.AUX) ? "X" : "";
-            return String.format("%s ($%s%04X)", name, modePrefix, address);
+            // Also display current instruction
+            displayCurrentInstruction();
+        } else {
+            output.println("CPU not available");
         }
     }
-    
+
     /**
-     * Persists important state information for watches, breakpoints, and cheats
+     * Set a CPU register to a specific value
      */
-    private static class PersistentWatch {
-        final String name;
-        final int address;
-        final MemoryMode mode;
-        
-        PersistentWatch(String name, int address, MemoryMode mode) {
-            this.name = name;
-            this.address = address;
-            this.mode = mode;
+    protected void setRegister(String[] args) {
+        if (args.length < 2) {
+            output.println("Usage: setregister <register> <value>");
+            output.println("  Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C");
+            return;
+        }
+
+        String register = args[0].toUpperCase();
+        String valueStr = args[1];
+
+        MOS65C02 cpu = getCpu();
+        if (cpu == null) {
+            output.println("CPU not available");
+            return;
+        }
+
+        try {
+            switch (register) {
+                case "A":
+                    cpu.setAccumulator(parseByteValue(valueStr));
+                    break;
+                case "X":
+                    cpu.setXRegister(parseByteValue(valueStr));
+                    break;
+                case "Y":
+                    cpu.setYRegister(parseByteValue(valueStr));
+                    break;
+                case "PC":
+                    cpu.setProgramCounter(parseWordValue(valueStr));
+                    break;
+                case "S":
+                    cpu.setStackPointer(parseByteValue(valueStr));
+                    break;
+                case "N":
+                    cpu.setNegativeFlag(parseBooleanValue(valueStr));
+                    break;
+                case "V":
+                    cpu.setOverflowFlag(parseBooleanValue(valueStr));
+                    break;
+                case "B":
+                    cpu.setBreakFlag(parseBooleanValue(valueStr));
+                    break;
+                case "D":
+                    cpu.setDecimalFlag(parseBooleanValue(valueStr));
+                    break;
+                case "I":
+                    cpu.setInterruptFlag(parseBooleanValue(valueStr));
+                    break;
+                case "Z":
+                    cpu.setZeroFlag(parseBooleanValue(valueStr));
+                    break;
+                case "C":
+                    cpu.setCarryFlag(parseBooleanValue(valueStr));
+                    break;
+                default:
+                    output.println("Unknown register: " + register);
+                    return;
+            }
+            output.println("Register " + register + " set to " + valueStr);
+        } catch (NumberFormatException e) {
+            output.println("Invalid value format: " + valueStr);
         }
     }
-    
-    /**
-     * Persists cheat information
-     */
-    private static class PersistentCheat {
-        final int address;
-        final int value;
-        final MemoryMode mode;
-        
-        PersistentCheat(int address, int value, MemoryMode mode) {
-            this.address = address;
-            this.value = value;
-            this.mode = mode;
+
+    private int parseByteValue(String value) {
+        if (value.startsWith("$")) {
+            return Integer.parseInt(value.substring(1), 16) & 0xFF;
+        } else if (value.startsWith("0x")) {
+            return Integer.parseInt(value.substring(2), 16) & 0xFF;
+        } else {
+            return Integer.parseInt(value) & 0xFF;
         }
+    }
+
+    private int parseWordValue(String value) {
+        if (value.startsWith("$")) {
+            return Integer.parseInt(value.substring(1), 16) & 0xFFFF;
+        } else if (value.startsWith("0x")) {
+            return Integer.parseInt(value.substring(2), 16) & 0xFFFF;
+        } else {
+            return Integer.parseInt(value) & 0xFFFF;
+        }
+    }
+
+    private boolean parseBooleanValue(String value) {
+        return "1".equals(value) ||
+                "true".equalsIgnoreCase(value) ||
+                "on".equalsIgnoreCase(value) ||
+                "yes".equalsIgnoreCase(value);
     }
 } 

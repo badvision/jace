@@ -54,9 +54,6 @@ public class MainMode implements TerminalMode {
         commands.put("swlog", this::toggleSoftSwitchLogging);
         commands.put("swstate", this::showSoftSwitchState);
 
-        commands.put("registers", args -> showRegisters());
-        commands.put("setregister", this::setRegister);
-
         commands.put("reset", args -> performReset());
         commands.put("step", this::stepCPU);
         commands.put("run", this::runCPU);
@@ -72,8 +69,6 @@ public class MainMode implements TerminalMode {
         addAlias("d", "debugger");
         addAlias("sl", "swlog");
         addAlias("ss", "swstate");
-        addAlias("r", "registers");
-        addAlias("sr", "setregister");
         addAlias("re", "reset");
         addAlias("s", "step");
         addAlias("g", "run");
@@ -93,13 +88,6 @@ public class MainMode implements TerminalMode {
                 "Displays the current state of all softswitches.\nUsage: swstate [switch_name] (or ss [switch_name])\n"
                         +
                         "If switch_name is provided, only shows that specific switch.");
-
-        commandHelp.put("registers", "Displays current CPU register values.\nUsage: registers (or r)");
-        commandHelp.put("setregister",
-                "Sets a CPU register to a specific value.\nUsage: setregister <register> <value> (or sr <register> <value>)\n"
-                        +
-                        "Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C\n" +
-                        "Values can be decimal, hex with $ prefix, or hex with 0x prefix.");
 
         commandHelp.put("reset", "Resets the Apple II.\nUsage: reset (or re)");
 
@@ -145,7 +133,7 @@ public class MainMode implements TerminalMode {
 
     @Override
     public String getPrompt() {
-        return "JACE> ";
+        return "JACE>";
     }
 
     @Override
@@ -171,8 +159,10 @@ public class MainMode implements TerminalMode {
             return true;
         }
 
+        // Log the unknown command for debugging purposes
         LOG.info("Unknown command received: " + cmd);
-        output.println("Unknown command: " + cmd);
+        
+        // Display error message directly here - the JaceTerminal will not print its own error
         return false;
     }
 
@@ -185,8 +175,6 @@ public class MainMode implements TerminalMode {
         output.println();
         output.println("  swlog (sl)     - Toggle softswitch state change logging");
         output.println("  swstate (ss)   - Display current state of all softswitches");
-        output.println("  registers (r)  - Display CPU registers");
-        output.println("  setregister (sr) - Set a CPU register (A|X|Y|PC|S|P|FLAGS) value");
         output.println("  reset (re)     - Reset the Apple II");
         output.println("  step (s) [count] - Step the CPU for count cycles (default: 1)");
         output.println("  run (g) [count] - Run the CPU for count cycles or until breakpoint (default: 1000000)");
@@ -243,139 +231,6 @@ public class MainMode implements TerminalMode {
         }
     }
 
-    private void showRegisters() {
-        try {
-            MOS65C02 cpu = getCPU();
-            if (cpu != null) {
-                output.println("CPU Registers:");
-                output.println("  A: $" + String.format("%02X", cpu.A & 0xFF));
-                output.println("  X: $" + String.format("%02X", cpu.X & 0xFF));
-                output.println("  Y: $" + String.format("%02X", cpu.Y & 0xFF));
-                output.println("  PC: $" + String.format("%04X", cpu.getProgramCounter()));
-                output.println("  S: $" + String.format("%02X", cpu.STACK & 0xFF));
-
-                // Status flags
-                StringBuilder flags = new StringBuilder();
-                flags.append(cpu.N ? "N" : "n");
-                flags.append(cpu.V ? "V" : "v");
-                flags.append("-");
-                flags.append(cpu.B ? "B" : "b");
-                flags.append(cpu.D ? "D" : "d");
-                flags.append(cpu.I ? "I" : "i");
-                flags.append(cpu.Z ? "Z" : "z");
-                flags.append(cpu.C > 0 ? "C" : "c");
-
-                output.println("  Flags: " + flags.toString());
-            } else {
-                LOG.warning("CPU not available for register display");
-                output.println("CPU not available");
-            }
-        } catch (Exception e) {
-            LOG.log(Level.WARNING, "Error displaying CPU registers", e);
-            output.println("Error accessing CPU: " + e.getMessage());
-        }
-    }
-
-    private void setRegister(String[] args) {
-        if (args.length < 2) {
-            output.println("Usage: setregister <register> <value>");
-            output.println("  Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C");
-            return;
-        }
-
-        String register = args[0].toUpperCase();
-        String valueStr = args[1];
-
-        try {
-            MOS65C02 cpu = getCPU();
-            if (cpu == null) {
-                LOG.warning("CPU not available for register setting");
-                output.println("CPU not available");
-                return;
-            }
-
-            try {
-                switch (register) {
-                    case "A":
-                        cpu.A = parseByteValue(valueStr);
-                        break;
-                    case "X":
-                        cpu.X = parseByteValue(valueStr);
-                        break;
-                    case "Y":
-                        cpu.Y = parseByteValue(valueStr);
-                        break;
-                    case "PC":
-                        cpu.setProgramCounter(parseWordValue(valueStr));
-                        break;
-                    case "S":
-                        cpu.STACK = parseByteValue(valueStr);
-                        break;
-                    case "N":
-                        cpu.N = parseBooleanValue(valueStr);
-                        break;
-                    case "V":
-                        cpu.V = parseBooleanValue(valueStr);
-                        break;
-                    case "B":
-                        cpu.B = parseBooleanValue(valueStr);
-                        break;
-                    case "D":
-                        cpu.D = parseBooleanValue(valueStr);
-                        break;
-                    case "I":
-                        cpu.I = parseBooleanValue(valueStr);
-                        break;
-                    case "Z":
-                        cpu.Z = parseBooleanValue(valueStr);
-                        break;
-                    case "C":
-                        cpu.C = parseBooleanValue(valueStr) ? 1 : 0;
-                        break;
-                    default:
-                        LOG.info("Unknown register requested: " + register);
-                        output.println("Unknown register: " + register);
-                        return;
-                }
-                LOG.fine("Register " + register + " set to " + valueStr);
-                output.println("Register " + register + " set to " + valueStr);
-            } catch (NumberFormatException e) {
-                LOG.info("Invalid value format for register: " + valueStr);
-                output.println("Invalid value format: " + valueStr);
-            }
-        } catch (Exception e) {
-            LOG.log(Level.WARNING, "Error setting CPU register", e);
-            output.println("Error accessing CPU: " + e.getMessage());
-        }
-    }
-
-    private int parseByteValue(String value) {
-        if (value.startsWith("$")) {
-            return Integer.parseInt(value.substring(1), 16) & 0xFF;
-        } else if (value.startsWith("0x")) {
-            return Integer.parseInt(value.substring(2), 16) & 0xFF;
-        } else {
-            return Integer.parseInt(value) & 0xFF;
-        }
-    }
-
-    private int parseWordValue(String value) {
-        if (value.startsWith("$")) {
-            return Integer.parseInt(value.substring(1), 16) & 0xFFFF;
-        } else if (value.startsWith("0x")) {
-            return Integer.parseInt(value.substring(2), 16) & 0xFFFF;
-        } else {
-            return Integer.parseInt(value) & 0xFFFF;
-        }
-    }
-
-    private boolean parseBooleanValue(String value) {
-        return "1".equals(value) ||
-                "true".equalsIgnoreCase(value) ||
-                "on".equalsIgnoreCase(value) ||
-                "yes".equalsIgnoreCase(value);
-    }
-
     private void performReset() {
         try {
             Emulator.withComputer(computer -> {
@@ -390,83 +245,124 @@ public class MainMode implements TerminalMode {
     }
 
     private void stepCPU(String[] args) {
-        int steps = 1;
+        int stepCount = 1;
         if (args.length > 0) {
             try {
-                steps = Integer.parseInt(args[0]);
+                stepCount = Integer.parseInt(args[0]);
+                if (stepCount <= 0) {
+                    output.println("Step count must be positive");
+                    return;
+                }
             } catch (NumberFormatException e) {
-                LOG.info("Invalid step count: " + args[0]);
                 output.println("Invalid step count: " + args[0]);
                 return;
             }
         }
 
-        final int stepCount = steps;
+        MOS65C02 cpu = getCPU();
+        if (cpu == null) {
+            output.println("CPU not available");
+            return;
+        }
+
+        // Save the current program counter
+        int startPC = cpu.getProgramCounter();
+
+        // Step the CPU
         try {
-            Emulator.withComputer(computer -> {
-                output.println("Stepping CPU for " + stepCount + " cycles...");
-                LOG.fine("Stepping CPU for " + stepCount + " cycles");
-                computer.getMotherboard().whileSuspended(() -> {
-                    for (int i = 0; i < stepCount; i++) {
-                        computer.getCpu().tick();
-                    }
+            final int steps = stepCount;
+            for (int i = 0; i < stepCount; i++) {
+                Emulator.withComputer((computer) -> {
+                    computer.pause();
+                    // Execute a single instruction
+                    computer.getCpu().tick();
+                    computer.resume();
                 });
-                output.println("CPU stepped " + stepCount + " cycles");
-                showRegisters();
-            });
+            }
+            
+            // Print CPU state after stepping
+            output.println("Stepped " + stepCount + " instruction" + (stepCount > 1 ? "s" : ""));
+            showCPUState(cpu);
         } catch (Exception e) {
-            LOG.log(Level.WARNING, "Error stepping CPU", e);
-            output.println("Error accessing computer: " + e.getMessage());
+            output.println("Error during CPU step: " + e.getMessage());
         }
     }
 
     private void runCPU(String[] args) {
-        int cycles = 1000000; // Default to 1 million cycles
-        int breakpoint = -1; // No breakpoint by default
+        // Default to running for 1 million cycles if no count is specified
+        int cycleCount = 1_000_000;
+        Integer breakpointAddress = null;
 
         if (args.length > 0) {
             try {
-                cycles = Integer.parseInt(args[0]);
-            } catch (NumberFormatException e) {
-                LOG.info("Invalid cycle count: " + args[0]);
-                output.println("Invalid cycle count: " + args[0]);
-                return;
-            }
-        }
-
-        if (args.length > 1) {
-            try {
-                if (args[1].startsWith("$")) {
-                    breakpoint = Integer.parseInt(args[1].substring(1), 16) & 0xFFFF;
+                // Check if the first argument is a breakpoint indicator
+                if (args[0].startsWith("#")) {
+                    breakpointAddress = Integer.parseInt(args[0].substring(1), 16);
                 } else {
-                    breakpoint = Integer.parseInt(args[1]) & 0xFFFF;
+                    cycleCount = Integer.parseInt(args[0]);
+                    
+                    // Check for breakpoint as second argument
+                    if (args.length > 1 && args[1].startsWith("#")) {
+                        breakpointAddress = Integer.parseInt(args[1].substring(1), 16);
+                    }
+                }
+
+                if (cycleCount <= 0) {
+                    output.println("Cycle count must be positive");
+                    return;
                 }
             } catch (NumberFormatException e) {
-                LOG.info("Invalid breakpoint address: " + args[1]);
-                output.println("Invalid breakpoint address: " + args[1]);
+                output.println("Invalid argument: " + (args[0].startsWith("#") ? args[0].substring(1) : args[0]));
                 return;
             }
         }
 
-        final int cycleCount = cycles;
-        final int breakAddr = breakpoint;
+        final Integer finalBreakpointAddress = breakpointAddress;
+        final int finalCycleCount = cycleCount;
 
-        String cycleMsg = "Running CPU for " + (cycleCount == -1 ? "unlimited" : cycleCount) + " cycles" +
-                (breakAddr != -1 ? " or until PC=$" + String.format("%04X", breakAddr) : "");
-        LOG.info(cycleMsg);
-        output.println(cycleMsg);
-
-        // TODO: Implement actual run logic with breakpoint support
         try {
-            Emulator.withComputer(computer -> {
-                computer.getMotherboard().resume();
-                // This would need to be properly implemented with a separate thread and
-                // monitoring
-                output.println("CPU resumed, press Ctrl+C to interrupt");
+            Emulator.withComputer((computer) -> {
+                if (finalBreakpointAddress != null) {
+                    output.println("Running until PC = $" + Integer.toHexString(finalBreakpointAddress).toUpperCase() + 
+                            " or " + finalCycleCount + " cycles");
+                } else {
+                    output.println("Running for " + finalCycleCount + " cycles");
+                }
+
+                // Track cycles with our own counter
+                int currentCycles = 0;
+                
+                computer.resume();
+                
+                // Poll periodically to check breakpoint or cycle count
+                while (currentCycles < finalCycleCount) {
+                    if (finalBreakpointAddress != null && 
+                            computer.getCpu().getProgramCounter() == finalBreakpointAddress) {
+                        output.println("Breakpoint hit at $" + 
+                                Integer.toHexString(finalBreakpointAddress).toUpperCase());
+                        break;
+                    }
+                    
+                    // Increment our cycle counter
+                    currentCycles += 100;
+                    
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        break;
+                    }
+                }
+                
+                computer.pause();
+                
+                output.println("Ran for approximately " + currentCycles + " cycles");
+                
+                // Show CPU state after run
+                MOS65C02 cpuAfterRun = (MOS65C02) computer.getCpu();
+                showCPUState(cpuAfterRun);
             });
         } catch (Exception e) {
-            LOG.log(Level.WARNING, "Error running CPU", e);
-            output.println("Error accessing computer: " + e.getMessage());
+            output.println("Error during CPU run: " + e.getMessage());
         }
     }
 
@@ -556,8 +452,33 @@ public class MainMode implements TerminalMode {
         output.println("Binary saving not yet implemented");
     }
 
+    private void showCPUState(MOS65C02 cpu) {
+        output.println("CPU State:");
+        output.println("  PC: $" + String.format("%04X", cpu.getProgramCounter()));
+        output.println("  A: $" + String.format("%02X", getAccumulator(cpu) & 0xFF));
+        output.println("  X: $" + String.format("%02X", getXRegister(cpu) & 0xFF));
+        output.println("  Y: $" + String.format("%02X", getYRegister(cpu) & 0xFF));
+        output.println("  S: $" + String.format("%02X", getStackPointer(cpu) & 0xFF));
+        
+        // Status flags
+        StringBuilder flags = new StringBuilder();
+        flags.append(isNegativeFlag(cpu) ? "N" : "n");
+        flags.append(isOverflowFlag(cpu) ? "V" : "v");
+        flags.append("-");
+        flags.append(isBreakFlag(cpu) ? "B" : "b");
+        flags.append(isDecimalFlag(cpu) ? "D" : "d");
+        flags.append(isInterruptFlag(cpu) ? "I" : "i");
+        flags.append(isZeroFlag(cpu) ? "Z" : "z");
+        flags.append(isCarryFlag(cpu) ? "C" : "c");
+        
+        output.println("  Flags: " + flags.toString());
+    }
+
     /**
-     * Helper method to get CPU from the emulator
+     * Get the CPU from the emulator
+     * This method is protected to allow overriding in tests
+     * 
+     * @return The CPU instance or null if not available
      */
     protected MOS65C02 getCPU() {
         try {
@@ -567,5 +488,203 @@ public class MainMode implements TerminalMode {
             output.println("Error getting CPU: " + e.getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Get the accumulator value from the CPU
+     * @param cpu The CPU instance
+     * @return The accumulator value
+     */
+    protected int getAccumulator(MOS65C02 cpu) {
+        return cpu.getAccumulator();
+    }
+    
+    /**
+     * Set the accumulator value in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setAccumulator(MOS65C02 cpu, int value) {
+        cpu.setAccumulator(value);
+    }
+    
+    /**
+     * Get the X register value from the CPU
+     * @param cpu The CPU instance
+     * @return The X register value
+     */
+    protected int getXRegister(MOS65C02 cpu) {
+        return cpu.getXRegister();
+    }
+    
+    /**
+     * Set the X register value in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setXRegister(MOS65C02 cpu, int value) {
+        cpu.setXRegister(value);
+    }
+    
+    /**
+     * Get the Y register value from the CPU
+     * @param cpu The CPU instance
+     * @return The Y register value
+     */
+    protected int getYRegister(MOS65C02 cpu) {
+        return cpu.getYRegister();
+    }
+    
+    /**
+     * Set the Y register value in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setYRegister(MOS65C02 cpu, int value) {
+        cpu.setYRegister(value);
+    }
+    
+    /**
+     * Get the stack pointer value from the CPU
+     * @param cpu The CPU instance
+     * @return The stack pointer value
+     */
+    protected int getStackPointer(MOS65C02 cpu) {
+        return cpu.getStackPointer();
+    }
+    
+    /**
+     * Set the stack pointer value in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setStackPointer(MOS65C02 cpu, int value) {
+        cpu.setStackPointer(value);
+    }
+    
+    /**
+     * Check if the negative flag is set in the CPU
+     * @param cpu The CPU instance
+     * @return True if the flag is set, false otherwise
+     */
+    protected boolean isNegativeFlag(MOS65C02 cpu) {
+        return cpu.isNegativeFlag();
+    }
+    
+    /**
+     * Set the negative flag in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setNegativeFlag(MOS65C02 cpu, boolean value) {
+        cpu.setNegativeFlag(value);
+    }
+    
+    /**
+     * Check if the overflow flag is set in the CPU
+     * @param cpu The CPU instance
+     * @return True if the flag is set, false otherwise
+     */
+    protected boolean isOverflowFlag(MOS65C02 cpu) {
+        return cpu.isOverflowFlag();
+    }
+    
+    /**
+     * Set the overflow flag in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setOverflowFlag(MOS65C02 cpu, boolean value) {
+        cpu.setOverflowFlag(value);
+    }
+    
+    /**
+     * Check if the break flag is set in the CPU
+     * @param cpu The CPU instance
+     * @return True if the flag is set, false otherwise
+     */
+    protected boolean isBreakFlag(MOS65C02 cpu) {
+        return cpu.isBreakFlag();
+    }
+    
+    /**
+     * Set the break flag in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setBreakFlag(MOS65C02 cpu, boolean value) {
+        cpu.setBreakFlag(value);
+    }
+    
+    /**
+     * Check if the decimal flag is set in the CPU
+     * @param cpu The CPU instance
+     * @return True if the flag is set, false otherwise
+     */
+    protected boolean isDecimalFlag(MOS65C02 cpu) {
+        return cpu.isDecimalFlag();
+    }
+    
+    /**
+     * Set the decimal flag in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setDecimalFlag(MOS65C02 cpu, boolean value) {
+        cpu.setDecimalFlag(value);
+    }
+    
+    /**
+     * Check if the interrupt flag is set in the CPU
+     * @param cpu The CPU instance
+     * @return True if the flag is set, false otherwise
+     */
+    protected boolean isInterruptFlag(MOS65C02 cpu) {
+        return cpu.isInterruptFlag();
+    }
+    
+    /**
+     * Set the interrupt flag in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setInterruptFlag(MOS65C02 cpu, boolean value) {
+        cpu.setInterruptFlag(value);
+    }
+    
+    /**
+     * Check if the zero flag is set in the CPU
+     * @param cpu The CPU instance
+     * @return True if the flag is set, false otherwise
+     */
+    protected boolean isZeroFlag(MOS65C02 cpu) {
+        return cpu.isZeroFlag();
+    }
+    
+    /**
+     * Set the zero flag in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setZeroFlag(MOS65C02 cpu, boolean value) {
+        cpu.setZeroFlag(value);
+    }
+    
+    /**
+     * Check if the carry flag is set in the CPU
+     * @param cpu The CPU instance
+     * @return True if the flag is set, false otherwise
+     */
+    protected boolean isCarryFlag(MOS65C02 cpu) {
+        return cpu.isCarryFlag();
+    }
+    
+    /**
+     * Set the carry flag in the CPU
+     * @param cpu The CPU instance
+     * @param value The value to set
+     */
+    protected void setCarryFlag(MOS65C02 cpu, boolean value) {
+        cpu.setCarryFlag(value);
     }
 }

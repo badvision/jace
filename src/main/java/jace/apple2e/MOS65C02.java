@@ -75,6 +75,184 @@ public class MOS65C02 extends CPU {
         clearState();
     }
 
+    // CPU Register Accessors - added for proper API access
+    
+    /**
+     * Get the accumulator (A) register value
+     * @return The accumulator value
+     */
+    public int getAccumulator() {
+        return A;
+    }
+    
+    /**
+     * Set the accumulator (A) register value
+     * @param value The value to set
+     */
+    public void setAccumulator(int value) {
+        A = value & 0xFF;
+    }
+    
+    /**
+     * Get the X register value
+     * @return The X register value
+     */
+    public int getXRegister() {
+        return X;
+    }
+    
+    /**
+     * Set the X register value
+     * @param value The value to set
+     */
+    public void setXRegister(int value) {
+        X = value & 0xFF;
+    }
+    
+    /**
+     * Get the Y register value
+     * @return The Y register value
+     */
+    public int getYRegister() {
+        return Y;
+    }
+    
+    /**
+     * Set the Y register value
+     * @param value The value to set
+     */
+    public void setYRegister(int value) {
+        Y = value & 0xFF;
+    }
+    
+    /**
+     * Get the stack pointer value
+     * @return The stack pointer value
+     */
+    public int getStackPointer() {
+        return STACK;
+    }
+    
+    /**
+     * Set the stack pointer value
+     * @param value The value to set
+     */
+    public void setStackPointer(int value) {
+        STACK = value & 0xFF;
+    }
+    
+    /**
+     * Check if the negative flag is set
+     * @return True if the flag is set, false otherwise
+     */
+    public boolean isNegativeFlag() {
+        return N;
+    }
+    
+    /**
+     * Set the negative flag
+     * @param value The value to set
+     */
+    public void setNegativeFlag(boolean value) {
+        N = value;
+    }
+    
+    /**
+     * Check if the overflow flag is set
+     * @return True if the flag is set, false otherwise
+     */
+    public boolean isOverflowFlag() {
+        return V;
+    }
+    
+    /**
+     * Set the overflow flag
+     * @param value The value to set
+     */
+    public void setOverflowFlag(boolean value) {
+        V = value;
+    }
+    
+    /**
+     * Check if the break flag is set
+     * @return True if the flag is set, false otherwise
+     */
+    public boolean isBreakFlag() {
+        return B;
+    }
+    
+    /**
+     * Set the break flag
+     * @param value The value to set
+     */
+    public void setBreakFlag(boolean value) {
+        B = value;
+    }
+    
+    /**
+     * Check if the decimal flag is set
+     * @return True if the flag is set, false otherwise
+     */
+    public boolean isDecimalFlag() {
+        return D;
+    }
+    
+    /**
+     * Set the decimal flag
+     * @param value The value to set
+     */
+    public void setDecimalFlag(boolean value) {
+        D = value;
+    }
+    
+    /**
+     * Check if the interrupt flag is set
+     * @return True if the flag is set, false otherwise
+     */
+    public boolean isInterruptFlag() {
+        return I;
+    }
+    
+    /**
+     * Set the interrupt flag
+     * @param value The value to set
+     */
+    public void setInterruptFlag(boolean value) {
+        I = value;
+    }
+    
+    /**
+     * Check if the zero flag is set
+     * @return True if the flag is set, false otherwise
+     */
+    public boolean isZeroFlag() {
+        return Z;
+    }
+    
+    /**
+     * Set the zero flag
+     * @param value The value to set
+     */
+    public void setZeroFlag(boolean value) {
+        Z = value;
+    }
+    
+    /**
+     * Check if the carry flag is set
+     * @return True if the flag is set, false otherwise
+     */
+    public boolean isCarryFlag() {
+        return C != 0;
+    }
+    
+    /**
+     * Set the carry flag
+     * @param value The value to set
+     */
+    public void setCarryFlag(boolean value) {
+        C = value ? 1 : 0;
+    }
+
     @Override
     public void clearState() {
         A = 0x0ff;

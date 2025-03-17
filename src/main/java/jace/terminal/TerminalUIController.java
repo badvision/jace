@@ -46,8 +46,74 @@ import javafx.stage.StageStyle;
  */
 public class TerminalUIController {
     
-    // Track current Terminal mode for UI display - initialize with MainMode
-    private static TerminalMode currentMode = new MainMode(null);
+    // Track current Terminal mode for UI display - initialize with placeholder
+    private static TerminalMode currentMode;
+    
+    // Initialize the mode using a static block to avoid issues with null terminals
+    static {
+        try {
+            // Create a minimal terminal implementation just for static initialization
+            JaceTerminal dummyTerminal = new JaceTerminal(
+                new BufferedReader(new InputStreamReader(System.in)),
+                new PrintStream(new ByteArrayOutputStream())
+            ) {
+                @Override
+                public boolean setMode(String mode) {
+                    // Dummy implementation - no-op
+                    return true; // Always succeed
+                }
+                
+                @Override
+                public EmulatorInterface getEmulator() {
+                    // Return a simple mock implementation
+                    return new EmulatorInterface() {
+                        @Override
+                        public void withComputer(java.util.function.Consumer<jace.apple2e.Apple2e> action) {
+                            // No-op implementation
+                        }
+                        
+                        @Override
+                        public <T> T withComputer(java.util.function.Function<jace.apple2e.Apple2e, T> function, T defaultValue) {
+                            return defaultValue;
+                        }
+                        
+                        @Override
+                        public void whileSuspended(java.util.function.Consumer<jace.apple2e.Apple2e> action) {
+                            // No-op implementation
+                        }
+                    };
+                }
+                
+                @Override
+                public void stop() {
+                    // Dummy implementation - no-op
+                }
+            };
+            
+            // Create MainMode with our dummy terminal
+            currentMode = new MainMode(dummyTerminal);
+        } catch (Exception e) {
+            // Fallback to safer initialization if needed
+            System.err.println("Warning: Failed to initialize default terminal mode: " + e.getMessage());
+            currentMode = new TerminalMode() {
+                @Override
+                public String getName() { return "Main"; }
+                
+                @Override
+                public String getPrompt() { return "JACE> "; }
+                
+                @Override
+                public boolean processCommand(String command) { return false; }
+                
+                @Override
+                public void printHelp() {}
+                
+                @Override
+                public boolean printCommandHelp(String command) { return false; }
+            };
+        }
+    }
+    
     private static javafx.scene.control.Label modeLabel;
     
     /**
@@ -199,6 +265,9 @@ public class TerminalUIController {
                 terminalThread.setDaemon(true);
                 terminalThread.start();
                 
+                // Create a final reference for tracking commands
+                final StringBuilder commandPrefix = new StringBuilder();
+                
                 // Set up a reader thread to get output from the Terminal to the UI
                 Thread readerThread = new Thread(() -> {
                     try (BufferedReader uiReader = new BufferedReader(new InputStreamReader(terminalToUi))) {                        
@@ -214,7 +283,7 @@ public class TerminalUIController {
                                         return;
                                     }
                                     
-                                    // Handle lines containing both prompt and output
+                                    // Process the line for display
                                     String processedLine = finalLine;
                                     
                                     // Check if line starts with the current prompt
@@ -223,7 +292,7 @@ public class TerminalUIController {
                                         processedLine = processedLine.substring(currentMode.getPrompt().length()).trim();
                                     }
                                     
-                                    // Always display the line if it's not just a prompt
+                                    // Display the processed line if not empty
                                     if (!processedLine.isEmpty()) {
                                         consoleOutput.appendText(processedLine + "\n");
                                         
@@ -247,16 +316,17 @@ public class TerminalUIController {
                     String command = inputField.getText().trim();
                     if (!command.isEmpty()) {
                         try {
-                            // Echo command to console output
+                            // Echo command to console output - include the prompt
+                            String displayPrefix = (currentMode != null) ? currentMode.getPrompt() : "?";
+                            final String displayCommand = displayPrefix + command;
+                            
                             Platform.runLater(() -> {
-                                // Add the user command with a newline
-                                consoleOutput.appendText("\n" + command + "\n");
-                                // Force scroll to bottom with both methods to ensure it works
+                                consoleOutput.appendText(displayCommand + "\n");
                                 consoleOutput.setScrollTop(Double.MAX_VALUE);
                                 consoleOutput.positionCaret(consoleOutput.getText().length());
                             });
                             
-                            // Send command to terminal
+                            // Send command to terminal without echoing (the terminal will handle output)
                             uiToTerminal.write((command + "\n").getBytes());
                             uiToTerminal.flush();
                             

@@ -134,9 +134,9 @@ public class Utility {
         return score * adjustment * adjustment;
     }
 
-    private static boolean headlessMode = false;
-    private static boolean videoEnabled = true;
-    private static boolean testMode = false;
+    protected static boolean headlessMode = false;
+    protected static boolean videoEnabled = true;
+    protected static boolean testMode = false;
 
     /**
      * Set whether we are running in headless mode (no UI)

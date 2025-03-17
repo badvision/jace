@@ -1,7 +1,5 @@
 package jace.terminal;
 
-import jace.terminal.MonitorMode.MemoryMode;
-
 /**
  * Cheat class to store cheat information
  */

@@ -271,12 +271,12 @@ public class Joystick extends Device {
     public int y = 0;
     protected int joyX = 0;
     protected int joyY = 0;
-    MemorySoftSwitch xSwitch;
-    MemorySoftSwitch ySwitch;
+    protected MemorySoftSwitch xSwitch;
+    protected MemorySoftSwitch ySwitch;
 
     long lastPollTime = System.currentTimeMillis();
-    FloatBuffer axes;
-    ByteBuffer buttons;
+    protected FloatBuffer axes;
+    protected ByteBuffer buttons;
 
     public Joystick(int port, Computer computer) {
         super();
@@ -463,9 +463,9 @@ public class Joystick extends Device {
         return axes != null && buttons != null;
     }
 
-    long button0heldSince = 0;
-    long button1heldSince = 0;
-    boolean justPaused = false;
+    protected long button0heldSince = 0;
+    protected long button1heldSince = 0;
+    protected boolean justPaused = false;
 
     protected boolean getButton(Integer... choices) {
         if (choices == null || choices.length == 0) {
@@ -707,13 +707,13 @@ public class Joystick extends Device {
         resume();
     }
 
-    RAMListener listener;
+    protected RAMListener listener;
 
-    private void registerListeners() {
+    protected void registerListeners() {
         listener = getMemory().observe("Joystick I/O", RAMEvent.TYPE.ANY, 0x0c070, 0x0c07f, this::initJoystickRead);
     }
 
-    private void removeListeners() {
+    protected void removeListeners() {
         getMemory().removeListener(listener);
     }
 }
