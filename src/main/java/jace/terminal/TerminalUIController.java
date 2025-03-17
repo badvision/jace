@@ -20,11 +20,16 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.PrintStream;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
+import jace.Emulator;
+import jace.apple2e.Apple2e;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -46,105 +51,283 @@ import javafx.stage.StageStyle;
  */
 public class TerminalUIController {
     
-    // Track current Terminal mode for UI display - initialize with placeholder
-    private static TerminalMode currentMode;
-    
-    // Initialize the mode using a static block to avoid issues with null terminals
-    static {
-        try {
-            // Create a minimal terminal implementation just for static initialization
-            JaceTerminal dummyTerminal = new JaceTerminal(
-                new BufferedReader(new InputStreamReader(System.in)),
-                new PrintStream(new ByteArrayOutputStream())
-            ) {
-                @Override
-                public boolean setMode(String mode) {
-                    // Dummy implementation - no-op
-                    return true; // Always succeed
-                }
-                
-                @Override
-                public EmulatorInterface getEmulator() {
-                    // Return a simple mock implementation
-                    return new EmulatorInterface() {
-                        @Override
-                        public void withComputer(java.util.function.Consumer<jace.apple2e.Apple2e> action) {
-                            // No-op implementation
-                        }
-                        
-                        @Override
-                        public <T> T withComputer(java.util.function.Function<jace.apple2e.Apple2e, T> function, T defaultValue) {
-                            return defaultValue;
-                        }
-                        
-                        @Override
-                        public void whileSuspended(java.util.function.Consumer<jace.apple2e.Apple2e> action) {
-                            // No-op implementation
-                        }
-                    };
-                }
-                
-                @Override
-                public void stop() {
-                    // Dummy implementation - no-op
-                }
-            };
+    /**
+     * Custom PrintStream that directly updates the UI TextArea
+     * This eliminates the need for pipes which can be closed unexpectedly during debugging
+     */
+    private static class TextAreaPrintStream extends PrintStream {
+        private final TextArea textArea;
+        private final StringBuilder lineBuffer = new StringBuilder();
+        private final AtomicBoolean updateScheduled = new AtomicBoolean(false);
+        private final ConcurrentLinkedQueue<String> outputQueue = new ConcurrentLinkedQueue<>();
+        
+        public TextAreaPrintStream(TextArea textArea) {
+            super(new ByteArrayOutputStream(), true); // Autoflush
+            this.textArea = textArea;
+        }
+        
+        @Override
+        public void write(int b) {
+            // Convert to char
+            char c = (char) b;
             
-            // Create MainMode with our dummy terminal
-            currentMode = new MainMode(dummyTerminal);
-        } catch (Exception e) {
-            // Fallback to safer initialization if needed
-            System.err.println("Warning: Failed to initialize default terminal mode: " + e.getMessage());
-            currentMode = new TerminalMode() {
-                @Override
-                public String getName() { return "Main"; }
+            // If newline, process the buffered line
+            if (c == '\n') {
+                commitLine();
+            } else {
+                // Add to buffer
+                lineBuffer.append(c);
+            }
+        }
+        
+        @Override
+        public void write(byte[] buf, int off, int len) {
+            // For performance, handle byte arrays directly
+            String str = new String(buf, off, len);
+            
+            // Check for newlines
+            int lastNewline = str.lastIndexOf('\n');
+            if (lastNewline >= 0) {
+                // Split by last newline
+                String beforeNewline = str.substring(0, lastNewline);
+                String afterNewline = str.substring(lastNewline + 1);
                 
-                @Override
-                public String getPrompt() { return "JACE> "; }
+                // Process everything before the last newline
+                lineBuffer.append(beforeNewline);
+                commitLine();
                 
-                @Override
-                public boolean processCommand(String command) { return false; }
+                // Start a new buffer with anything after the last newline
+                lineBuffer.append(afterNewline);
+            } else {
+                // No newlines, just append to buffer
+                lineBuffer.append(str);
+            }
+        }
+        
+        private void commitLine() {
+            if (lineBuffer.length() > 0) {
+                // Get the processed line
+                String processedLine = processLine(lineBuffer.toString());
                 
-                @Override
-                public void printHelp() {}
+                // Add to queue if not empty
+                if (!processedLine.isEmpty()) {
+                    outputQueue.add(processedLine);
+                    scheduleUpdate();
+                }
                 
-                @Override
-                public boolean printCommandHelp(String command) { return false; }
-            };
+                // Clear the buffer
+                lineBuffer.setLength(0);
+            }
+        }
+        
+        private String processLine(String line) {
+            // Skip processing if the line is empty
+            if (line.trim().isEmpty()) {
+                return "";
+            }
+            
+            // Get the current mode
+            TerminalMode mode = getCurrentMode();
+            
+            // Check for pure prompt lines (only the prompt with optional whitespace)
+            if (mode != null && line.trim().equals(mode.getPrompt())) {
+                // Don't display pure prompt lines (they're shown in the input area)
+                return "";
+            }
+            
+            // Check if line starts with the current prompt
+            if (mode != null && line.startsWith(mode.getPrompt())) {
+                // Extract everything after the prompt
+                return line.substring(mode.getPrompt().length()).trim();
+            }
+            
+            // Otherwise, return the line as-is
+            return line;
+        }
+        
+        private void scheduleUpdate() {
+            // Only schedule if not already scheduled
+            if (updateScheduled.compareAndSet(false, true)) {
+                Platform.runLater(this::updateTextArea);
+            }
+        }
+        
+        private void updateTextArea() {
+            try {
+                // Process all queued output
+                String line;
+                while ((line = outputQueue.poll()) != null) {
+                    textArea.appendText(line + "\n");
+                }
+                
+                // Force scroll to bottom
+                textArea.setScrollTop(Double.MAX_VALUE);
+                textArea.positionCaret(textArea.getText().length());
+            } catch (Exception e) {
+                System.err.println("Error updating console: " + e);
+            } finally {
+                // Reset the scheduled flag
+                updateScheduled.set(false);
+                
+                // If more items were added during processing, schedule another update
+                if (!outputQueue.isEmpty()) {
+                    scheduleUpdate();
+                }
+            }
+        }
+        
+        @Override
+        public void flush() {
+            // Flush any buffered content
+            commitLine();
+        }
+        
+        @Override
+        public void close() {
+            // Nothing special needed for close
+            super.close();
         }
     }
     
-    private static javafx.scene.control.Label modeLabel;
-    
     /**
-     * Set the current Terminal mode
-     * Called by UITerminal when the mode changes
-     *
-     * @param mode New Terminal mode
+     * Custom EmulatorAdapter implementation that works with our UI Terminal
      */
-    public static void setCurrentMode(TerminalMode mode) {
-        currentMode = mode;
+    private static class UIEmulatorAdapter implements EmulatorInterface {
+        @Override
+        public void withComputer(Consumer<Apple2e> action) {
+            Emulator.withComputer(action);
+        }
         
-        // Update the mode label if available
-        if (modeLabel != null && mode != null) {
-            Platform.runLater(() -> {
-                modeLabel.setText(mode.getPrompt());
+        @Override
+        public <T> T withComputer(Function<Apple2e, T> function, T defaultValue) {
+            return Emulator.withComputer(function, defaultValue);
+        }
+        
+        @Override
+        public void whileSuspended(Consumer<Apple2e> action) {
+            Emulator.withComputer(c -> {
+                c.getMotherboard().whileSuspended(() -> action.accept(c));
             });
         }
     }
     
     /**
-     * Get the current Terminal mode
-     * 
-     * @return Current Terminal mode or null if not set
+     * Current mode for UI tracking
+     */
+    private static TerminalMode currentMode;
+    
+    /**
+     * Terminal UI-specific implementation that maintains connection with UI
+     */
+    private static class UITerminal extends jace.terminal.UITerminal {
+        public UITerminal(BufferedReader reader, PrintStream output) {
+            super(reader, output);
+        }
+        
+        // Override setMode to update UI with mode changes
+        @Override
+        public boolean setMode(String mode) {
+            boolean result = super.setMode(mode);
+            if (result) {
+                // Use static method to update UI
+                TerminalUIController.setCurrentMode(getCurrentMode());
+            }
+            return result;
+        }
+        
+        @Override
+        public EmulatorInterface getEmulator() {
+            // Force connection to the existing emulator
+            if (super.getEmulator() == null) {
+                setEmulator(new UIEmulatorAdapter());
+            }
+            return super.getEmulator();
+        }
+        
+        @Override
+        public void stop() {
+            super.stop();
+            // Additional UI-specific cleanup could go here
+        }
+    }
+    
+    /**
+     * An abstract class implementing TerminalMode to simplify custom mode creation
+     */
+    private abstract static class AbstractTerminalMode implements TerminalMode {
+        private final JaceTerminal terminal;
+        
+        public AbstractTerminalMode(JaceTerminal terminal) {
+            this.terminal = terminal;
+        }
+        
+        protected JaceTerminal getTerminal() {
+            return terminal;
+        }
+    }
+    
+    /**
+     * UI Terminal Mode for linking with the UI
+     */
+    private static class UITerminalMode extends AbstractTerminalMode {
+        public UITerminalMode() {
+            super(null);
+        }
+        
+        @Override
+        public String getName() { return "Main"; }
+        
+        @Override
+        public String getPrompt() { return "JACE> "; }
+        
+        @Override
+        public boolean processCommand(String command) { return false; }
+        
+        @Override
+        public void printHelp() {}
+        
+        @Override
+        public boolean printCommandHelp(String command) { return false; }
+    }
+    
+    /**
+     * Label for displaying current mode
+     */
+    private static javafx.scene.control.Label modeLabel;
+    
+    /**
+     * Sets the current mode and updates the UI
+     * @param mode The new terminal mode
+     */
+    public static void setCurrentMode(TerminalMode mode) {
+        currentMode = mode;
+        
+        // Update UI on JavaFX thread
+        if (modeLabel != null) {
+            Platform.runLater(() -> {
+                try {
+                    if (mode != null) {
+                        modeLabel.setText(mode.getPrompt());
+                    } else {
+                        modeLabel.setText("MAIN>");
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error updating mode label: " + e);
+                }
+            });
+        }
+    }
+    
+    /**
+     * Gets the current terminal mode
+     * @return The current terminal mode
      */
     public static TerminalMode getCurrentMode() {
         return currentMode;
     }
     
     /**
-     * Open a new Terminal window
-     * This handles all UI setup and connects to a Terminal instance
+     * Opens a new Terminal window
      */
     public static void openTerminalWindow() {
         // Make sure we run UI creation on the JavaFX thread
@@ -184,46 +367,16 @@ public class TerminalUIController {
             Scene scene = new Scene(layout, 650, 400);
             terminalStage.setScene(scene);
             
-            // Set up piped I/O - this allows communication between the UI and Terminal
             try {
-                // Create the pipes for input/output
+                // Create a pipe for input only - this is much simpler than before
                 final PipedOutputStream uiToTerminal = new PipedOutputStream();
-                final PipedInputStream terminalInput = new PipedInputStream(uiToTerminal);
+                final PipedInputStream terminalInput = new PipedInputStream(uiToTerminal, 8192);
                 
-                final PipedOutputStream terminalOutput = new PipedOutputStream();
-                final PipedInputStream terminalToUi = new PipedInputStream(terminalOutput);
-                
-                // Create readers/writers for the Terminal
+                // Create readers for the Terminal
                 BufferedReader reader = new BufferedReader(new InputStreamReader(terminalInput));
                 
-                // Create a PrintStream with a custom OutputStream that formats output
-                PrintStream printStream = new PrintStream(new OutputStream() {
-                    private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-                    
-                    @Override
-                    public void write(int b) throws IOException {
-                        // Pass through to the terminal output without any special handling
-                        terminalOutput.write(b);
-                        
-                        // If newline, flush our buffer
-                        if (b == '\n') {
-                            buffer.reset();
-                        } else {
-                            // Add to our buffer
-                            buffer.write(b);
-                        }
-                    }
-                    
-                    @Override
-                    public void flush() throws IOException {
-                        terminalOutput.flush();
-                    }
-                    
-                    @Override
-                    public void close() throws IOException {
-                        terminalOutput.close();
-                    }
-                }, true);
+                // Create a custom PrintStream that updates the UI directly
+                PrintStream printStream = new TextAreaPrintStream(consoleOutput);
                 
                 // Initialize the Terminal in a background thread - not on the JavaFX thread!
                 Thread terminalThread = new Thread(() -> {
@@ -234,14 +387,18 @@ public class TerminalUIController {
                         // Make sure it knows the emulator is already running
                         terminal.setEmulatorAlreadyRunning();
                         
-                        // Notify the user - safely update text on UI thread
+                        // Clear the console and show initializing message
                         Platform.runLater(() -> {
-                            try {
-                                consoleOutput.setText("Initializing Terminal...\n");
-                            } catch (Exception e) {
-                                System.err.println("Error updating console: " + e);
-                            }
+                            consoleOutput.clear();
+                            consoleOutput.appendText("Initializing Terminal...\n");
                         });
+                        
+                        // Force a small delay to ensure UI is updated before terminal starts
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            // Ignore
+                        }
                         
                         // Run the Terminal - this will block until exit
                         terminal.run();
@@ -264,52 +421,6 @@ public class TerminalUIController {
                 // Set the thread as daemon so it doesn't prevent app exit
                 terminalThread.setDaemon(true);
                 terminalThread.start();
-                
-                // Create a final reference for tracking commands
-                final StringBuilder commandPrefix = new StringBuilder();
-                
-                // Set up a reader thread to get output from the Terminal to the UI
-                Thread readerThread = new Thread(() -> {
-                    try (BufferedReader uiReader = new BufferedReader(new InputStreamReader(terminalToUi))) {                        
-                        String line;
-                        while ((line = uiReader.readLine()) != null) {
-                            final String finalLine = line;
-                            // Update UI - must be on JavaFX thread
-                            Platform.runLater(() -> {
-                                try {
-                                    // Check for pure prompt lines first (only the prompt with optional whitespace)
-                                    if (currentMode != null && finalLine.trim().equals(currentMode.getPrompt())) {
-                                        // Don't display pure prompt lines (they're shown in the input area)
-                                        return;
-                                    }
-                                    
-                                    // Process the line for display
-                                    String processedLine = finalLine;
-                                    
-                                    // Check if line starts with the current prompt
-                                    if (currentMode != null && processedLine.startsWith(currentMode.getPrompt())) {
-                                        // Extract everything after the prompt
-                                        processedLine = processedLine.substring(currentMode.getPrompt().length()).trim();
-                                    }
-                                    
-                                    // Display the processed line if not empty
-                                    if (!processedLine.isEmpty()) {
-                                        consoleOutput.appendText(processedLine + "\n");
-                                        
-                                        // Force scroll to bottom with both methods to ensure it works
-                                        consoleOutput.setScrollTop(Double.MAX_VALUE);
-                                        consoleOutput.positionCaret(consoleOutput.getText().length());
-                                    }
-                                } catch (Exception e) {
-                                    System.err.println("Error updating console: " + e);
-                                }
-                            });
-                        }
-                    } catch (IOException e) {
-                        // This is expected when terminal closes
-                        System.out.println("Terminal output pipe closed");
-                    }
-                });
                 
                 // Set up send button and enter key actions
                 EventHandler<ActionEvent> sendAction = event -> {
@@ -345,17 +456,12 @@ public class TerminalUIController {
                 sendButton.setOnAction(sendAction);
                 inputField.setOnAction(sendAction);
                 
-                // Set this daemon as well
-                readerThread.setDaemon(true);
-                readerThread.start();
-                
-                // Set up window close handling - close the pipes to end threads
+                // Set up window close handling - close input pipe to end thread
                 terminalStage.setOnCloseRequest(event -> {
                     try {
                         uiToTerminal.close();
-                        terminalOutput.close();
                     } catch (IOException e) {
-                        System.err.println("Error closing terminal pipes: " + e);
+                        System.err.println("Error closing terminal pipe: " + e);
                     }
                 });
                 

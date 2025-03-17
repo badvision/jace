@@ -648,38 +648,120 @@ public class MonitorMode implements TerminalMode {
         isStepping.set(true);
         
         try {
+            // Make sure the emulator is paused while we step
             Emulator.withComputer(computer -> {
+                // Ensure motherboard is suspended while we perform manual stepping
+                computer.getMotherboard().suspend();
+                
+                MOS65C02 cpu = getCpu();
+                if (cpu == null) {
+                    output.println("Error: Could not access CPU");
+                    return;
+                }
+                
+                // Keep track of the instructions stepped for output
                 for (int i = 0; i < count; i++) {
-                    // Execute a single instruction
-                    debugger.step = true;
+                    // Get the current state before stepping
+                    int currentPC = cpu.getProgramCounter();
+                    String currentDisasm = cpu.disassemble(currentPC);
                     
-                    try {
-                        // Resume the motherboard to execute the step
-                        computer.getMotherboard().resume();
-                        
-                        // Give the CPU a chance to execute the step
-                        Thread.sleep(10);
-                        
-                        // Then pause again
-                        computer.getMotherboard().suspend();
-                        
-                        // Show current state with step count info
-                        displayCurrentInstruction(i + 1, count);
-                        output.flush(); // Ensure output is displayed immediately
-                        
-                        // If this is not the last step, add a small delay for readability
-                        if (i < count - 1) {
+                    // Calculate padding (min 2 spaces, but with less total width)
+                    int padding = Math.max(2, 20 - currentDisasm.length());
+                    StringBuilder paddingStr = new StringBuilder();
+                    for (int j = 0; j < padding; j++) {
+                        paddingStr.append(" ");
+                    }
+                    
+                    // Display current instruction
+                    output.printf("%04X: %s", currentPC, currentDisasm);
+                    
+                    // Use a special method to force a single CPU instruction
+                    executeOneSingleInstruction(computer, cpu);
+                    
+                    // Now display the CPU state after execution
+                    output.printf("%sA:%02X X:%02X Y:%02X S:%02X [%s] (%d/%d)%n", 
+                        paddingStr,
+                        cpu.A & 0xFF, cpu.X & 0xFF, cpu.Y & 0xFF, cpu.STACK & 0xFF, 
+                        cpu.getFlags(), i + 1, count);
+                    
+                    output.flush(); // Ensure output is displayed immediately
+                    
+                    // Add a small delay between steps for readability
+                    if (i < count - 1) {
+                        try {
                             Thread.sleep(5);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
                         }
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
                     }
                 }
+                
+                // Ensure motherboard remains suspended after stepping
+                computer.getMotherboard().suspend();
             });
         } finally {
-            // Always make sure we reset the stepping flag
             isStepping.set(false);
+        }
+    }
+    
+    /**
+     * Executes exactly one CPU instruction using CPU's debugging mechanisms
+     */
+    private void executeOneSingleInstruction(jace.apple2e.Apple2e computer, MOS65C02 cpu) {
+        // Since we can't access executeOpcode() directly, we need a more controlled approach
+        
+        // Store the current program counter before stepping
+        final int originalPC = cpu.getProgramCounter();
+        
+        // We'll detect completion by watching for the PC to change
+        final AtomicBoolean instructionComplete = new AtomicBoolean(false);
+        
+        // Create a special one-time execution listener
+        RAMListener execListener = computer.getMemory().observe(
+            "SingleStepExec", 
+            RAMEvent.TYPE.EXECUTE, 
+            originalPC, 
+            false, // main memory
+            event -> {
+                // After the instruction executes, prevent any further execution
+                if (!instructionComplete.get()) {
+                    instructionComplete.set(true);
+                    computer.getMotherboard().suspend();
+                }
+            }
+        );
+        
+        try {
+            // Set the debugger to step mode
+            debugger.step = true;
+            
+            // Resume the motherboard to start execution
+            computer.getMotherboard().resume();
+            
+            // Wait for the instruction to complete (with timeout)
+            final long startTime = System.currentTimeMillis();
+            final long timeout = 50; // ms
+            
+            while (!instructionComplete.get() && 
+                  (System.currentTimeMillis() - startTime < timeout)) {
+                // Use onSpinWait instead of sleep for more efficient spinning
+                Thread.onSpinWait();
+            }
+            
+            // Force suspension regardless of completion state
+            computer.getMotherboard().suspend();
+            
+            // If we timed out, log it
+            if (!instructionComplete.get()) {
+                System.out.println("Warning: CPU single-step timed out");
+            }
+        } finally {
+            // Clean up our execution listener
+            computer.getMemory().removeListener(execListener);
+            
+            // Reset the debugger step flag
+            debugger.step = false;
         }
     }
     
