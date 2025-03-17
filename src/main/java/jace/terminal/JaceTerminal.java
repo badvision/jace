@@ -62,7 +62,6 @@ public class JaceTerminal {
         modes.put("main", new MainMode(this));
         modes.put("monitor", new MonitorMode(this));
         modes.put("assembler", new AssemblerMode(this));
-        modes.put("debugger", new DebuggerMode(this));
         
         // Set initial mode
         setMode("main");

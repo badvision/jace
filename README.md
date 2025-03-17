@@ -19,6 +19,7 @@ Jace is a mature cycle-accurate emulation of an Apple //e computer.  The full li
 Other features of Jace include:
 
 - Small IDE for programming Applesoft basic and Assembly (via built-in ACME cross assembler)
+- Built-in terminal with fully integrated monitor and debugger (Apple II-like syntax)
 - Cheat features for some popular games like Prince of Persia, Montezuma's Revenge, Wolfenstein and more
 - Metacheat feature allows searching memory for discovering new game cheats/mods
 

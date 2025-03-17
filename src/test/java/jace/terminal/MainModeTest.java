@@ -115,6 +115,10 @@ public class MainModeTest {
     
     @After
     public void tearDown() {
+        // Reset the test CPU to null after each test
+        if (mainMode != null) {
+            mainMode.setTestCpu(null);
+        }
         outContent.reset();
         LOG.fine("Test cleaned up");
     }
@@ -196,8 +200,8 @@ public class MainModeTest {
         // Test the debugger command
         boolean result = mainMode.processCommand("debugger");
         
-        // Verify setMode was called with "debugger"
-        verify(mockTerminal).setMode("debugger");
+        // Verify setMode was called with "monitor" since debugger was integrated into monitor mode
+        verify(mockTerminal).setMode("monitor");
         assertTrue("Command should be processed successfully", result);
     }
     
@@ -264,5 +268,250 @@ public class MainModeTest {
         String output = outContent.toString();
         logOutput(output);
         assertTrue("Output should include error message", output.contains("Unknown command"));
+    }
+    
+    @Test
+    public void testSetRegisterNoArgs() {
+        // Test setregister with no arguments
+        boolean result = mainMode.processCommand("setregister");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Get the output
+        String output = outContent.toString();
+        logOutput(output);
+        
+        // Verify the output shows usage info
+        assertTrue("Output should show usage information", 
+                output.contains("Usage: setregister") && 
+                output.contains("Registers:"));
+    }
+    
+    @Test
+    public void testSetRegisterAccumulator() {
+        // Create a fresh mock CPU for each test to avoid state leakage
+        MOS65C02 testCpu = mock(MOS65C02.class);
+        mainMode.setTestCpu(testCpu);
+        
+        // Test setting accumulator (A) register
+        boolean result = mainMode.processCommand("setregister A $42");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Verify the A register was set to the correct value (0x42)
+        assertEquals("A register should be set to 0x42", 0x42, testCpu.A);
+        
+        // Get the output
+        String output = outContent.toString();
+        logOutput(output);
+        
+        // Verify the output confirms the register was set
+        assertTrue("Output should confirm register was set", 
+                output.contains("Register A set to"));
+    }
+    
+    @Test
+    public void testSetRegisterX() {
+        // Create a fresh mock CPU for each test
+        MOS65C02 testCpu = mock(MOS65C02.class);
+        mainMode.setTestCpu(testCpu);
+        
+        // Test setting X index register
+        boolean result = mainMode.processCommand("setregister X 255");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Verify the X register was set to the correct value (255)
+        assertEquals("X register should be set to 255", 255, testCpu.X);
+        
+        // Check output confirmation
+        assertTrue(outContent.toString().contains("Register X set to"));
+    }
+    
+    @Test
+    public void testSetRegisterY() {
+        // Create a fresh mock CPU for each test
+        MOS65C02 testCpu = mock(MOS65C02.class);
+        mainMode.setTestCpu(testCpu);
+        
+        // Test setting Y index register - use hex instead of binary
+        boolean result = mainMode.processCommand("setregister Y $AA");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Verify the Y register was set to the correct value (0xAA = 170)
+        assertEquals("Y register should be set to 0xAA", 0xAA, testCpu.Y);
+        
+        // Check output confirmation
+        assertTrue(outContent.toString().contains("Register Y set to"));
+    }
+    
+    @Test
+    public void testSetRegisterPC() {
+        // Create a fresh mock CPU for each test
+        MOS65C02 testCpu = mock(MOS65C02.class);
+        mainMode.setTestCpu(testCpu);
+        
+        // Test setting PC (program counter)
+        boolean result = mainMode.processCommand("setregister PC $C000");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Verify setProgramCounter was called with the correct value (0xC000)
+        verify(testCpu).setProgramCounter(0xC000);
+        
+        // Check output confirmation
+        assertTrue(outContent.toString().contains("Register PC set to"));
+    }
+    
+    @Test
+    public void testSetRegisterS() {
+        // Create a fresh mock CPU for each test
+        MOS65C02 testCpu = mock(MOS65C02.class);
+        mainMode.setTestCpu(testCpu);
+        
+        // Test setting S (stack pointer)
+        boolean result = mainMode.processCommand("setregister S $FF");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Verify the STACK register was set to the correct value (0xFF)
+        assertEquals("STACK register should be set to 0xFF", 0xFF, testCpu.STACK);
+        
+        // Check output confirmation
+        assertTrue(outContent.toString().contains("Register S set to"));
+    }
+    
+    @Test
+    public void testSetRegisterFlags() {
+        // Create a fresh mock CPU for each test
+        MOS65C02 testCpu = mock(MOS65C02.class);
+        mainMode.setTestCpu(testCpu);
+        
+        // Test setting all flag registers
+        // N flag (Negative)
+        mainMode.processCommand("setregister N 1");
+        assertEquals("N flag should be set to true", true, testCpu.N);
+        
+        // Reset output for next test
+        outContent.reset();
+        
+        // V flag (Overflow)
+        mainMode.processCommand("setregister V true");
+        assertEquals("V flag should be set to true", true, testCpu.V);
+        
+        // Reset output for next test
+        outContent.reset();
+        
+        // B flag (Break)
+        mainMode.processCommand("setregister B 0");
+        assertEquals("B flag should be set to false", false, testCpu.B);
+        
+        // Reset output for next test
+        outContent.reset();
+        
+        // D flag (Decimal)
+        mainMode.processCommand("setregister D false");
+        assertEquals("D flag should be set to false", false, testCpu.D);
+        
+        // Reset output for next test
+        outContent.reset();
+        
+        // I flag (Interrupt disable)
+        mainMode.processCommand("setregister I 1");
+        assertEquals("I flag should be set to true", true, testCpu.I);
+        
+        // Reset output for next test
+        outContent.reset();
+        
+        // Z flag (Zero)
+        mainMode.processCommand("setregister Z true");
+        assertEquals("Z flag should be set to true", true, testCpu.Z);
+        
+        // Reset output for next test
+        outContent.reset();
+        
+        // C flag (Carry)
+        mainMode.processCommand("setregister C 1");
+        assertEquals("C flag should be set to 1", 1, testCpu.C);
+    }
+    
+    @Test
+    public void testSetRegisterInvalidRegister() {
+        // Create a fresh mock CPU for each test
+        MOS65C02 testCpu = mock(MOS65C02.class);
+        mainMode.setTestCpu(testCpu);
+        
+        // Test setting an invalid register
+        boolean result = mainMode.processCommand("setregister INVALID 42");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Check error message
+        assertTrue(outContent.toString().contains("Unknown register"));
+    }
+    
+    @Test
+    public void testSetRegisterInvalidValue() {
+        // Create a fresh mock CPU for each test
+        MOS65C02 testCpu = mock(MOS65C02.class);
+        mainMode.setTestCpu(testCpu);
+        
+        // Test setting a register with an invalid value
+        boolean result = mainMode.processCommand("setregister A INVALID");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Check error message
+        assertTrue(outContent.toString().contains("Invalid value format"));
+    }
+    
+    @Test
+    public void testSetRegisterCpuUnavailable() {
+        // Create a new TestableMainMode that always returns null for CPU
+        TestableMainMode testMode = new TestableMainMode(mockTerminal) {
+            @Override
+            protected MOS65C02 getCPU() {
+                return null;
+            }
+        };
+        
+        // Test setting a register when CPU is unavailable
+        boolean result = testMode.processCommand("setregister A 42");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Get the output
+        String output = outContent.toString();
+        logOutput(output);
+        
+        // Check error message
+        assertTrue("Output should indicate CPU not available", 
+                output.contains("CPU not available"));
+    }
+    
+    @Test
+    public void testSetRegisterAlias() {
+        // Create a fresh mock CPU for each test
+        MOS65C02 testCpu = mock(MOS65C02.class);
+        mainMode.setTestCpu(testCpu);
+        
+        // Test setting a register using the alias
+        boolean result = mainMode.processCommand("sr A $42");
+        
+        // Verify the result
+        assertTrue("Command should be processed successfully", result);
+        
+        // Verify the A register was set to the correct value (0x42)
+        assertEquals("A register should be set to 0x42", 0x42, testCpu.A);
     }
 } 

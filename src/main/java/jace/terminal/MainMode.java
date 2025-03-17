@@ -50,8 +50,6 @@ public class MainMode implements TerminalMode {
     private void initCommands() {
         commands.put("monitor", args -> terminal.setMode("monitor"));
         commands.put("assembler", args -> terminal.setMode("assembler"));
-        commands.put("debugger", args -> terminal.setMode("debugger"));
-
         commands.put("swlog", this::toggleSoftSwitchLogging);
         commands.put("swstate", this::showSoftSwitchState);
 
@@ -70,7 +68,6 @@ public class MainMode implements TerminalMode {
 
         addAlias("m", "monitor");
         addAlias("a", "assembler");
-        addAlias("d", "debugger");
         addAlias("sl", "swlog");
         addAlias("ss", "swstate");
         addAlias("r", "registers");
@@ -84,9 +81,8 @@ public class MainMode implements TerminalMode {
         addAlias("sb", "savebin");
 
         commandHelp.put("monitor",
-                "Enters monitor mode for memory examination and manipulation.\nUsage: monitor (or m)");
+                "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
         commandHelp.put("assembler", "Enters assembler mode for assembly language input.\nUsage: assembler (or a)");
-        commandHelp.put("debugger", "Enters debugger mode for advanced debugging.\nUsage: debugger (or d)");
 
         commandHelp.put("swlog", "Toggles logging of softswitch state changes.\nUsage: swlog (or sl)");
         commandHelp.put("swstate",
@@ -179,9 +175,8 @@ public class MainMode implements TerminalMode {
     @Override
     public void printHelp() {
         output.println("Available commands:");
-        output.println("  monitor/m       - Enter Monitor mode");
+        output.println("  monitor/m       - Enter Monitor mode (includes debugger functionality)");
         output.println("  assembler/a     - Enter Assembler mode");
-        output.println("  debugger/d      - Enter Debugger mode");
         output.println("  qq              - Exit terminal");
         output.println();
         output.println("  swlog (sl)     - Toggle softswitch state change logging");

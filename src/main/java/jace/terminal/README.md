@@ -37,9 +37,8 @@ The Terminal operates in several different modes, each providing specific functi
 This is the default mode when you start the Terminal. It provides access to basic emulator functions.
 
 Commands:
-- `monitor` (`m`) - Enter monitor mode
+- `monitor` (`m`) - Enter monitor mode (includes all debugging functionality)
 - `assembler` (`a`) - Enter assembler mode
-- `debugger` (`d`) - Enter debugger mode
 - `swlog` (`sl`) - Toggle softswitch state change logging
 - `swstate` (`ss`) - Display current state of all softswitches
 - `registers` (`r`) - Display CPU registers
@@ -57,25 +56,42 @@ Commands:
 
 ### Monitor Mode
 
-Monitor mode allows you to examine and manipulate memory directly.
+Monitor mode allows you to examine and manipulate memory directly, and provides all debugging capabilities.
 
-Commands:
-- `examine` (`e`) addr [count] - Display memory at address (hex)
-- `deposit` (`d`) addr value [value2...] - Write values to memory
-- `fill` (`f`) addr end value - Fill memory range with value
+Memory Commands:
+- `fill` (`f`) start end value - Fill memory range with value
 - `move` (`m`) src dest count - Copy memory block
 - `compare` (`c`) src dest count - Compare memory blocks
-- `search` (`s`) start end value [value2...] - Search for byte sequence
+- `find` (`f`) start end value [value2...] - Search for byte sequence
 - `disasm` (`l`) addr [count] - Disassemble memory
-- `back` (`b`) - Return to main mode
-- `help/?` - Show help
-- `help/? <cmd>` - Show detailed help for a specific command
-- `exit/quit` - Exit the Terminal
 
-Traditional monitor syntax is also supported:
-- `XXXX` - Examine 16 bytes from address XXXX
+Debugger Commands:
+- `pause` (`p`) - Pause emulation
+- `resume` (`r`) - Resume emulation
+- `cpu` - Display CPU state
+- `break` (`br`) addr - Add breakpoint at address
+- `break remove addr` - Remove breakpoint
+- `break clear` - Remove all breakpoints
+- `breakpoints` (`bp`) - List all breakpoints
+- `watch` (`w`) addr [name] - Add memory watch (triggers on READ or WRITE)
+- `watch remove addr|name` - Remove watch
+- `watch clear` - Remove all watches
+- `watches` (`ws`) - List all watches
+- `cheat` (`ch`) addr value - Add memory cheat
+- `cheat remove addr` - Remove a cheat
+- `cheat clear` - Remove all cheats
+- `cheats` (`cs`) - List all cheats
+- `step` (`s`) [count] - Step CPU instructions
+- `runto` (`rt`) addr - Run until PC reaches address
+- `back` (`b`/`q`) - Return to main mode
+
+Direct Apple II Syntax:
+- `XXXX` - Examine memory at address XXXX
 - `XXXX:YY ZZ` - Deposit bytes YY, ZZ at address XXXX
 - `XXXXG` - Begin execution at address XXXX
+- `XXXXL` - Disassemble from address XXXX
+- `L` - Continue disassembly from last address
+- `XXXX.YYYY` - Show memory range from XXXX to YYYY
 - `M/X` prefix - Access main/auxiliary memory (e.g., `MXXXX`, `XXXX:YY`)
 
 ### Assembler Mode
@@ -95,30 +111,16 @@ Commands:
 
 Any other input is treated as 6502 assembly code and added to the buffer.
 
-### Debugger Mode
-
-Debugger mode provides advanced debugging capabilities.
-
-Commands:
-- `break addr` - Set breakpoint at address
-- `clear [addr]` - Clear breakpoint(s)
-- `list` - List all breakpoints
-- `trace on|off` - Enable/disable instruction tracing
-- `watch addr` - Add memory watch
-- `unwatch [addr]` - Remove memory watch(es)
-- `stack` - Display stack
-- `back` - Return to main mode
-- `help/?` - Show help
-- `exit/quit` - Exit the Terminal
-
 ## Examples
 
 ### Examining Memory
 
 ```
 JACE> monitor
-MONITOR> examine 2000 16
-$2000: 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+MONITOR> 2000
+2000: 00
+MONITOR> 2000.200F
+2000: 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F | ................
 ```
 
 ### Setting Register Values
@@ -132,13 +134,42 @@ JACE> registers
 A: FF X: 00 Y: 00 PC: 0100 SP: 01FF P: 10110000
 ```
 
-### Running Code
+### Setting Breakpoints and Stepping
 
 ```
-JACE> step 10
-Executed 10 cycles, PC now at $0109
-JACE> run 1000
-Executed 1000 cycles, PC now at $0432
+MONITOR> break C600
+Breakpoint added at $C600
+MONITOR> resume
+Emulation resumed
+Breakpoint hit at $C600
+C600: LDX #$03            A:00 X:00 Y:00 S:FF [.VB.I..]
+MONITOR> step 5
+C602: STX $3C             A:00 X:03 Y:00 S:FF [.VB.I..] (1/5)
+C604: CLD                 A:00 X:03 Y:00 S:FF [.VB.I..] (2/5)
+C605: CLC                 A:00 X:03 Y:00 S:FF [.VB.I..] (3/5)
+C606: LDA C700,X          A:00 X:03 Y:00 S:FF [.VB....] (4/5)
+C609: STA $26             A:01 X:03 Y:00 S:FF [.VB....] (5/5)
+```
+
+### Using Watches and Cheats
+
+```
+MONITOR> watch 300 zero_page_ptr
+Watch added for zero_page_ptr at $0300
+MONITOR> resume
+Emulation resumed
+Watch [zero_page_ptr] $0300: READ $20
+0800: LDA $0300           A:00 X:03 Y:00 S:FF [.VB.I..]
+
+MONITOR> watch 301 data_byte
+Watch added for data_byte at $0301
+Watch [data_byte] $0301: WRITE $00 -> $42
+0805: STA $0301           A:42 X:03 Y:00 S:FF [.VB....] 
+
+MONITOR> cheat 02F0 42
+Cheat added: $02F0 = $42
+MONITOR> 2F0
+02F0: 42
 ```
 
 ## Programmatic Usage
