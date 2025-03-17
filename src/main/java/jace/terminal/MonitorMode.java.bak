@@ -1098,7 +1098,7 @@ public class MonitorMode implements TerminalMode {
     // Pattern command handlers
     private void handleSingleListCommand(Matcher matcher) {
         // Continue disassembly from last address
-        disassembleCode(lastDisassemblyAddress, DEFAULT_DISASM_COUNT, true);
+        disassembleCode(lastDisassemblyAddress, DEFAULT_DISASM_COUNT);
     }
     
     private void handleGoCommand(Matcher matcher) {
@@ -1119,7 +1119,7 @@ public class MonitorMode implements TerminalMode {
     private void handleListCommand(Matcher matcher) {
         String addrStr = matcher.group(1);
         int address = Integer.parseInt(addrStr, 16);
-        disassembleCode(address, DEFAULT_DISASM_COUNT, true);
+        disassembleCode(address, DEFAULT_DISASM_COUNT);
     }
     
     private void handleRangeCommand(Matcher matcher) {
@@ -1359,6 +1359,22 @@ public class MonitorMode implements TerminalMode {
         }
     }
     
+    private void disassembleMemory(String[] args) {
+        if (args.length < 1) {
+            // If no args, continue from last address
+            disassembleCode(lastDisassemblyAddress, DEFAULT_DISASM_COUNT);
+            return;
+        }
+        
+        try {
+            int address = parseAddress(args[0]);
+            int count = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_DISASM_COUNT;
+            
+            disassembleCode(address, count);
+        } catch (NumberFormatException e) {
+            output.println("Invalid address or count format");
+        }
+    }
     
     // Memory reading and writing methods
     
@@ -1370,7 +1386,7 @@ public class MonitorMode implements TerminalMode {
      * @param triggerEvents Whether to trigger memory listeners
      * @return The byte read from memory
      */
-    byte readMemory(int address, MemoryMode mode, boolean triggerEvents) {
+    private byte readMemory(int address, MemoryMode mode, boolean triggerEvents) {
         return Emulator.withMemory(ram -> {
             Boolean auxFlag = determineAuxFlag(mode);
             
@@ -1392,7 +1408,7 @@ public class MonitorMode implements TerminalMode {
      * @param mode The memory mode (MAIN, AUX, or ACTIVE)
      * @return The byte read from memory
      */
-    byte readMemory(int address, MemoryMode mode) {
+    private byte readMemory(int address, MemoryMode mode) {
         return readMemory(address, mode, true);
     }
     
@@ -1505,10 +1521,6 @@ public class MonitorMode implements TerminalMode {
     }
     
     private void disassembleCode(int startAddress, int instructionCount) {
-        disassembleCode(startAddress, instructionCount, true);
-    }
-    
-    private void disassembleCode(int startAddress, int instructionCount, boolean showMemoryBytes) {
         Emulator.withComputer(computer -> {
             // Cast the CPU to MOS65C02 to access the specialized methods
             MOS65C02 cpu = (MOS65C02) computer.getCpu();
@@ -1519,29 +1531,13 @@ public class MonitorMode implements TerminalMode {
                 // Show the address (4 digits)
                 output.printf("%04X: ", address);
                 
-                // Get the opcode to determine instruction length
-                byte opcode = readMemory(address, memoryMode, false);
-                int byteCount = getInstructionSize(opcode & 0xFF, cpu);
-                
-                // Show the memory bytes if requested
-                if (showMemoryBytes) {
-                    // Display the memory bytes
-                    for (int j = 0; j < byteCount; j++) {
-                        byte memByte = readMemory((address + j) & 0xFFFF, memoryMode, false);
-                        output.printf("%02X ", memByte & 0xFF);
-                    }
-                    
-                    // Pad with spaces to align disassembly - max is 3 bytes (9 chars with spaces)
-                    for (int j = byteCount; j < 3; j++) {
-                        output.print("   ");
-                    }
-                    output.print(" ");
-                }
-                
                 // Show the disassembled instruction
                 output.println(disasm);
                 
-                // Calculate next address
+                // Calculate next address based on instruction size
+                // Get the opcode to determine instruction length - use readMemory with triggerEvents=false
+                byte opcode = readMemory(address, memoryMode, false);
+                int byteCount = getInstructionSize(opcode & 0xFF, cpu);
                 address = (address + byteCount) & 0xFFFF;
             }
             

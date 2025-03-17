@@ -46,8 +46,8 @@ import javafx.stage.StageStyle;
  */
 public class TerminalUIController {
     
-    // Track current Terminal mode for UI display
-    private static TerminalMode currentMode;
+    // Track current Terminal mode for UI display - initialize with MainMode
+    private static TerminalMode currentMode = new MainMode(null);
     private static javafx.scene.control.Label modeLabel;
     
     /**
@@ -208,8 +208,8 @@ public class TerminalUIController {
                             // Update UI - must be on JavaFX thread
                             Platform.runLater(() -> {
                                 try {
-                                    // Check for pure prompt lines first
-                                    if (finalLine.trim().matches(".*>\\s*$") && !finalLine.contains(":")) {
+                                    // Check for pure prompt lines first (only the prompt with optional whitespace)
+                                    if (currentMode != null && finalLine.trim().equals(currentMode.getPrompt())) {
                                         // Don't display pure prompt lines (they're shown in the input area)
                                         return;
                                     }
@@ -217,34 +217,20 @@ public class TerminalUIController {
                                     // Handle lines containing both prompt and output
                                     String processedLine = finalLine;
                                     
-                                    // Check for the various prompt types
-                                    String[] prompts = {"MONITOR>", "MAIN>", "ASSEMBLER>", "DEBUG>"};
-                                    for (String prompt : prompts) {
-                                        if (finalLine.contains(prompt)) {
-                                            int promptIndex = finalLine.indexOf(prompt);
-                                            int promptEnd = promptIndex + prompt.length();
-                                            
-                                            // Only process if the prompt is at the beginning of the line
-                                            // or preceded only by whitespace
-                                            if (promptIndex == 0 || finalLine.substring(0, promptIndex).trim().isEmpty()) {
-                                                // Extract everything after the prompt
-                                                if (promptEnd < finalLine.length()) {
-                                                    processedLine = finalLine.substring(promptEnd).trim();
-                                                } else {
-                                                    // If it's just a prompt with nothing after it, skip displaying
-                                                    return;
-                                                }
-                                                break;
-                                            }
-                                        }
+                                    // Check if line starts with the current prompt
+                                    if (currentMode != null && processedLine.startsWith(currentMode.getPrompt())) {
+                                        // Extract everything after the prompt
+                                        processedLine = processedLine.substring(currentMode.getPrompt().length()).trim();
                                     }
                                     
-                                    // Display the processed line (without the prompt)
-                                    consoleOutput.appendText(processedLine + "\n");
-                                    
-                                    // Force scroll to bottom with both methods to ensure it works
-                                    consoleOutput.setScrollTop(Double.MAX_VALUE);
-                                    consoleOutput.positionCaret(consoleOutput.getText().length());
+                                    // Always display the line if it's not just a prompt
+                                    if (!processedLine.isEmpty()) {
+                                        consoleOutput.appendText(processedLine + "\n");
+                                        
+                                        // Force scroll to bottom with both methods to ensure it works
+                                        consoleOutput.setScrollTop(Double.MAX_VALUE);
+                                        consoleOutput.positionCaret(consoleOutput.getText().length());
+                                    }
                                 } catch (Exception e) {
                                     System.err.println("Error updating console: " + e);
                                 }

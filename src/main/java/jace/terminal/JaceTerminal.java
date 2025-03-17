@@ -84,6 +84,11 @@ public class JaceTerminal {
      * @return true if mode was changed, false if mode not found
      */
     public boolean setMode(String modeName) {
+        // Cleanup the current mode before switching
+        if (currentMode != null) {
+            currentMode.cleanup();
+        }
+        
         TerminalMode mode = modes.get(modeName.toLowerCase());
         if (mode != null) {
             currentMode = mode;
@@ -186,6 +191,11 @@ public class JaceTerminal {
      */
     public void stop() {
         running = false;
+        
+        // Cleanup the current mode before stopping
+        if (currentMode != null) {
+            currentMode.cleanup();
+        }
     }
     
     /**

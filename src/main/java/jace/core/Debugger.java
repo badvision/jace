@@ -31,6 +31,8 @@ import java.util.Objects;
  */
 public abstract class Debugger {
 
+    // This is a static list of breakpoints that is shared between all instances of the Debugger class
+    private static final List<Integer> breakpoints = new ArrayList<>();
     public abstract void updateStatus();
     private boolean active = false;
     public boolean step = false;
@@ -42,8 +44,6 @@ public abstract class Debugger {
     public boolean isActive() {
         return active;
     }
-    private final List<Integer> breakpoints = new ArrayList<>();
-
     public List<Integer> getBreakpoints() {
         return breakpoints;
     }

@@ -42,7 +42,17 @@ public interface TerminalMode {
     /**
      * Print help information for this mode
      */
-    void printHelp();
+    default void printHelp() {
+        // Default implementation - do nothing
+    }
+    
+    /**
+     * Clean up resources when this mode is no longer needed
+     * This should be called when switching away from this mode or when the terminal is closing
+     */
+    default void cleanup() {
+        // Default implementation - do nothing
+    }
     
     /**
      * Print help for a specific command

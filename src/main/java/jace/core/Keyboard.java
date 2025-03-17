@@ -261,7 +261,7 @@ public class Keyboard implements Reconfigurable {
         }
     }
 
-    private char fixShiftedChar(char c) {
+    protected char fixShiftedChar(char c) {
         if (c >= 'a' && c <= 'z') {
             return (char) (c - 32);
         } else {

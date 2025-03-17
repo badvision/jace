@@ -50,6 +50,7 @@ public class MainMode implements TerminalMode {
     private void initCommands() {
         commands.put("monitor", args -> terminal.setMode("monitor"));
         commands.put("assembler", args -> terminal.setMode("assembler"));
+        commands.put("debugger", args -> terminal.setMode("monitor"));
         commands.put("swlog", this::toggleSoftSwitchLogging);
         commands.put("swstate", this::showSoftSwitchState);
 
@@ -68,6 +69,7 @@ public class MainMode implements TerminalMode {
 
         addAlias("m", "monitor");
         addAlias("a", "assembler");
+        addAlias("d", "debugger");
         addAlias("sl", "swlog");
         addAlias("ss", "swstate");
         addAlias("r", "registers");
@@ -83,6 +85,8 @@ public class MainMode implements TerminalMode {
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
         commandHelp.put("assembler", "Enters assembler mode for assembly language input.\nUsage: assembler (or a)");
+        commandHelp.put("debugger", 
+                "Redirects to monitor mode, which now includes all debugging functions.\nUsage: debugger (or d)\nNote: This command is kept for backward compatibility.");
 
         commandHelp.put("swlog", "Toggles logging of softswitch state changes.\nUsage: swlog (or sl)");
         commandHelp.put("swstate",

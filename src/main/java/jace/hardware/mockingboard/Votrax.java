@@ -1,24 +1,30 @@
 package jace.hardware.mockingboard;
 
+import static org.lwjgl.openal.AL10.AL_BUFFER;
+import static org.lwjgl.openal.AL10.AL_LOOPING;
 import static org.lwjgl.openal.AL10.AL_NO_ERROR;
+import static org.lwjgl.openal.AL10.AL_TRUE;
+import static org.lwjgl.openal.AL10.alGenSources;
 import static org.lwjgl.openal.AL10.alGetError;
+import static org.lwjgl.openal.AL10.alSourcePlay;
+import static org.lwjgl.openal.AL10.alSourcei;
+import static org.lwjgl.openal.AL11.alSource3i;
+import static org.lwjgl.openal.EXTEfx.AL_AUXILIARY_SEND_FILTER;
+import static org.lwjgl.openal.EXTEfx.AL_BANDPASS_GAIN;
+import static org.lwjgl.openal.EXTEfx.AL_BANDPASS_GAINHF;
+import static org.lwjgl.openal.EXTEfx.AL_FILTER_BANDPASS;
+import static org.lwjgl.openal.EXTEfx.AL_FILTER_TYPE;
+import static org.lwjgl.openal.EXTEfx.alDeleteFilters;
+import static org.lwjgl.openal.EXTEfx.alFilterf;
+import static org.lwjgl.openal.EXTEfx.alFilteri;
+import static org.lwjgl.openal.EXTEfx.alGenFilters;
+import static org.lwjgl.openal.EXTEfx.alIsFilter;
 
 import java.io.InputStream;
 import java.nio.ShortBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-
-import javax.sound.sampled.Mixer;
 
 import org.lwjgl.BufferUtils;
-import static org.lwjgl.openal.AL11.*;
-import static org.lwjgl.openal.EXTEfx.*;
 
-import jace.core.SoundMixer;
-import jace.core.SoundMixer.SoundBuffer;
-import jace.core.SoundMixer.SoundError;
 import jace.core.TimedDevice;
 
 public class Votrax extends TimedDevice {

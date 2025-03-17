@@ -48,7 +48,6 @@ import jace.hardware.NoSlotClock;
 import jace.hardware.VideoImpls;
 import jace.hardware.ZipWarpAccelerator;
 import jace.state.Stateful;
-import javafx.application.Platform;
 
 /**
  * Apple2e is a computer with a 65c02 CPU, 128k of bankswitched ram,

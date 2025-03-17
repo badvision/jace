@@ -269,8 +269,8 @@ public class Joystick extends Device {
     public int x = 0;
     @Stateful
     public int y = 0;
-    private int joyX = 0;
-    private int joyY = 0;
+    protected int joyX = 0;
+    protected int joyY = 0;
     MemorySoftSwitch xSwitch;
     MemorySoftSwitch ySwitch;
 
@@ -367,7 +367,11 @@ public class Joystick extends Device {
     public boolean upPressed = false;
     public boolean downPressed = false;
 
-    private void readJoystick() {
+    boolean isAxisInBounds(int axis) {
+        return axis >= 0 && axis < axes.capacity();
+    }
+
+    protected void readJoystick() {
         ticksSinceLastRead = 0;
         if (useKeyboard) {
             joyX = (leftPressed ? -128 : 0) + (rightPressed ? 256 : 128);
@@ -379,10 +383,10 @@ public class Joystick extends Device {
                 x = axes.get(controllerMapping.xaxis) * (controllerMapping.xinvert ? -1.0f : 1.0f);
                 y = axes.get(controllerMapping.yaxis) * (controllerMapping.yinvert ? -1.0f : 1.0f);
             } else {
-                if (xaxis >= 0 && xaxis < axes.capacity()) {
+                if (isAxisInBounds(xaxis)) {
                     x = axes.get(xaxis);
                 }
-                if (yaxis >= 0 && yaxis < axes.capacity()) {
+                if (isAxisInBounds(yaxis)) {
                     y = axes.get(yaxis);
                 }
             }
@@ -443,7 +447,7 @@ public class Joystick extends Device {
         }
     }
 
-    private boolean readGLFWJoystick() {
+    protected boolean readGLFWJoystick() {
         if (System.currentTimeMillis() - lastPollTime >= POLLING_TIME) {
             lastPollTime = System.currentTimeMillis();
             if (selectedPhysicalController()) {
@@ -463,29 +467,49 @@ public class Joystick extends Device {
     long button1heldSince = 0;
     boolean justPaused = false;
 
-    private boolean getButton(Integer... choices) {
+    protected boolean getButton(Integer... choices) {
+        if (choices == null || choices.length == 0) {
+            return false;
+        }
+        
         for (Integer choice : choices) {
-            if (choice != null && choice >= 0 && choice < buttons.capacity()) {         
-                return buttons.get(choice) != 0;
+            if (choice != null && choice >= 0 && choice < buttons.capacity() && buttons.get(choice) != 0) {         
+                return true;
             }
         }
         return false;
     }
 
-    private void readButtons() {
+    protected Integer getButtonIfMapped(int mapping) {
+        if (!useManualMapping && controllerMapping != null) {
+            return mapping;
+        }
+        return null;
+    }
+    // Get current time - extracted to a method to make testing easier
+    protected long getCurrentTimeMillis() {
+        return System.currentTimeMillis();
+    }
+
+    protected void readButtons() {
         if (readGLFWJoystick()) {
-            boolean hasMapping = !useManualMapping && controllerMapping != null;
-            boolean b0 = getButton(hasMapping ? controllerMapping.button0 : null, button0);
-            boolean b0rapid = getButton(hasMapping ? controllerMapping.button0rapid : null, button0rapid);
-            boolean b1 = getButton(hasMapping ? controllerMapping.button1 : null, button1);
-            boolean b1rapid = getButton(hasMapping ? controllerMapping.button1rapid : null, button1rapid);
-            boolean pause = getButton(hasMapping ? controllerMapping.pause : null);
+            Integer mappedButton0 = getButtonIfMapped(controllerMapping.button0);
+            Integer mappedButton0rapid = getButtonIfMapped(controllerMapping.button0rapid);
+            Integer mappedButton1 = getButtonIfMapped(controllerMapping.button1);
+            Integer mappedButton1rapid = getButtonIfMapped(controllerMapping.button1rapid);
+            Integer mappedPause = getButtonIfMapped(controllerMapping.pause);
+            
+            boolean b0 = getButton(mappedButton0, button0);
+            boolean b0rapid = getButton(mappedButton0rapid, button0rapid);
+            boolean b1 = getButton(mappedButton1, button1);
+            boolean b1rapid = getButton(mappedButton1rapid, button1rapid);
+            boolean pause = getButton(mappedPause);
 
             if (b0rapid) {
                 if (button0heldSince == 0) {
-                    button0heldSince = System.currentTimeMillis();
+                    button0heldSince = getCurrentTimeMillis();
                 } else {
-                    long timeHeld = System.currentTimeMillis() - button0heldSince;
+                    long timeHeld = getCurrentTimeMillis() - button0heldSince;
                     int intervalNumber = (int) (timeHeld / rapidFireInterval);
                     b0 = (intervalNumber % 2 == 0);
                 }
@@ -495,9 +519,9 @@ public class Joystick extends Device {
 
             if (b1rapid) {
                 if (button1heldSince == 0) {
-                    button1heldSince = System.currentTimeMillis();
+                    button1heldSince = getCurrentTimeMillis();
                 } else {
-                    long timeHeld = System.currentTimeMillis() - button1heldSince;
+                    long timeHeld = getCurrentTimeMillis() - button1heldSince;
                     int intervalNumber = (int) (timeHeld / rapidFireInterval);
                     b1 = (intervalNumber % 2 == 0);
                 }
@@ -665,7 +689,7 @@ public class Joystick extends Device {
         return hogKeyboard;
     }
 
-    public void initJoystickRead(RAMEvent e) {
+    protected void initJoystickRead(RAMEvent e) {
         readJoystick();
         xSwitch.setState(true);
         // Some games just suck and don't want to read the joystick properly
