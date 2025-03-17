@@ -120,7 +120,8 @@ public class MonitorMode implements TerminalMode {
                 if (cpu != null) {
                     int pc = cpu.getProgramCounter();
                     
-                    // Check if it's a breakpoint
+                    // Check if it's a breakpoint - always notify the user from debugger
+                    // for compatibility with all memory configurations
                     if (getBreakpoints().contains(pc)) {
                         // Pause the execution immediately
                         Emulator.withComputer(c -> {
@@ -141,6 +142,18 @@ public class MonitorMode implements TerminalMode {
         
         // Ensure the debugger is properly initialized
         debugger.setActive(false);
+    }
+    
+    /**
+     * Checks if a breakpoint at the given address is handled by a RAM event listener
+     * This method is kept for reference but not used anymore
+     * 
+     * @param address The address to check
+     * @return true if there is a RAM event breakpoint at this address
+     */
+    private boolean hasRAMEventBreakpoint(int address) {
+        // This method is not used anymore but kept for reference
+        return false;
     }
     
     /**
@@ -449,9 +462,55 @@ public class MonitorMode implements TerminalMode {
                 persistentBreakpoints.add(address);
             }
             
-            // Activate the debugger whenever we have breakpoints
+            // Register a RAM event listener for execution at this address
+            RAMEvent.RAMEventHandler breakpointHandler = new RAMEvent.RAMEventHandler() {
+                @Override
+                public void handleEvent(RAMEvent e) {
+                    // Don't process if we're already handling this breakpoint to avoid recursion
+                    if (isStepping.get()) {
+                        return;
+                    }
+                    
+                    // Pause the emulation - this is critical!
+                    Emulator.withComputer(c -> {
+                        c.getMotherboard().suspend();
+                    });
+                    
+                    // Update our internal state
+                    isPaused = true;
+                    
+                    // Display CPU state and message
+                    MOS65C02 cpu = getCpu();
+                    if (cpu != null) {
+                        int pc = cpu.getProgramCounter();
+                        String disasm = cpu.disassemble(pc);
+                        
+                        // Show detailed breakpoint information
+                        output.printf("Breakpoint hit at $%04X: %s A:%02X X:%02X Y:%02X S:%02X [%s]%n", 
+                            pc, disasm, 
+                            cpu.A & 0xFF, cpu.X & 0xFF, cpu.Y & 0xFF, cpu.STACK & 0xFF, 
+                            cpu.getFlags());
+                        
+                        // Flush to ensure output is visible immediately
+                        output.flush();
+                    }
+                }
+            };
+            
+            // Create and register the RAM listener for execute events
+            final String listenerName = "Breakpoint at $" + Integer.toHexString(address).toUpperCase();
+            
+            // Use observe method to create and register the listener
+            Emulator.withComputer(computer -> {
+                // Register for BOTH main and auxiliary memory to ensure breakpoints work in all memory configurations
+                computer.getMemory().observe(listenerName, RAMEvent.TYPE.EXECUTE, address, false, breakpointHandler);
+                computer.getMemory().observe(listenerName + " (aux)", RAMEvent.TYPE.EXECUTE, address, true, breakpointHandler);
+            });
+            
+            // Ensure the debugger is active
             debugger.setActive(true);
-            output.printf("Breakpoint added at $%04X%n", address);
+            
+            output.printf("Breakpoint set at $%04X%n", address);
         } else {
             output.printf("Breakpoint already exists at $%04X%n", address);
         }
@@ -464,28 +523,92 @@ public class MonitorMode implements TerminalMode {
             // Remove from persistent collection
             persistentBreakpoints.remove(Integer.valueOf(address));
             
-            output.printf("Breakpoint removed from $%04X%n", address);
+            // Remove RAM event listeners for this breakpoint (for both main and aux memory)
+            final String listenerName = "Breakpoint at $" + Integer.toHexString(address).toUpperCase();
+            final String auxListenerName = listenerName + " (aux)";
             
-            // If no breakpoints remain, deactivate the debugger
-            if (debugger.getBreakpoints().isEmpty() && !isPaused) {
+            // Create a temporary listener with a matching name to ensure we find and remove it
+            Emulator.withComputer(computer -> {
+                // Remove main memory listener
+                RAMListener tempListener = computer.getMemory().observe(
+                    listenerName, 
+                    RAMEvent.TYPE.EXECUTE, 
+                    address, 
+                    false,
+                    e -> { /* No-op */ }
+                );
+                computer.getMemory().removeListener(tempListener);
+                
+                // Remove auxiliary memory listener
+                RAMListener tempAuxListener = computer.getMemory().observe(
+                    auxListenerName, 
+                    RAMEvent.TYPE.EXECUTE, 
+                    address, 
+                    true,
+                    e -> { /* No-op */ }
+                );
+                computer.getMemory().removeListener(tempAuxListener);
+            });
+            
+            // If no breakpoints remain, disable the debugger
+            if (debugger.getBreakpoints().isEmpty()) {
                 debugger.setActive(false);
             }
+            
+            output.printf("Breakpoint removed from $%04X%n", address);
         } else {
-            output.printf("No breakpoint found at $%04X%n", address);
+            output.println("No breakpoint exists at $" + Integer.toHexString(address).toUpperCase());
         }
     }
     
     private void clearBreakpoints() {
-        debugger.getBreakpoints().clear();
+        int count = debugger.getBreakpoints().size();
         
-        // Clear persistent collection
-        persistentBreakpoints.clear();
-        
-        output.println("All breakpoints cleared");
-        
-        // If not paused, deactivate the debugger since there are no breakpoints
-        if (!isPaused) {
+        if (count > 0) {
+            // Remove all breakpoints from the debugger
+            debugger.getBreakpoints().clear();
+            
+            // Clear persistent breakpoints
+            List<Integer> addressesToClear = new ArrayList<>(persistentBreakpoints);
+            
+            // Clear our internal persistent collection
+            persistentBreakpoints.clear();
+            
+            // Remove RAM event listeners for all breakpoints
+            for (Integer address : addressesToClear) {
+                // Remove breakpoint one by one (for both main and aux memory)
+                final String listenerName = "Breakpoint at $" + Integer.toHexString(address).toUpperCase();
+                final String auxListenerName = listenerName + " (aux)";
+                
+                Emulator.withComputer(computer -> {
+                    // Remove main memory listener
+                    RAMListener tempListener = computer.getMemory().observe(
+                        listenerName, 
+                        RAMEvent.TYPE.EXECUTE, 
+                        address, 
+                        false,
+                        e -> { /* No-op */ }
+                    );
+                    computer.getMemory().removeListener(tempListener);
+                    
+                    // Remove auxiliary memory listener
+                    RAMListener tempAuxListener = computer.getMemory().observe(
+                        auxListenerName, 
+                        RAMEvent.TYPE.EXECUTE, 
+                        address, 
+                        true,
+                        e -> { /* No-op */ }
+                    );
+                    computer.getMemory().removeListener(tempAuxListener);
+                });
+            }
+            
+            // Disable the debugger
             debugger.setActive(false);
+            
+            output.println("All breakpoints cleared (" + count + " removed)");
+        } else {
+            output.println("No breakpoints to clear");
         }
     }
     
@@ -524,31 +647,40 @@ public class MonitorMode implements TerminalMode {
         
         isStepping.set(true);
         
-        Emulator.withComputer(computer -> {
-            for (int i = 0; i < count; i++) {
-                // Execute a single instruction
-                debugger.step = true;
-                computer.getMotherboard().resume();
-                
-                // Wait until the step is actually performed
-                try {
-                    // Give the CPU a chance to execute the step
-                    Thread.sleep(10);
+        try {
+            Emulator.withComputer(computer -> {
+                for (int i = 0; i < count; i++) {
+                    // Execute a single instruction
+                    debugger.step = true;
                     
-                    // Then pause again
-                    computer.getMotherboard().suspend();
-                    
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
+                    try {
+                        // Resume the motherboard to execute the step
+                        computer.getMotherboard().resume();
+                        
+                        // Give the CPU a chance to execute the step
+                        Thread.sleep(10);
+                        
+                        // Then pause again
+                        computer.getMotherboard().suspend();
+                        
+                        // Show current state with step count info
+                        displayCurrentInstruction(i + 1, count);
+                        output.flush(); // Ensure output is displayed immediately
+                        
+                        // If this is not the last step, add a small delay for readability
+                        if (i < count - 1) {
+                            Thread.sleep(5);
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
-                
-                // Show current state with step count info
-                displayCurrentInstruction(i + 1, count);
-            }
-        });
-        
-        isStepping.set(false);
+            });
+        } finally {
+            // Always make sure we reset the stepping flag
+            isStepping.set(false);
+        }
     }
     
     private void handleWatch(String[] args) {
@@ -939,8 +1071,8 @@ public class MonitorMode implements TerminalMode {
             case "search":
             case "find":
                 output.println("find <start> <end> <bytes> - Search memory for byte sequence");
-                output.println("  <start> - Start address (in hex)");
-                output.println("  <end>   - End address (in hex)");
+                output.println("  <start> - Starting address in hex");
+                output.println("  <end>   - Ending address in hex");
                 output.println("  <bytes> - Bytes to search for (in hex, space separated)");
                 output.println("  Example: find 800 8000 A2 00 BD");
                 return true;
@@ -1399,37 +1531,23 @@ public class MonitorMode implements TerminalMode {
     }
     
     private void executeCode(int address) {
-        // Check if there's a breakpoint at the exact address we're starting execution
-        boolean hasBreakpointAtEntry = debugger.getBreakpoints().contains(address);
-        
-        // Pause first to set up the execution properly
-        if (!isPaused) {
-            pauseEmulation();
-        }
-        
+        // Simply set the program counter
         getCpu().setProgramCounter(address);
-            
-        // Always activate the debugger when executing code with breakpoints set
+        
+        // Make sure the debugger is active if there are breakpoints set
         if (!debugger.getBreakpoints().isEmpty()) {
             debugger.setActive(true);
-            output.println("Execution started at $" + Integer.toHexString(address).toUpperCase() + 
-                            " (breakpoint detection active)");
-        } else {
-            output.println("Execution started at $" + Integer.toHexString(address).toUpperCase());
         }
         
-        // If there's a breakpoint at this exact address, don't resume - it would just immediately hit
-        if (hasBreakpointAtEntry) {
-            output.printf("Breakpoint hit at $%04X%n", address);
-            displayCurrentInstruction();
-            // Keep emulation paused
-            isPaused = true;
-        } else {
-            // Resume emulation to execute
+        // Show minimal output
+        output.println("Execution started at $" + Integer.toHexString(address).toUpperCase());
+        
+        // Resume emulation
+        if (isPaused) {
+            isPaused = false;
             Emulator.withComputer(computer -> {
                 computer.getMotherboard().resume();
             });
-            isPaused = false;
         }
     }
     
