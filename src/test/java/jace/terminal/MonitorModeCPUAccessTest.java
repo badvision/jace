@@ -126,40 +126,40 @@ public class MonitorModeCPUAccessTest {
     }
     
     /**
-     * Test the setRegister method works correctly with our mock CPU
+     * Test the registers command works correctly with our mock CPU
      */
     @Test
-    public void testSetRegisterMethod() {
+    public void testRegistersCommandMethod() {
         // Set A register
-        monitorMode.setRegister(new String[] {"A", "$42"});
+        monitorMode.handleRegisters(new String[] {"A", "$42"});
         assertEquals(0x42, monitorMode.getMockA());
         
         // Set X register
-        monitorMode.setRegister(new String[] {"X", "$FF"});
+        monitorMode.handleRegisters(new String[] {"X", "$FF"});
         assertEquals(0xFF, monitorMode.getMockX());
         
         // Set Y register
-        monitorMode.setRegister(new String[] {"Y", "128"});
+        monitorMode.handleRegisters(new String[] {"Y", "128"});
         assertEquals(128, monitorMode.getMockY());
         
         // Set PC
-        monitorMode.setRegister(new String[] {"PC", "$C000"});
+        monitorMode.handleRegisters(new String[] {"PC", "$C000"});
         assertEquals(0xC000, monitorMode.getMockPC());
         
         // Set Stack
-        monitorMode.setRegister(new String[] {"S", "$F0"});
+        monitorMode.handleRegisters(new String[] {"S", "$F0"});
         assertEquals(0xF0, monitorMode.getMockStack());
         
         // Set N flag
-        monitorMode.setRegister(new String[] {"N", "1"});
+        monitorMode.handleRegisters(new String[] {"N", "1"});
         assertTrue(monitorMode.isMockN());
         
         // Set Z flag
-        monitorMode.setRegister(new String[] {"Z", "0"});
+        monitorMode.handleRegisters(new String[] {"Z", "0"});
         assertFalse(monitorMode.isMockZ());
         
         // Set C flag
-        monitorMode.setRegister(new String[] {"C", "1"});
+        monitorMode.handleRegisters(new String[] {"C", "1"});
         assertEquals(1, monitorMode.getMockC());
     }
 } 

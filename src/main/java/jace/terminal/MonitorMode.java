@@ -198,8 +198,7 @@ public class MonitorMode implements TerminalMode {
         commands.put("pause", args -> pauseEmulation());
         commands.put("resume", args -> resumeEmulation());
         commands.put("cpu", args -> showCpuState());
-        commands.put("registers", args -> showRegisters());
-        commands.put("setregister", this::setRegister);
+        commands.put("registers", this::handleRegisters);
         commands.put("break", this::handleBreakpoint);
         commands.put("breaklist", args -> listBreakpoints());
         commands.put("step", this::handleStep);
@@ -226,7 +225,6 @@ public class MonitorMode implements TerminalMode {
         // Debugger aliases - shorter forms
         addAlias("p", "pause");
         addAlias("r", "resume");
-        addAlias("sr", "setregister");
         addAlias("reg", "registers");
         addAlias("b", "break");
         addAlias("bl", "breaklist");
@@ -236,6 +234,10 @@ public class MonitorMode implements TerminalMode {
         addAlias("rt", "runto");
         addAlias("c", "cheat");
         addAlias("cl", "cheatlist");
+        
+        // Add the setregister alias for backward compatibility
+        addAlias("sr", "registers");
+        addAlias("setregister", "registers");
         
         commandHelp.put("fill", "Fills a range of memory with a specific value.\n" +
                 "Usage: fill start end value (or f start end value)\n" +
@@ -281,17 +283,16 @@ public class MonitorMode implements TerminalMode {
         commandHelp.put("pause", "Pauses the emulation.\nUsage: pause (or p)");
         commandHelp.put("resume", "Resumes the emulation.\nUsage: resume (or r)");
         commandHelp.put("cpu", "Displays the current CPU state.\nUsage: cpu");
-        commandHelp.put("registers", "Displays current CPU register values.\n" +
-                "Usage: registers (or reg)\n" +
-                "Shows the current values of all CPU registers and flags.");
-        commandHelp.put("setregister", "Sets a CPU register to a specific value.\n" +
-                "Usage: setregister <register> <value> (or sr <register> <value>)\n" +
+        commandHelp.put("registers", "Displays or sets CPU register values.\n" +
+                "Usage: registers (or reg)             - Display all registers\n" +
+                "       registers <register> <value>   - Set register value\n" +
                 "  Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C\n" +
                 "  Values can be decimal, hex with $ prefix, or hex with 0x prefix\n" +
                 "Examples:\n" +
-                "  setregister A $FF     - Set accumulator to $FF\n" +
-                "  sr PC $C000           - Set program counter to $C000\n" +
-                "  sr X 42               - Set X register to decimal 42");
+                "  registers         - Show all register values\n" +
+                "  registers A $FF   - Set accumulator to $FF\n" +
+                "  reg PC $C000      - Set program counter to $C000\n" +
+                "  reg X 42          - Set X register to decimal 42");
         commandHelp.put("break", "Manages breakpoints.\n" +
                 "Usage: break addr              - Add a breakpoint at address\n" +
                 "       break -addr             - Remove a breakpoint at address\n" +
@@ -879,8 +880,7 @@ public class MonitorMode implements TerminalMode {
         output.println("  pause | p                   Pause emulation");
         output.println("  resume | r                  Resume emulation");
         output.println("  cpu                         Display CPU registers and status");
-        output.println("  registers/reg               Display detailed CPU registers");
-        output.println("  setregister/sr <reg> <val>  Set CPU register value");
+        output.println("  registers/reg [register value]     Display or set CPU registers");
         output.println("  step | s [count]            Step through instruction(s)");
         output.println("  ");
         output.println("Breakpoints:");
@@ -966,17 +966,18 @@ public class MonitorMode implements TerminalMode {
                 return true;
             case "registers":
             case "reg":
-                output.println("registers | reg - Displays current CPU register values");
-                return true;
             case "setregister":
             case "sr":
-                output.println("setregister <reg> <val> - Sets a CPU register to a specific value");
+                output.println("registers | reg [register value] - Display or set CPU registers");
+                output.println("  With no arguments: Shows the current values of all CPU registers and flags");
+                output.println("  With arguments: Sets the specified register to the given value");
                 output.println("  Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C");
                 output.println("  Values can be decimal, hex with $ prefix, or hex with 0x prefix");
                 output.println("Examples:");
-                output.println("  setregister A $FF     - Set accumulator to $FF");
-                output.println("  sr PC $C000           - Set program counter to $C000");
-                output.println("  sr X 42               - Set X register to decimal 42");
+                output.println("  registers         - Show all register values");
+                output.println("  registers A $FF   - Set accumulator to $FF");
+                output.println("  reg PC $C000      - Set program counter to $C000");
+                output.println("  reg X 42          - Set X register to decimal 42");
                 return true;
             case "break":
             case "b":
@@ -1563,78 +1564,77 @@ public class MonitorMode implements TerminalMode {
             flags.append(cpu.isCarryFlag() ? "C" : "c");
 
             output.println("  Flags: " + flags.toString());
-            
-            // Also display current instruction
-            displayCurrentInstruction();
         } else {
             output.println("CPU not available");
         }
     }
 
     /**
-     * Set a CPU register to a specific value
+     * Handle the registers command - displays or sets CPU registers
      */
-    protected void setRegister(String[] args) {
-        if (args.length < 2) {
-            output.println("Usage: setregister <register> <value>");
-            output.println("  Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C");
-            return;
-        }
+    protected void handleRegisters(String[] args) {
+        if (args.length == 0) {
+            // No arguments - display registers
+            showRegisters();
+        } else if (args.length >= 2) {
+            // Arguments provided - set register
+            String register = args[0].toUpperCase();
+            String valueStr = args[1];
 
-        String register = args[0].toUpperCase();
-        String valueStr = args[1];
-
-        MOS65C02 cpu = getCpu();
-        if (cpu == null) {
-            output.println("CPU not available");
-            return;
-        }
-
-        try {
-            switch (register) {
-                case "A":
-                    cpu.setAccumulator(parseByteValue(valueStr));
-                    break;
-                case "X":
-                    cpu.setXRegister(parseByteValue(valueStr));
-                    break;
-                case "Y":
-                    cpu.setYRegister(parseByteValue(valueStr));
-                    break;
-                case "PC":
-                    cpu.setProgramCounter(parseWordValue(valueStr));
-                    break;
-                case "S":
-                    cpu.setStackPointer(parseByteValue(valueStr));
-                    break;
-                case "N":
-                    cpu.setNegativeFlag(parseBooleanValue(valueStr));
-                    break;
-                case "V":
-                    cpu.setOverflowFlag(parseBooleanValue(valueStr));
-                    break;
-                case "B":
-                    cpu.setBreakFlag(parseBooleanValue(valueStr));
-                    break;
-                case "D":
-                    cpu.setDecimalFlag(parseBooleanValue(valueStr));
-                    break;
-                case "I":
-                    cpu.setInterruptFlag(parseBooleanValue(valueStr));
-                    break;
-                case "Z":
-                    cpu.setZeroFlag(parseBooleanValue(valueStr));
-                    break;
-                case "C":
-                    cpu.setCarryFlag(parseBooleanValue(valueStr));
-                    break;
-                default:
-                    output.println("Unknown register: " + register);
-                    return;
+            MOS65C02 cpu = getCpu();
+            if (cpu == null) {
+                output.println("CPU not available");
+                return;
             }
-            output.println("Register " + register + " set to " + valueStr);
-        } catch (NumberFormatException e) {
-            output.println("Invalid value format: " + valueStr);
+
+            try {
+                switch (register) {
+                    case "A":
+                        cpu.setAccumulator(parseByteValue(valueStr));
+                        break;
+                    case "X":
+                        cpu.setXRegister(parseByteValue(valueStr));
+                        break;
+                    case "Y":
+                        cpu.setYRegister(parseByteValue(valueStr));
+                        break;
+                    case "PC":
+                        cpu.setProgramCounter(parseWordValue(valueStr));
+                        break;
+                    case "S":
+                        cpu.setStackPointer(parseByteValue(valueStr));
+                        break;
+                    case "N":
+                        cpu.setNegativeFlag(parseBooleanValue(valueStr));
+                        break;
+                    case "V":
+                        cpu.setOverflowFlag(parseBooleanValue(valueStr));
+                        break;
+                    case "B":
+                        cpu.setBreakFlag(parseBooleanValue(valueStr));
+                        break;
+                    case "D":
+                        cpu.setDecimalFlag(parseBooleanValue(valueStr));
+                        break;
+                    case "I":
+                        cpu.setInterruptFlag(parseBooleanValue(valueStr));
+                        break;
+                    case "Z":
+                        cpu.setZeroFlag(parseBooleanValue(valueStr));
+                        break;
+                    case "C":
+                        cpu.setCarryFlag(parseBooleanValue(valueStr));
+                        break;
+                    default:
+                        output.println("Unknown register: " + register);
+                        return;
+                }
+                output.println("Register " + register + " set to " + valueStr);
+            } catch (NumberFormatException e) {
+                output.println("Invalid value format: " + valueStr);
+            }
+        } else {
+            output.println("Usage: registers [register] [value]");
         }
     }
 

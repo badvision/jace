@@ -67,8 +67,9 @@ Debugger Commands:
 - `pause` (`p`) - Pause emulation
 - `resume` (`r`) - Resume emulation
 - `cpu` - Display CPU state
-- `registers` (`reg`) - Display CPU registers
-- `setregister` (`sr`) <register> <value> - Set a CPU register value
+- `registers` (`reg`) [register] [value] - Display or set CPU registers
+  - With no arguments: Shows all register values
+  - With arguments: Sets the specified register to the given value
   - Registers: A, X, Y, PC, S, N, V, B, D, I, Z, C
   - Values can be decimal, hex with $ prefix, or hex with 0x prefix
 - `break` (`br`) addr - Add breakpoint at address
@@ -169,7 +170,7 @@ MONITOR> 2000.200F
 
 #### Working with Registers
 ```
-MONITOR> reg
+MONITOR> registers
 CPU Registers:
   A: $00
   X: $00
@@ -178,10 +179,10 @@ CPU Registers:
   S: $FF
   Flags: nv-bdizc
 
-MONITOR> sr A $FF
+MONITOR> registers A $FF
 Register A set to $FF
 
-MONITOR> registers
+MONITOR> reg
 CPU Registers:
   A: $FF
   X: $00
@@ -189,6 +190,9 @@ CPU Registers:
   PC: $0100
   S: $FF
   Flags: Nv-bdizc
+
+MONITOR> reg PC $C000
+Register PC set to $C000
 ```
 
 #### Setting and Using Breakpoints
