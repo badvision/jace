@@ -709,7 +709,7 @@ public class MonitorMode implements TerminalMode {
      * Executes exactly one CPU instruction using CPU's debugging mechanisms
      */
     private void executeOneSingleInstruction(jace.apple2e.Apple2e computer, MOS65C02 cpu) {
-        // Since we can't access executeOpcode() directly, we need a more controlled approach
+        // Since we can't access executeOpcode() directly, we'll use the CPU's doTick method
         
         // Store the current program counter before stepping
         final int originalPC = cpu.getProgramCounter();
@@ -736,25 +736,21 @@ public class MonitorMode implements TerminalMode {
             // Set the debugger to step mode
             debugger.step = true;
             
-            // Resume the motherboard to start execution
-            computer.getMotherboard().resume();
-            
-            // Wait for the instruction to complete (with timeout)
-            final long startTime = System.currentTimeMillis();
-            final long timeout = 50; // ms
-            
-            while (!instructionComplete.get() && 
-                  (System.currentTimeMillis() - startTime < timeout)) {
-                // Use onSpinWait instead of sleep for more efficient spinning
-                Thread.onSpinWait();
+            // Execute exactly one CPU instruction using the proper doTick method
+            try {
+                // This will execute one CPU instruction
+                cpu.doTick();
+                instructionComplete.set(true);
+            } catch (Exception e) {
+                output.println("Error executing instruction: " + e.getMessage());
             }
             
             // Force suspension regardless of completion state
             computer.getMotherboard().suspend();
             
-            // If we timed out, log it
+            // If we timed out or failed, log it
             if (!instructionComplete.get()) {
-                System.out.println("Warning: CPU single-step timed out");
+                output.println("Warning: CPU single-step timed out");
             }
         } finally {
             // Clean up our execution listener
@@ -1613,8 +1609,17 @@ public class MonitorMode implements TerminalMode {
     }
     
     private void executeCode(int address) {
-        // Simply set the program counter
-        getCpu().setProgramCounter(address);
+        // Set the program counter to the specified address
+        Emulator.withComputer(computer -> {
+            MOS65C02 cpu = getCpu();
+            if (cpu == null) {
+                output.println("Error: Could not access CPU");
+                return;
+            }
+            
+            // Set the program counter
+            cpu.setProgramCounter(address);
+        });
         
         // Make sure the debugger is active if there are breakpoints set
         if (!debugger.getBreakpoints().isEmpty()) {
@@ -1624,13 +1629,20 @@ public class MonitorMode implements TerminalMode {
         // Show minimal output
         output.println("Execution started at $" + Integer.toHexString(address).toUpperCase());
         
-        // Resume emulation
-        if (isPaused) {
-            isPaused = false;
-            Emulator.withComputer(computer -> {
+        // Ensure computer is properly started and then resume emulation
+        Emulator.withComputer(computer -> {
+            // Make sure the computer is started - terminal mode may not have done this
+            if (!computer.getCpu().isRunning()) {
+                // Prime the computer to run - this is necessary in terminal mode
+                computer.getCpu().resume();
                 computer.getMotherboard().resume();
-            });
-        }
+            }
+            
+            if (isPaused) {
+                isPaused = false;
+                computer.getMotherboard().resume();
+            }
+        });
     }
     
     private void disassembleCode(int startAddress, int instructionCount, boolean showMemoryBytes) {
