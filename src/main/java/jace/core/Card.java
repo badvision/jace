@@ -133,21 +133,14 @@ public abstract class Card extends TimedDevice {
         });
 
         firmwareListener = getMemory().observe("Slot " + getSlot() + " " + getDeviceName() + " CX Firmware access", RAMEvent.TYPE.ANY, baseRom, baseRom + 255, (e) -> {
-            // Special case: C7FF is used to disable INTC8ROM and should NOT activate slot 7
-            boolean isC7FF = (e.getAddress() & 0xFF) == 0xFF && slot == 7;
+            getMemory().setActiveCard(slot);
             
-            // First: Set active card which triggers memory reconfiguration (except for C7FF)
-            if (!isC7FF) {
-                getMemory().setActiveCard(slot);
-            }
-            
-            // Second: For reads, re-read from the now-correctly-configured memory and inject correct value
+            // For reads, re-read from the now-correctly-configured memory and inject correct value
             if (e.getType().isRead()) {
                 byte correctValue = getMemory().readRaw(e.getAddress());
                 e.setNewValue(correctValue);
             }
             
-            // Third: Handle firmware access as normal
             // Sather 6-4: Writes will still go through even when CXROM inhibits slot ROM
             if (SoftSwitches.CXROM.isOff() || !e.getType().isRead()) {
                     if (e.getType() == TYPE.READ_FAKE) {

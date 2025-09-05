@@ -180,11 +180,6 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
 
     @Override
     protected void handleFirmwareAccess(int offset, TYPE type, int value, RAMEvent e) {
-        // Mass storage has no character output routine - ignore access at $FF
-        if (offset == 0xFF) {
-            return;
-        }
-        
         if (type.isRead()) {            
             Emulator.withComputer(c->{
                 currentDrive.getIcon().ifPresent(icon -> EmulatorUILogic.addIndicator(this, icon));
