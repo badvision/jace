@@ -25,6 +25,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.Set;
 
 import jace.Emulator;
 import jace.config.DeviceEnum;
@@ -35,6 +36,7 @@ import jace.core.RAM;
 import jace.hardware.CardExt80Col;
 import jace.hardware.CardRamworks;
 import jace.state.Stateful;
+import jace.core.RAMListener;
 
 /**
  * Implementation of a 128k memory space and the MMU found in an Apple //e. The
@@ -466,8 +468,10 @@ abstract public class RAM128k extends RAM {
     protected void loadRom(String path) throws IOException {
         // Remap writable ram to reflect rom file structure
         byte[] ignore = new byte[256];
-        byte[][] restore = new byte[18][];
-        for (int i = 0; i < 17; i++) {
+        // Need to save/restore enough pages to cover ROM mapping at 0x020 (page 32) 
+        // ROM spans from 0x020 to approximately 0x0FF, so save pages 0-255 to be safe
+        byte[][] restore = new byte[256][];
+        for (int i = 0; i < 256; i++) {
             restore[i] = activeWrite.get(i);
             activeWrite.set(i, ignore);
         }
@@ -491,7 +495,7 @@ abstract public class RAM128k extends RAM {
         }
 //            System.out.println("Finished reading rom with " + inputRom.available() + " bytes left unread!");
         //dump();
-        for (int i = 0; i < 17; i++) {
+        for (int i = 0; i < 256; i++) {
             activeWrite.set(i, restore[i]);
         }
         configureActiveMemory();
@@ -562,5 +566,13 @@ abstract public class RAM128k extends RAM {
     @Override
     public void resetState() {
         memoryConfigurations.clear();
+    }
+
+    public Set<RAMListener>[] getListenerMap() {
+        return super.listenerMap;
+    }
+    
+    public Set<RAMListener>[] getIOListenerMap() {
+        return super.ioListenerMap;
     }
 }

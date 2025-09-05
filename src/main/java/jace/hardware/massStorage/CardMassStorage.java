@@ -141,6 +141,7 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
                 disk1 = null;
                 drive1.insertMedia(entry, entry.files.get(0));
             } catch (IOException ex) {
+                System.err.println("ERROR loading disk1: " + ex.getMessage());
                 Logger.getLogger(CardMassStorage.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -150,6 +151,7 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
                 disk2 = null;
                 drive2.insertMedia(entry, entry.files.get(0));
             } catch (IOException ex) {
+                System.err.println("ERROR loading disk2: " + ex.getMessage());
                 Logger.getLogger(CardMassStorage.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -159,7 +161,6 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
                 if (drive1.getCurrentDisk() != null && getSlot() == 7 && (pc >= 0x0c65e && pc <= 0x0c66F)) {
                     // If the computer is in a loop trying to boot from cards 6, fast-boot from here instead
                     // This is a convenience to boot a hard-drive if the emulator has started waiting for a currentDisk
-                    System.out.println("Fast-booting to mass storage drive");
                     currentDrive = drive1;
                     EmulatorUILogic.simulateCtrlAppleReset();
                 }
@@ -179,8 +180,12 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
 
     @Override
     protected void handleFirmwareAccess(int offset, TYPE type, int value, RAMEvent e) {
-//        System.out.println(e.getType()+" "+Integer.toHexString(e.getAddress())+" from instruction at  "+Integer.toHexString(cpu.getProgramCounter()));
-        if (type.isRead()) {
+        // Mass storage has no character output routine - ignore access at $FF
+        if (offset == 0xFF) {
+            return;
+        }
+        
+        if (type.isRead()) {            
             Emulator.withComputer(c->{
                 currentDrive.getIcon().ifPresent(icon -> EmulatorUILogic.addIndicator(this, icon));
             });
@@ -220,8 +225,6 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
                         driver.handleMLI();
                     } else if (offset == DEVICE_DRIVER_OFFSET + 3) {
                         smartport.handleSmartport();
-                    } else {
-                        System.out.println("Call to unknown handler " + Integer.toString(e.getAddress(), 16) + "-- returning");
                     }
                     /* act like RTS was called */
                     e.setNewValue(0x060);

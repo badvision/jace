@@ -44,9 +44,9 @@ public abstract class RAM implements Reconfigurable {
     public PagedMemory activeWrite;
     private final Set<RAMListener> listeners = new ConcurrentSkipListSet<>();
     @SuppressWarnings("unchecked")
-    private final Set<RAMListener>[] listenerMap = (Set<RAMListener>[]) new Set[256];
+    protected final Set<RAMListener>[] listenerMap = (Set<RAMListener>[]) new Set[256];
     @SuppressWarnings("unchecked")
-    private final Set<RAMListener>[] ioListenerMap = (Set<RAMListener>[]) new Set[256];
+    protected final Set<RAMListener>[] ioListenerMap = (Set<RAMListener>[]) new Set[256];
     @SuppressWarnings("unchecked")
     public Optional<Card>[] cards = (Optional<Card>[]) new Optional[8];
     // card 0 = 80 column card firmware / system rom
@@ -107,6 +107,12 @@ public abstract class RAM implements Reconfigurable {
     }
 
     abstract public void configureActiveMemory();
+    
+    /**
+     * Dump the current memory map showing which physical banks are mapped to read/write
+     * for each memory page. Used for debugging memory configuration issues.
+     */
+    abstract public void dumpMemoryMap();
     public void copyFrom(RAM other) {
         cards = other.cards;
         activeSlot = other.activeSlot;
@@ -394,5 +400,21 @@ public abstract class RAM implements Reconfigurable {
     List<Runnable> detachListeners = new ArrayList<>();
     public void onDetach(Runnable r) {
         detachListeners.add(r);
+    }
+
+    /**
+     * Returns the listener map for regular memory addresses
+     * @return Array of listener sets indexed by high byte of address
+     */
+    public Set<RAMListener>[] getListenerMap() {
+        return listenerMap;
+    }
+    
+    /**
+     * Returns the listener map for I/O memory (C000-CFFF)
+     * @return Array of listener sets indexed by low byte of address
+     */
+    public Set<RAMListener>[] getIOListenerMap() {
+        return ioListenerMap;
     }
 }

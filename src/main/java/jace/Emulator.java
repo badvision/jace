@@ -172,8 +172,14 @@ public class Emulator {
 
     private void processCmdlineArgs(List<String> args) {
         if (args == null || args.isEmpty()) {
+            System.out.println("=== No command line arguments provided ===");
             return;
         }
+        System.out.println("=== Processing command line arguments ===");
+        for (String arg : args) {
+            System.out.println("  arg: " + arg);
+        }
+        
         Map<String, String> settings = new LinkedHashMap<>();
         for (int i = 0; i < args.size(); i++) {
             if (args.get(i).startsWith("-")) {
@@ -182,17 +188,22 @@ public class Emulator {
                     String val = args.get(i + 1);
                     if (!val.startsWith("-")) {
                         settings.put(key, val);
+                        System.out.println("  Setting: " + key + " = " + val);
                         i++;
                     } else {
                         settings.put(key, "true");
+                        System.out.println("  Setting: " + key + " = true");
                     }
                 } else {
                     settings.put(key, "true");
+                    System.out.println("  Setting: " + key + " = true");
                 }
             } else {
                 System.err.println("Did not understand parameter " + args.get(i) + ", skipping.");
             }
         }
+        System.out.println("=== Applying settings to Configuration ===");
         Configuration.applySettings(settings);
+        System.out.println("=== Command line processing complete ===");
     }
 }

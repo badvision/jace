@@ -147,4 +147,160 @@ public class CardRamworks extends RAM128k {
         removeListener(bankSelectListener);
         super.detach();
     }
+
+    @Override
+    public void dumpMemoryMap() {
+        System.out.println("=== MEMORY MAP DUMP ===");
+        System.out.println("Current Ramworks Bank: " + currentBank);
+        System.out.println("Memory State: " + getState());
+        System.out.println();
+        
+        // Build lookup maps for identifying memory banks
+        java.util.Map<byte[], String> memoryBankNames = new java.util.HashMap<>();
+        
+        // Add main memory pages
+        if (mainMemory != null) {
+            for (int i = 0; i < mainMemory.getMemory().length; i++) {
+                if (mainMemory.getMemory()[i] != null) {
+                    memoryBankNames.put(mainMemory.getMemory()[i], "Main");
+                }
+            }
+        }
+        
+        // Add aux memory pages (different Ramworks banks)
+        for (int bank = 0; bank < Math.min(maxBank, 8); bank++) {
+            PagedMemory auxMem = getAuxBank(BankType.MAIN_MEMORY, bank);
+            if (auxMem != null) {
+                for (int i = 0; i < auxMem.getMemory().length; i++) {
+                    if (auxMem.getMemory()[i] != null) {
+                        String name = bank == 0 ? "Aux" : "Aux(" + bank + ")";
+                        memoryBankNames.put(auxMem.getMemory()[i], name);
+                    }
+                }
+            }
+        }
+        
+        // Add language card pages
+        if (languageCard != null) {
+            for (int i = 0; i < languageCard.getMemory().length; i++) {
+                if (languageCard.getMemory()[i] != null) {
+                    memoryBankNames.put(languageCard.getMemory()[i], "LC1");
+                }
+            }
+        }
+        if (languageCard2 != null) {
+            for (int i = 0; i < languageCard2.getMemory().length; i++) {
+                if (languageCard2.getMemory()[i] != null) {
+                    memoryBankNames.put(languageCard2.getMemory()[i], "LC2");
+                }
+            }
+        }
+        
+        // Add aux language card pages
+        for (int bank = 0; bank < Math.min(maxBank, 8); bank++) {
+            PagedMemory auxLC1 = getAuxBank(BankType.LANGUAGE_CARD_1, bank);
+            PagedMemory auxLC2 = getAuxBank(BankType.LANGUAGE_CARD_2, bank);
+            
+            if (auxLC1 != null) {
+                for (int i = 0; i < auxLC1.getMemory().length; i++) {
+                    if (auxLC1.getMemory()[i] != null) {
+                        String name = bank == 0 ? "AuxLC1" : "AuxLC1(" + bank + ")";
+                        memoryBankNames.put(auxLC1.getMemory()[i], name);
+                    }
+                }
+            }
+            
+            if (auxLC2 != null) {
+                for (int i = 0; i < auxLC2.getMemory().length; i++) {
+                    if (auxLC2.getMemory()[i] != null) {
+                        String name = bank == 0 ? "AuxLC2" : "AuxLC2(" + bank + ")";
+                        memoryBankNames.put(auxLC2.getMemory()[i], name);
+                    }
+                }
+            }
+        }
+        
+        // Add ROM pages
+        if (rom != null) {
+            for (int i = 0; i < rom.getMemory().length; i++) {
+                if (rom.getMemory()[i] != null) {
+                    memoryBankNames.put(rom.getMemory()[i], "ROM");
+                }
+            }
+        }
+        if (cPageRom != null) {
+            for (int i = 0; i < cPageRom.getMemory().length; i++) {
+                if (cPageRom.getMemory()[i] != null) {
+                    memoryBankNames.put(cPageRom.getMemory()[i], "C-ROM");
+                }
+            }
+        }
+        
+        // Add card pages
+        for (int slot = 1; slot <= 7; slot++) {
+            final int finalSlot = slot; // Make slot effectively final for lambda
+            getCard(slot).ifPresent(card -> {
+                if (card.getCxRom() != null) {
+                    for (int i = 0; i < card.getCxRom().getMemory().length; i++) {
+                        if (card.getCxRom().getMemory()[i] != null) {
+                            memoryBankNames.put(card.getCxRom().getMemory()[i], "Card" + finalSlot);
+                        }
+                    }
+                }
+                if (card.getC8Rom() != null) {
+                    for (int i = 0; i < card.getC8Rom().getMemory().length; i++) {
+                        if (card.getC8Rom().getMemory()[i] != null) {
+                            memoryBankNames.put(card.getC8Rom().getMemory()[i], "Card" + finalSlot + "C8");
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Add blank pages
+        if (blank != null) {
+            for (int i = 0; i < blank.getMemory().length; i++) {
+                if (blank.getMemory()[i] != null) {
+                    memoryBankNames.put(blank.getMemory()[i], "Blank");
+                }
+            }
+        }
+        
+        // Print header
+        System.out.println("Page   Read          Write");
+        System.out.println("----   ----------    ----------");
+        
+        // Analyze each memory page
+        for (int page = 0; page < 256; page++) {
+            String readBank = "---";
+            String writeBank = "---";
+            
+            // Get read page
+            if (activeRead != null) {
+                byte[] readPage = activeRead.getMemoryPage(page << 8);
+                if (readPage != null) {
+                    readBank = memoryBankNames.getOrDefault(readPage, "Unknown@" + System.identityHashCode(readPage));
+                }
+            }
+            
+            // Get write page
+            if (activeWrite != null) {
+                byte[] writePage = activeWrite.getMemoryPage(page << 8);
+                if (writePage != null) {
+                    writeBank = memoryBankNames.getOrDefault(writePage, "Unknown@" + System.identityHashCode(writePage));
+                } else {
+                    writeBank = "PROTECTED";
+                }
+            }
+            
+            // Only show interesting pages or ones around $20 (our test area)
+            if (!readBank.equals("---") || !writeBank.equals("---") || 
+                (page >= 0x1F && page <= 0x25) || page < 0x10 || page >= 0xC0) {
+                System.out.printf("$%02X    %-12s  %-12s%n", page, readBank, writeBank);
+            }
+        }
+        
+        System.out.println("=== END MEMORY MAP ===");
+        System.out.println();
+    }
 }

@@ -117,6 +117,10 @@ public abstract class Device implements Reconfigurable {
     public void setWaitCycles(int wait) {
         waitCycles = wait;
     }
+    
+    public int getWaitCycles() {
+        return waitCycles;
+    }
 
     private void updateTickHandler() {
         if (!isRunning() || isPaused()) {

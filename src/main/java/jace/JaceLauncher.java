@@ -36,8 +36,25 @@ public class JaceLauncher {
         for (String arg : args) {
             System.out.println("Checking arg: " + arg);
             if (arg.equalsIgnoreCase("--terminal")) {
-                // Launch in Terminal mode
+                // Launch in Terminal mode, but first initialize emulator with all args
                 System.out.println("*** Starting Jace in terminal mode... ***");
+                
+                // Filter out --terminal and create list for emulator configuration
+                java.util.List<String> emulatorArgs = new java.util.ArrayList<>();
+                for (String a : args) {
+                    if (!a.equalsIgnoreCase("--terminal")) {
+                        emulatorArgs.add(a);
+                    }
+                }
+                
+                // Set headless mode before initializing emulator
+                System.out.println("*** Setting headless mode for terminal operation ***");
+                jace.core.Utility.setHeadlessMode(true);
+                
+                // Initialize emulator with configuration arguments
+                System.out.println("*** Initializing emulator with args: " + emulatorArgs + " ***");
+                Emulator.getInstance(emulatorArgs);
+                
                 HeadlessTerminal terminal = new HeadlessTerminal();
                 terminal.run();
                 System.exit(0);

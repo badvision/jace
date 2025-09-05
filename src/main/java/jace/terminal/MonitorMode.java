@@ -64,6 +64,7 @@ public class MonitorMode implements TerminalMode {
     
     private MemoryMode memoryMode = MemoryMode.ACTIVE;
     
+    
     // Regex patterns for monitor commands
     private static final Pattern EXAMINE_PATTERN = Pattern.compile("^([Mm]|[Xx])?([0-9A-Fa-f]{1,4})$");
     private static final Pattern POKE_PATTERN = Pattern.compile("^([Mm]|[Xx])?([0-9A-Fa-f]{1,4}):([0-9A-Fa-f\\s]+)$");
@@ -211,6 +212,7 @@ public class MonitorMode implements TerminalMode {
         commands.put("pause", args -> pauseEmulation());
         commands.put("resume", args -> resumeEmulation());
         commands.put("cpu", args -> showCpuState());
+        commands.put("cycles", args -> showWaitCycles());
         commands.put("registers", this::handleRegisters);
         commands.put("break", this::handleBreakpoint);
         commands.put("breaklist", args -> listBreakpoints());
@@ -296,6 +298,7 @@ public class MonitorMode implements TerminalMode {
         commandHelp.put("pause", "Pauses the emulation.\nUsage: pause (or p)");
         commandHelp.put("resume", "Resumes the emulation.\nUsage: resume (or r)");
         commandHelp.put("cpu", "Displays the current CPU state.\nUsage: cpu");
+        commandHelp.put("cycles", "Shows CPU wait cycles.\nUsage: cycles\nDisplays how many cycles the CPU is waiting before the next instruction executes.");
         commandHelp.put("registers", "Displays or sets CPU register values.\n" +
                 "Usage: registers (or reg)             - Display all registers\n" +
                 "       registers <register> <value>   - Set register value\n" +
@@ -422,9 +425,25 @@ public class MonitorMode implements TerminalMode {
             output.printf("PC=$%04X  A=$%02X  X=$%02X  Y=$%02X  SP=$%02X%n", 
                 cpu.getProgramCounter(), cpu.A, cpu.X, cpu.Y, cpu.STACK);
             output.printf("Flags: %s%n", cpu.getFlags());
+            output.printf("Wait Cycles: %d%n", cpu.getWaitCycles());
             
             // Also display current instruction
             displayCurrentInstruction();
+        }
+    }
+    
+    private void showWaitCycles() {
+        MOS65C02 cpu = getCpu();
+        if (cpu != null) {
+            int waitCycles = cpu.getWaitCycles();
+            output.printf("CPU Wait Cycles: %d%n", waitCycles);
+            if (waitCycles > 0) {
+                output.println("CPU is waiting " + waitCycles + " more cycles before executing next instruction");
+            } else {
+                output.println("CPU is ready to execute next instruction");
+            }
+        } else {
+            output.println("CPU not available");
         }
     }
     
@@ -672,17 +691,25 @@ public class MonitorMode implements TerminalMode {
                         paddingStr.append(" ");
                     }
                     
-                    // Display current instruction
+                    // Display current instruction before execution
                     output.printf("%04X: %s", currentPC, currentDisasm);
                     
-                    // Use a special method to force a single CPU instruction
+                    // Count total ticks for this instruction
+                    int initialWaitCycles = cpu.getWaitCycles();
+                    int ticksExecuted = 0;
+                    
+                    // Use the wait cycle method to execute one complete instruction
                     executeOneSingleInstruction(computer, cpu);
                     
+                    // Calculate how many ticks were needed (approximate based on typical instruction timing)
+                    MOS65C02.OPCODE opcodeInfo = MOS65C02.opcodes[readMemory(currentPC, memoryMode, false) & 0xFF];
+                    int expectedTicks = (opcodeInfo != null) ? opcodeInfo.getWaitCycles() + 1 : 1;
+                    
                     // Now display the CPU state after execution
-                    output.printf("%sA:%02X X:%02X Y:%02X S:%02X [%s] (%d/%d)%n", 
+                    output.printf("%sA:%02X X:%02X Y:%02X S:%02X [%s] (%d/%d) [%d ticks]%n", 
                         paddingStr,
                         cpu.A & 0xFF, cpu.X & 0xFF, cpu.Y & 0xFF, cpu.STACK & 0xFF, 
-                        cpu.getFlags(), i + 1, count);
+                        cpu.getFlags(), i + 1, count, expectedTicks);
                     
                     output.flush(); // Ensure output is displayed immediately
                     
@@ -706,58 +733,25 @@ public class MonitorMode implements TerminalMode {
     }
     
     /**
-     * Executes exactly one CPU instruction using CPU's debugging mechanisms
+     * Executes exactly one CPU instruction by running tick() until wait cycles are exhausted
      */
     private void executeOneSingleInstruction(jace.apple2e.Apple2e computer, MOS65C02 cpu) {
-        // Since we can't access executeOpcode() directly, we'll use the CPU's doTick method
-        
-        // Store the current program counter before stepping
-        final int originalPC = cpu.getProgramCounter();
-        
-        // We'll detect completion by watching for the PC to change
-        final AtomicBoolean instructionComplete = new AtomicBoolean(false);
-        
-        // Create a special one-time execution listener
-        RAMListener execListener = computer.getMemory().observe(
-            "SingleStepExec", 
-            RAMEvent.TYPE.EXECUTE, 
-            originalPC, 
-            false, // main memory
-            event -> {
-                // After the instruction executes, prevent any further execution
-                if (!instructionComplete.get()) {
-                    instructionComplete.set(true);
-                    computer.getMotherboard().suspend();
-                }
-            }
-        );
-        
         try {
-            // Set the debugger to step mode
-            debugger.step = true;
+            // Keep ticking until the instruction is complete (waitCycles becomes 0)
+            // First tick will execute the instruction and set wait cycles
+            cpu.doTick();
             
-            // Execute exactly one CPU instruction using the proper doTick method
-            try {
-                // This will execute one CPU instruction
+            // Continue ticking until all wait cycles are consumed
+            while (cpu.getWaitCycles() > 0) {
                 cpu.doTick();
-                instructionComplete.set(true);
-            } catch (Exception e) {
-                output.println("Error executing instruction: " + e.getMessage());
             }
             
-            // Force suspension regardless of completion state
+            // Ensure the computer remains suspended after stepping
             computer.getMotherboard().suspend();
             
-            // If we timed out or failed, log it
-            if (!instructionComplete.get()) {
-                output.println("Warning: CPU single-step timed out");
-            }
-        } finally {
-            // Clean up our execution listener
-            computer.getMemory().removeListener(execListener);
-            
-            // Reset the debugger step flag
-            debugger.step = false;
+        } catch (Exception e) {
+            output.println("Error executing instruction: " + e.getMessage());
+            computer.getMotherboard().suspend();
         }
     }
     
@@ -1090,6 +1084,7 @@ public class MonitorMode implements TerminalMode {
         output.println("  pause | p                   Pause emulation");
         output.println("  resume | r                  Resume emulation");
         output.println("  cpu                         Display CPU registers and status");
+        output.println("  cycles                      Show CPU wait cycles until next instruction");
         output.println("  registers/reg [register value]     Display or set CPU registers");
         output.println("  step | s [count]            Step through instruction(s)");
         output.println("  ");
@@ -1173,6 +1168,11 @@ public class MonitorMode implements TerminalMode {
                 return true;
             case "cpu":
                 output.println("cpu - Displays the current CPU state (registers and flags)");
+                return true;
+            case "cycles":
+                output.println("cycles - Shows CPU wait cycles until next instruction");
+                output.println("Displays how many cycles the CPU is waiting before the next instruction executes.");
+                output.println("When wait cycles = 0, the CPU is ready to execute the next instruction.");
                 return true;
             case "registers":
             case "reg":
@@ -1609,9 +1609,9 @@ public class MonitorMode implements TerminalMode {
     }
     
     private void executeCode(int address) {
-        // Set the program counter to the specified address
-        Emulator.withComputer(computer -> {
-            MOS65C02 cpu = getCpu();
+        // Set the program counter to the specified address using whileSuspended
+        Emulator.whileSuspended(computer -> {
+            MOS65C02 cpu = (MOS65C02) computer.getCpu();
             if (cpu == null) {
                 output.println("Error: Could not access CPU");
                 return;
@@ -1793,58 +1793,61 @@ public class MonitorMode implements TerminalMode {
             String register = args[0].toUpperCase();
             String valueStr = args[1];
 
-            MOS65C02 cpu = getCpu();
-            if (cpu == null) {
-                output.println("CPU not available");
-                return;
-            }
-
-            try {
-                switch (register) {
-                    case "A":
-                        cpu.setAccumulator(parseByteValue(valueStr));
-                        break;
-                    case "X":
-                        cpu.setXRegister(parseByteValue(valueStr));
-                        break;
-                    case "Y":
-                        cpu.setYRegister(parseByteValue(valueStr));
-                        break;
-                    case "PC":
-                        cpu.setProgramCounter(parseWordValue(valueStr));
-                        break;
-                    case "S":
-                        cpu.setStackPointer(parseByteValue(valueStr));
-                        break;
-                    case "N":
-                        cpu.setNegativeFlag(parseBooleanValue(valueStr));
-                        break;
-                    case "V":
-                        cpu.setOverflowFlag(parseBooleanValue(valueStr));
-                        break;
-                    case "B":
-                        cpu.setBreakFlag(parseBooleanValue(valueStr));
-                        break;
-                    case "D":
-                        cpu.setDecimalFlag(parseBooleanValue(valueStr));
-                        break;
-                    case "I":
-                        cpu.setInterruptFlag(parseBooleanValue(valueStr));
-                        break;
-                    case "Z":
-                        cpu.setZeroFlag(parseBooleanValue(valueStr));
-                        break;
-                    case "C":
-                        cpu.setCarryFlag(parseBooleanValue(valueStr));
-                        break;
-                    default:
-                        output.println("Unknown register: " + register);
-                        return;
+            // Wrap all register setting in whileSuspended to ensure changes take effect
+            Emulator.whileSuspended(computer -> {
+                MOS65C02 cpu = (MOS65C02) computer.getCpu();
+                if (cpu == null) {
+                    output.println("CPU not available");
+                    return;
                 }
-                output.println("Register " + register + " set to " + valueStr);
-            } catch (NumberFormatException e) {
-                output.println("Invalid value format: " + valueStr);
-            }
+
+                try {
+                    switch (register) {
+                        case "A":
+                            cpu.setAccumulator(parseByteValue(valueStr));
+                            break;
+                        case "X":
+                            cpu.setXRegister(parseByteValue(valueStr));
+                            break;
+                        case "Y":
+                            cpu.setYRegister(parseByteValue(valueStr));
+                            break;
+                        case "PC":
+                            cpu.setProgramCounter(parseWordValue(valueStr));
+                            break;
+                        case "S":
+                            cpu.setStackPointer(parseByteValue(valueStr));
+                            break;
+                        case "N":
+                            cpu.setNegativeFlag(parseBooleanValue(valueStr));
+                            break;
+                        case "V":
+                            cpu.setOverflowFlag(parseBooleanValue(valueStr));
+                            break;
+                        case "B":
+                            cpu.setBreakFlag(parseBooleanValue(valueStr));
+                            break;
+                        case "D":
+                            cpu.setDecimalFlag(parseBooleanValue(valueStr));
+                            break;
+                        case "I":
+                            cpu.setInterruptFlag(parseBooleanValue(valueStr));
+                            break;
+                        case "Z":
+                            cpu.setZeroFlag(parseBooleanValue(valueStr));
+                            break;
+                        case "C":
+                            cpu.setCarryFlag(parseBooleanValue(valueStr));
+                            break;
+                        default:
+                            output.println("Unknown register: " + register);
+                            return;
+                    }
+                    output.println("Register " + register + " set to " + valueStr);
+                } catch (NumberFormatException e) {
+                    output.println("Invalid value format: " + valueStr);
+                }
+            });
         } else {
             output.println("Usage: registers [register] [value]");
         }

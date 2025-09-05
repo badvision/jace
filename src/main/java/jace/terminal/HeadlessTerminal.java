@@ -31,24 +31,42 @@ public class HeadlessTerminal extends JaceTerminal {
     // Flag to prevent initializing emulator when used from UI
     private boolean uiMode = false;
     
-    // Flag to track JavaFX initialization
+    // Flag to track JavaFX initialization - global across all instances
     private static boolean jfxInitialized = false;
+    private static boolean jfxInitializationFailed = false;
+    
+    // Flag to track if this terminal's emulator has been initialized
+    private boolean emulatorInitialized = false;
     
     /**
      * Initialize JavaFX toolkit
      * This is required for ROM disassembly to work properly
+     * Only needs to be done once per JVM session - GLOBALLY
      */
-    private static void initJavaFX() {
-        if (!jfxInitialized) {
-            try {
-                // Initialize JavaFX toolkit with a dummy panel
-                new JFXPanel();
-                jfxInitialized = true;
-                System.out.println("JavaFX toolkit initialized");
-            } catch (Exception e) {
-                System.err.println("Warning: Failed to initialize JavaFX toolkit: " + e.getMessage());
-                System.err.println("ROM disassembly commands may not work properly.");
-            }
+    private static synchronized void initJavaFX() {
+        // If already initialized successfully or failed, don't try again
+        if (jfxInitialized || jfxInitializationFailed) {
+            return;
+        }
+        
+        try {
+            System.out.println("Initializing JavaFX toolkit for headless operation...");
+            
+            // Set headless properties for JavaFX
+            System.setProperty("java.awt.headless", "false");
+            System.setProperty("javafx.headless", "true");
+            System.setProperty("prism.order", "sw");
+            System.setProperty("prism.text", "t2k");
+            
+            // Initialize JavaFX toolkit with a dummy panel
+            new JFXPanel();
+            jfxInitialized = true;
+            System.out.println("JavaFX toolkit initialized");
+            
+        } catch (Exception e) {
+            jfxInitializationFailed = true;
+            System.err.println("Warning: Failed to initialize JavaFX toolkit: " + e.getMessage());
+            System.err.println("ROM disassembly commands may not work properly.");
         }
     }
     
@@ -72,30 +90,50 @@ public class HeadlessTerminal extends JaceTerminal {
      * Override to properly initialize the emulator
      * This ensures commands that interact with the emulator work properly
      * 
-     * This is also safe to call during tests since it checks if we're in a test environment
+     * CRITICAL FIX: Always sets this.emulator to prevent infinite re-initialization
      */
     @Override
     public void initializeEmulator() {
-        // Initialize JavaFX first
+        // Prevent multiple initialization of the same terminal instance
+        if (emulatorInitialized) {
+            return;
+        }
+        
+        // Initialize JavaFX first (only once globally across ALL instances)
         initJavaFX();
         
         // If we're in UI mode, the emulator is already running
         if (uiMode) {
+            // Use parent class to properly initialize emulator
+            super.initializeEmulator();
+            emulatorInitialized = true;
             getOutput().println("Using existing emulator instance from UI");
             return;
         }
         
-        // Don't initialize the emulator if we're running in a test environment
-        // This allows tests to set up their own emulator state
+        // Don't initialize NEW emulator if we're running in a test environment
+        // But still set the adapter so lazy loading works
         if (isTestEnvironment()) {
-            getOutput().println("Test environment detected, skipping emulator initialization");
+            // Use parent class to properly initialize emulator adapter
+            super.initializeEmulator();
+            emulatorInitialized = true;
+            getOutput().println("Test environment detected, using existing emulator state");
             return;
         }
         
         // Initialize the emulator normally - JavaFX should be available
         // when running with mvn javafx:run
         super.initializeEmulator();
+        emulatorInitialized = true;
         getOutput().println("Emulator initialized in command-line focused mode");
+    }
+    
+    /**
+     * Reset JavaFX initialization flags - for testing only
+     */
+    public static void resetJavaFXForTesting() {
+        jfxInitialized = false;
+        jfxInitializationFailed = false;
     }
     
     /**

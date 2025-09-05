@@ -55,7 +55,7 @@ public enum SoftSwitches {
     LCWRITE(new Memory2SoftSwitch("LangCardWrite",
     new int[]{0x0c080, 0x0c082, 0x0c084, 0x0c086, 0x0c088, 0x0c08a, 0x0c08c, 0x0c08e},
     new int[]{0x0c081, 0x0c083, 0x0c085, 0x0c087, 0x0c089, 0x0c08b, 0x0c08d, 0x0c08f},
-    null, RAMEvent.TYPE.ANY, true)),
+    null, RAMEvent.TYPE.ANY, false)),
     //Renamed as per Sather 5-7
     _80COL(new VideoSoftSwitch("80ColumnVideo (80COL/80VID)", 0x0c00c, 0x0c00d, 0x0c01f, RAMEvent.TYPE.WRITE, false)),
     ALTCH(new VideoSoftSwitch("Mousetext", 0x0c00e, 0x0c00f, 0x0c01e, RAMEvent.TYPE.WRITE, false){

@@ -29,6 +29,7 @@ import java.util.logging.Logger;
 
 import jace.Emulator;
 import jace.EmulatorUILogic;
+import jace.apple2e.MOS65C02;
 import jace.config.ConfigurableField;
 import jace.config.Name;
 import jace.core.Card;
@@ -71,7 +72,7 @@ public class CardSSC extends Card {
     //Bit 6 = !SW1-2
     //Bit 7 = !SW1-1
     // 19200 baud (SW1-1,2,3,4 off)
-    // Communications mode (SW1-5,6 on)
+    // Communications mode CIC (SW1-5,6 off)  
     public int SW1_SETTING = 0x0F0;
     public static int SW2_CTS = 0x02;          // Read = Jumper block SW2 and CTS
     //Bit 0 = !CTS
@@ -98,6 +99,21 @@ public class CardSSC extends Card {
 
     public CardSSC() {
         super(false);
+        resetToDisconnectedState();
+    }
+
+    private void resetToDisconnectedState() {
+        resetConnectionState();
+        RECV_IRQ_ENABLED = false;
+        TRANS_IRQ_ENABLED = false;
+        IRQ_TRIGGERED = false;
+    }
+
+    private void resetConnectionState() {
+        newInputAvailable.set(false);
+        lastInputByte = 0;
+        lastTransmission = -1L;
+        PORT_CONNECTED = false;
     }
 
     @Override
@@ -115,9 +131,37 @@ public class CardSSC extends Card {
             Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
         }
         super.setSlot(slot);
-        Utility.loadIconLabel("network-wired.png").ifPresent(icon->{
-            activityIndicator = icon;
-            activityIndicator.setText("Slot " + slot);
+        try {
+            Utility.loadIconLabel("network-wired.png").ifPresent(icon->{
+                activityIndicator = icon;
+                activityIndicator.setText("Slot " + slot);
+            });
+        } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
+            // Headless mode - JavaFX not available, skip icon loading
+            System.out.println("Running in headless mode - skipping icon loading for SSC slot " + slot);
+        }
+        
+        // Initialize slot state memory locations just before firmware needs them
+        addJustInTimeSlotStateInit();
+    }
+    
+    private void addJustInTimeSlotStateInit() {
+        Emulator.withMemory(ram -> {
+            // Monitor the first instruction that reads slot state memory and initialize just before
+            ram.observe("Just-In-Time Slot State Init", RAMEvent.TYPE.EXECUTE, 0xC8C1, false, e -> {
+                // Calculate slot offset in $Cx format (e.g., $C2 for slot 2) 
+                int slotOffset = 0xC0 + getSlot();
+                
+                // Initialize slot state memory locations to proper values for CIC mode
+                int stateFlagAddr = 0x04B8 + slotOffset;  // STATEFLG
+                int delayFlagAddr = 0x03B8 + slotOffset;  // DELAYFLG  
+                int colByteAddr = 0x06B8 + slotOffset;    // COLBYTE
+                
+                // Set proper initial values for CIC communications mode
+                ram.write(stateFlagAddr, (byte) 0x00, false, false);  // STATEFLG = 0 for CIC mode
+                ram.write(delayFlagAddr, (byte) 0x00, false, false);  // DELAYFLG = 0 initially  
+                ram.write(colByteAddr, (byte) 0x00, false, false);    // COLBYTE = 0 initially
+            });
         });
     }
 
@@ -164,17 +208,15 @@ public class CardSSC extends Card {
 
     // Called when a client first connects via telnet
     public void clientConnected() {
-        System.err.println("Client connected");
-
+        PORT_CONNECTED = true;
     }
 
     // Called when a client disconnects
     public void clientDisconnected() {
-        System.out.println("Client disconnected");
+        PORT_CONNECTED = false;
     }
 
     public void loadRom() throws IOException {
-        System.out.println("Loading SSC rom");
         String path = "/jace/data/SSC.rom";
         // Load rom file, first 0x0700 bytes are C8 rom, last 0x0100 bytes are CX rom
         // CF00-CFFF are unused by the SSC
@@ -211,6 +253,7 @@ public class CardSSC extends Card {
     @Override
     protected void handleIOAccess(int register, TYPE type, int value, RAMEvent e) {
         try {
+            
             int newValue = -1;
             switch (type) {
                 case ANY:
@@ -236,7 +279,8 @@ public class CardSSC extends Card {
                         // 1 = Framing error (1)
                         // 2 = Overrun error (1)
                         // 3 = ACIA Receive Register full (1)
-                        if (newInputAvailable.get()) {
+                        boolean inputReady = isConnected() && newInputAvailable.get();
+                        if (inputReady) {
                             newValue |= 0x08;
                         }
                         // 4 = ACIA Transmit Register empty (1)
@@ -250,26 +294,31 @@ public class CardSSC extends Card {
                         IRQ_TRIGGERED = false;
                     }
                     if (register == ACIA_Command) {
-                        newValue = DTR ? 1 : 0;
-                        // 0 = DTR Enable (1) / Disable (0) receiver and IRQ
-                        // 1 = Allow IRQ (1) when status bit 3 is true
-                        if (RECV_IRQ_ENABLED) {
-                            newValue |= 2;
+                        // Return firmware-expected ACIA Command Register value: 0x0B = 00001011
+                        newValue = 0x0B;
+                        // Bit 0: DTR Enable = 1 (Data Terminal Ready)
+                        // Bit 1: IRQ Enable = 1 (Allow receiver interrupts) 
+                        // Bits 2-3: Transmit control = 01 (RTS low, transmitter on)
+                        // Bit 4: Normal mode = 0 (not echo mode)
+                        // Bits 5-7: Parity control = 000 (no parity)
+                        
+                        // Allow runtime overrides for specific configurations
+                        if (!DTR) {
+                            newValue &= ~0x01; // Clear DTR bit if disabled
                         }
-                        // 2,3 = Control transmit IRQ, RTS level and transmitter
-                        newValue |= 12;
-                        // 4 = Normal mode 0, or Echo mode 1 (bits 2 and 3 must be 0)
-                        if (FULL_ECHO) {
-                            newValue |= 16;
+                        if (!RECV_IRQ_ENABLED) {
+                            newValue &= ~0x02; // Clear IRQ enable if disabled
                         }
-                        // 5 = Control parity
                     }
                     if (register == ACIA_Control) {
-                        // 0-3 = Baud Rate
-                        // 4 = Use baud rate generator (1) / Use external clock (0)
-                        // 5-6 = Number of data bits (00 = 8, 10 = 7, 01 = 6, 11 = 5)
-                        // 7 = Number of stop bits (0 = 1 stop bit, 1 = 1-1/2 (with 5 data bits no parity), 1 (8 data plus parity) or 2)
-                        newValue = 0;
+                        // Return firmware-compatible ACIA Control Register configuration
+                        // 0x16 = 00010110 for typical communications setup:
+                        newValue = 0x16;
+                        // Bits 0-3: Baud rate = 6 (actual rate irrelevant for TCP/telnet)
+                        // Bit 4: Use internal baud rate generator = 1
+                        // Bits 5-6: 8 data bits = 00  
+                        // Bit 7: 1 stop bit = 0
+                        // This matches typical SSC communications mode configuration
                     }
                     break;
                 case WRITE:
@@ -350,7 +399,6 @@ public class CardSSC extends Card {
     @Override
     public void tick() {
         if (RECV_IRQ_ENABLED && newInputAvailable.get()) {
-            // newInputAvailable = false;
             triggerIRQ();
         }
     }
@@ -364,7 +412,7 @@ public class CardSSC extends Card {
     }
 
     private int getInputByte() throws IOException {
-        if (newInputAvailable.get()) {
+        if (isConnected() && newInputAvailable.get()) {
             synchronized (newInputAvailable) {
                 int in = socketInput.read() & DATA_BITS;
                 if (RECV_STRIP_LF && in == 10 && lastInputByte == 13) {
@@ -373,8 +421,11 @@ public class CardSSC extends Card {
                 lastInputByte = in;
                 newInputAvailable.set(false);
            }
+           return lastInputByte;
+        } else {
+            // When not connected, don't return any data
+            return 0;
         }
-        return lastInputByte;
     }
     long lastTransmission = -1L;
 
@@ -414,8 +465,7 @@ public class CardSSC extends Card {
     }
 
     public void hangUp() {
-        lastInputByte = 0;
-        lastTransmission = -1L;
+        resetConnectionState();
         if (clientSocket != null && clientSocket.isConnected()) {
             try {
                 clientSocket.shutdownInput();
@@ -460,9 +510,7 @@ public class CardSSC extends Card {
     @Override
     public void resume() {
         if (!isRunning()) {
-            RECV_IRQ_ENABLED = false;
-            TRANS_IRQ_ENABLED = false;
-            IRQ_TRIGGERED = false;
+            resetToDisconnectedState();
 
             //socket.setReuseAddress(true);
             listenThread = new Thread(this::socketMonitor);
@@ -480,7 +528,8 @@ public class CardSSC extends Card {
         if (lastTransmission == -1 || System.currentTimeMillis() > (lastTransmission + livenessCheck)) {
             try {
                 sendOutputByte(0);
-                return true;
+                // sendOutputByte sets lastTransmission to -1L if not actually connected
+                return lastTransmission != -1L;
             } catch (IOException e) {
                 return false;
             }
@@ -491,11 +540,21 @@ public class CardSSC extends Card {
 
     @Override
     protected void handleFirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
-        // Do nothing -- the card rom does everything
+        
+        // Handle all read operations for fetching instruction bytes
+        if (type == TYPE.READ_DATA || type == TYPE.READ_OPERAND || type == TYPE.EXECUTE) {
+            int romByte = getCxRom().readByte(getCxRom().type.getBaseAddress() + register) & 0xFF;
+            e.setNewValue(romByte);
+        }
     }
 
     @Override
     protected void handleC8FirmwareAccess(int register, TYPE type, int value, RAMEvent e) {
-        // There is no special c8 rom behavior for this card
+        
+        // Handle all read operations for fetching instruction bytes
+        if (type == TYPE.READ_DATA || type == TYPE.READ_OPERAND || type == TYPE.EXECUTE) {
+            int romByte = getC8Rom().readByte(getC8Rom().type.getBaseAddress() + register) & 0xFF;
+            e.setNewValue(romByte);
+        }
     }
 }

@@ -90,4 +90,12 @@ public class CardExt80Col extends RAM128k {
     public void attach() {
         // Nothing to do...
     }
+
+    @Override
+    public void dumpMemoryMap() {
+        System.out.println("=== CardExt80Col Memory Map (stub implementation) ===");
+        System.out.println("Memory State: " + getState());
+        System.out.println("This implementation shows basic 80-column card memory mapping");
+        System.out.println("=== END Memory Map ===");
+    }
 }

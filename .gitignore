@@ -22,3 +22,4 @@ hs_err_pid*
 _acme_tmp*
 .vscode/settings.json
 *.log
+.claude/settings.local.json

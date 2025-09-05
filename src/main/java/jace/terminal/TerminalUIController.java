@@ -252,7 +252,8 @@ public class TerminalUIController {
     }
     
     /**
-     * An abstract class implementing TerminalMode to simplify custom mode creation
+     * Gets the terminal from the AbstractTerminalMode
+     * @return The terminal instance
      */
     private abstract static class AbstractTerminalMode implements TerminalMode {
         private final JaceTerminal terminal;
@@ -264,30 +265,6 @@ public class TerminalUIController {
         protected JaceTerminal getTerminal() {
             return terminal;
         }
-    }
-    
-    /**
-     * UI Terminal Mode for linking with the UI
-     */
-    private static class UITerminalMode extends AbstractTerminalMode {
-        public UITerminalMode() {
-            super(null);
-        }
-        
-        @Override
-        public String getName() { return "Main"; }
-        
-        @Override
-        public String getPrompt() { return "JACE> "; }
-        
-        @Override
-        public boolean processCommand(String command) { return false; }
-        
-        @Override
-        public void printHelp() {}
-        
-        @Override
-        public boolean printCommandHelp(String command) { return false; }
     }
     
     /**
@@ -312,7 +289,7 @@ public class TerminalUIController {
                         modeLabel.setText("MAIN>");
                     }
                 } catch (Exception e) {
-                    System.err.println("Error updating mode label: " + e);
+                    System.err.println("Error updating mode label: " + e.getMessage());
                 }
             });
         }
@@ -347,6 +324,31 @@ public class TerminalUIController {
             inputField.setPromptText("Enter command...");
             
             Button sendButton = new Button("Send");
+            
+            // Ensure TextArea can be focused and selectable while keeping input field as primary focus
+            consoleOutput.setFocusTraversable(true);
+            
+            // Create a context menu with copy option
+            javafx.scene.control.ContextMenu contextMenu = new javafx.scene.control.ContextMenu();
+            javafx.scene.control.MenuItem copyMenuItem = new javafx.scene.control.MenuItem("Copy");
+            copyMenuItem.setOnAction(event -> {
+                consoleOutput.copy();
+                inputField.requestFocus();
+            });
+            contextMenu.getItems().add(copyMenuItem);
+            consoleOutput.setContextMenu(contextMenu);
+            
+            // Create a custom focus listener that allows selection while keeping input focused
+            consoleOutput.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+                if (isFocused) {
+                    // Only return focus to input if there's no ongoing selection
+                    Platform.runLater(() -> {
+                        if (consoleOutput.getSelectedText() == null || consoleOutput.getSelectedText().isEmpty()) {
+                            inputField.requestFocus();
+                        }
+                    });
+                }
+            });
             
             // Add a label to display the current mode 
             modeLabel = new javafx.scene.control.Label("MAIN>");

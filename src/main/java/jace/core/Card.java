@@ -40,6 +40,7 @@ public abstract class Card extends TimedDevice {
     private RAMListener ioListener;
     private RAMListener firmwareListener;
     private RAMListener c8firmwareListener;
+    private int debugCallCount = 0;
 
     /**
      * Creates a new instance of Card
@@ -67,6 +68,7 @@ public abstract class Card extends TimedDevice {
     @Override
     public void attach() {
         registerListeners();
+        resume();
     }
 
     @Override
@@ -98,10 +100,14 @@ public abstract class Card extends TimedDevice {
         return c8Rom;
     }
 
-    @Override
+    @Override  
     public void reconfigure() {
         // Emulator.whileSuspended(c-> {
             unregisterListeners();
+            // Clear old listener references to prevent stale object removal attempts
+            ioListener = null;
+            firmwareListener = null; 
+            c8firmwareListener = null;
             registerListeners();
         // });
     }
@@ -111,6 +117,11 @@ public abstract class Card extends TimedDevice {
     }
 
     protected void registerListeners() {
+        // Safety check: Only register listeners if this card is actually assigned to this slot
+        if (getMemory().getCard(slot).map(c -> c == this).orElse(false) == false) {
+            return;
+        }
+        
         int baseIO = 0x0c080 + slot * 16;
         int baseRom = 0x0c000 + slot * 256;
         ioListener = getMemory().observe("Slot " + getSlot() + " " + getDeviceName() + " IO access", RAMEvent.TYPE.ANY, baseIO, baseIO + 15, (e) -> {
@@ -122,7 +133,21 @@ public abstract class Card extends TimedDevice {
         });
 
         firmwareListener = getMemory().observe("Slot " + getSlot() + " " + getDeviceName() + " CX Firmware access", RAMEvent.TYPE.ANY, baseRom, baseRom + 255, (e) -> {
-            getMemory().setActiveCard(slot);
+            // Special case: C7FF is used to disable INTC8ROM and should NOT activate slot 7
+            boolean isC7FF = (e.getAddress() & 0xFF) == 0xFF && slot == 7;
+            
+            // First: Set active card which triggers memory reconfiguration (except for C7FF)
+            if (!isC7FF) {
+                getMemory().setActiveCard(slot);
+            }
+            
+            // Second: For reads, re-read from the now-correctly-configured memory and inject correct value
+            if (e.getType().isRead()) {
+                byte correctValue = getMemory().readRaw(e.getAddress());
+                e.setNewValue(correctValue);
+            }
+            
+            // Third: Handle firmware access as normal
             // Sather 6-4: Writes will still go through even when CXROM inhibits slot ROM
             if (SoftSwitches.CXROM.isOff() || !e.getType().isRead()) {
                     if (e.getType() == TYPE.READ_FAKE) {
@@ -141,8 +166,14 @@ public abstract class Card extends TimedDevice {
     }
 
     protected void unregisterListeners() {
-        getMemory().removeListener(ioListener);
-        getMemory().removeListener(firmwareListener);
-        getMemory().removeListener(c8firmwareListener);
+        if (ioListener != null) {
+            getMemory().removeListener(ioListener);
+        }
+        if (firmwareListener != null) {
+            getMemory().removeListener(firmwareListener);
+        }
+        if (c8firmwareListener != null) {
+            getMemory().removeListener(c8firmwareListener);
+        }
     }
 }

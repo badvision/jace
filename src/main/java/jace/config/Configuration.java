@@ -298,17 +298,11 @@ public class Configuration implements Reconfigurable {
 //            System.out.println("Evaluating field " + f.getName());
             try {
                 Object o = f.get(node.subject);
-                if (o == null || !f.getType().isPrimitive() && f.getType() != String.class && visited.contains(o)) {
-                    continue;
-                }
-                visited.add(o);
-//                System.out.println(o.getClass().getName());
-                // If the object in question is not reconfigurable,
-                // skip over it and investigate its fields instead
-//                if (o.getClass().isAssignableFrom(Reconfigurable.class)) {
-//                if (Reconfigurable.class.isAssignableFrom(o.getClass())) {
+                
+                // Check for ConfigurableField annotation BEFORE null check
+                // This allows null String/primitive fields to be configurable
                 if (f.isAnnotationPresent(ConfigurableField.class)) {
-                    if (ISelection.class.isAssignableFrom(o.getClass())) {
+                    if (o != null && ISelection.class.isAssignableFrom(o.getClass())) {
                         ISelection selection = (ISelection) o;
                         node.setRawFieldValue(f.getName(), (Serializable) selection.getSelections().get(selection.getValue()));
                     } else {
@@ -316,6 +310,12 @@ public class Configuration implements Reconfigurable {
                     }
                     continue;
                 }
+                
+                // Skip null objects and already visited non-primitive/non-String objects
+                if (o == null || !f.getType().isPrimitive() && f.getType() != String.class && visited.contains(o)) {
+                    continue;
+                }
+                visited.add(o);
 
                 if (o instanceof Reconfigurable r) {
                     ConfigNode child = node.findChild(r.getName());
@@ -594,9 +594,15 @@ public class Configuration implements Reconfigurable {
         for (Map.Entry<String, String> setting : settings.entrySet()) {
             Map<String, ConfigNode> shortNames = new HashMap<>();
             buildNodeMap(BASE, shortNames);
+            
+            System.out.println("=== Available shortNames in Configuration ===");
+            for (String key : shortNames.keySet()) {
+                System.out.println("  shortName: '" + key + "' -> " + shortNames.get(key).subject.getClass().getSimpleName());
+            }
 
             String settingName = setting.getKey();
             String value = setting.getValue();
+            System.out.println("=== Processing setting: " + settingName + " = " + value + " ===");
             String[] parts = settingName.split("\\.");
             if (parts.length != 2) {
                 System.err.println("Unable to parse settting, should be in the form of DEVICE.PROPERTYNAME " + settingName);
@@ -604,6 +610,7 @@ public class Configuration implements Reconfigurable {
             }
             String deviceName = parts[0];
             String fieldName = parts[1];
+            System.out.println("  Looking for deviceName: '" + deviceName.toLowerCase() + "'");
             ConfigNode n = shortNames.get(deviceName.toLowerCase());
             if (n == null) {
                 System.err.println("Unable to find device named " + deviceName + ", try one of these: " + String.join(", ", shortNames.keySet()));
@@ -612,10 +619,12 @@ public class Configuration implements Reconfigurable {
 
             boolean found = false;
             List<String> shortFieldNames = new ArrayList<>();
+            System.out.println("  === Available fields for device " + deviceName + " (" + n.subject.getName() + ") ===");
             for (String longName : n.getAllSettingNames()) {
                 ConfigurableField f = getConfigurableFieldInfo(n.subject, longName);
                 String shortName = getShortName(f, longName);
                 shortFieldNames.add(shortName);
+                System.out.println("    field: " + longName + " (shortName: " + shortName + ")");
 
                 if (fieldName.equalsIgnoreCase(longName) || fieldName.equalsIgnoreCase(shortName)) {
                     found = true;

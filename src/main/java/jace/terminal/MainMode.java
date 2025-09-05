@@ -26,6 +26,11 @@ import java.util.logging.Logger;
 import jace.Emulator;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.SoftSwitches;
+import jace.core.Motherboard;
+import jace.core.Device;
+import jace.core.RAMListener;
+import jace.core.RAMEvent;
+import jace.core.Keyboard;
 
 /**
  * Main command mode for the Terminal
@@ -39,6 +44,7 @@ public class MainMode implements TerminalMode {
     private final Map<String, String> commandAliases = new HashMap<>();
     private final Map<String, String> commandHelp = new HashMap<>();
     private boolean softSwitchLoggingEnabled = false;
+    
 
     public MainMode(JaceTerminal terminal) {
         this.terminal = terminal;
@@ -63,6 +69,8 @@ public class MainMode implements TerminalMode {
 
         commands.put("loadbin", this::loadBinary);
         commands.put("savebin", this::saveBinary);
+        commands.put("key", this::simulateKeypress);
+        commands.put("help", this::showHelp);
 
         addAlias("m", "monitor");
         addAlias("a", "assembler");
@@ -76,6 +84,8 @@ public class MainMode implements TerminalMode {
         addAlias("ed", "ejectdisk");
         addAlias("lb", "loadbin");
         addAlias("sb", "savebin");
+        addAlias("k", "key");
+        addAlias("?", "help");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -118,6 +128,18 @@ public class MainMode implements TerminalMode {
                 "Saves a block of memory to a binary file.\nUsage: savebin <filename> <address> <size> (or sb <filename> <address> <size>)\n"
                         +
                         "Address and size can be decimal or hex with $ or 0x prefix.");
+
+        commandHelp.put("key",
+                "Simulates keypresses or types a string.\nUsage: key <value1> [value2] [value3] ... (or k <value1> [value2] ...)\n" +
+                        "Each value can be:\n" +
+                        "- A full string in double quotes (e.g. \"Hello World\")\n" +
+                        "- A single non-digit character (e.g. a)\n" +
+                        "- A quoted character (e.g. '9' or \"9\")\n" +
+                        "- A hex value with $ prefix (e.g. $41)\n" +
+                        "- A decimal number (e.g. 65)\n" +
+                        "- An escape sequence: \\n (CR, code 13), \\t (Tab, code 9)\n\n" +
+                        "Multiple values will be processed sequentially.\n" +
+                        "Strings support escape sequences (e.g. \"Hello\\nWorld\" types \"Hello\", CR, \"World\").");
         
         LOG.fine("Commands initialized");
     }
@@ -202,13 +224,76 @@ public class MainMode implements TerminalMode {
     }
 
     // Command implementations
+    // Since all softswitches are in the C0xx range, just look for reads or writes
+    // and then after about 1ms, compare switches to previous state and log any changes
+    RAMListener softSwitchListener = null;
+    private Map<SoftSwitches, Boolean> currentSoftSwitchState = new HashMap<>();
+
+    private Map<SoftSwitches, Boolean> getSoftSwitchState() {
+        Map<SoftSwitches, Boolean> state = new HashMap<>();
+        for (SoftSwitches sw : SoftSwitches.values()) {
+            if (sw != SoftSwitches.VBL) {
+                state.put(sw, sw.isOn());
+            }
+        }
+        return state;
+    }
 
     private void toggleSoftSwitchLogging(String[] args) {
         softSwitchLoggingEnabled = !softSwitchLoggingEnabled;
         LOG.info("SoftSwitch logging " + (softSwitchLoggingEnabled ? "enabled" : "disabled"));
         output.println("SoftSwitch logging " + (softSwitchLoggingEnabled ? "enabled" : "disabled"));
+        if (softSwitchLoggingEnabled) {
+            // Track current state
+            currentSoftSwitchState = getSoftSwitchState();
+            // Now register a ram listener for the C000-C0FF range
+            softSwitchListener = new RAMListener("SoftSwitchLogger", RAMEvent.TYPE.ANY, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
+                @Override
+                protected void doConfig() {
+                    setScopeStart(0xC000);
+                    setScopeEnd(0xC0FF);
+                }
 
-        // TODO: Implement actual listener on SoftSwitch state changes when enabled
+                @Override
+                protected void doEvent(RAMEvent event) {
+                    // Don't immediately check - give other state changes a chance to happen
+                    Emulator.whileSuspended(computer -> {
+                        // Schedule a task to check for softswitch state changes after 5ms
+                        Runnable task = () -> checkSoftSwitchChanges();
+                        java.util.Timer timer = new java.util.Timer("SoftSwitchCheck", true);
+                        timer.schedule(new java.util.TimerTask() {
+                            @Override
+                            public void run() {
+                                task.run();
+                                timer.cancel();
+                            }
+                        }, 5);
+                    });
+                }
+            };
+            Emulator.withMemory(m -> m.addListener(softSwitchListener));
+        } else {
+            Emulator.withMemory(m -> m.removeListener(softSwitchListener));
+            softSwitchListener = null;
+        }
+    }
+
+    synchronized private void checkSoftSwitchChanges() {
+        Map<SoftSwitches, Boolean> newState = getSoftSwitchState();
+        for (SoftSwitches sw : SoftSwitches.values()) {
+            Boolean oldValue = currentSoftSwitchState.get(sw);
+            Boolean newValue = newState.get(sw);
+            
+            // Check if the state has changed
+            if (oldValue != null && newValue != null && !oldValue.equals(newValue)) {
+                String message = sw.name() + "->" + (newValue ? "ON" : "OFF");
+                LOG.info(message);
+                output.println(message);
+            }
+        }
+        
+        // Update current state
+        currentSoftSwitchState = newState;
     }
 
     private void showSoftSwitchState(String[] args) {
@@ -259,7 +344,8 @@ public class MainMode implements TerminalMode {
             }
         }
 
-        MOS65C02 cpu = getCPU();
+        // Get CPU directly from emulator instead of using getCPU() which can hang
+        MOS65C02 cpu = Emulator.withComputer(c -> (MOS65C02) c.getCpu(), null);
         if (cpu == null) {
             output.println("CPU not available");
             return;
@@ -268,21 +354,80 @@ public class MainMode implements TerminalMode {
         // Save the current program counter
         int startPC = cpu.getProgramCounter();
 
-        // Step the CPU
+        // Step all devices
         try {
             final int steps = stepCount;
-            for (int i = 0; i < stepCount; i++) {
-                Emulator.withComputer((computer) -> {
-                    computer.pause();
-                    // Execute a single instruction
-                    computer.getCpu().tick();
-                    computer.resume();
-                });
-            }
+            LOG.info("About to enter Emulator.withComputer for stepping");
+            
+            Emulator.withComputer((computer) -> {
+                LOG.info("Inside withComputer - getting motherboard");
+                Motherboard motherboard = computer.getMotherboard();
+                
+                LOG.info("Motherboard state before: running=" + motherboard.isRunning() + " paused=" + motherboard.isPaused());
+                
+                // Ensure motherboard is suspended (no free-running timer)
+                LOG.info("Calling motherboard.suspend()");
+                motherboard.suspend();
+                
+                LOG.info("Motherboard state after suspend: running=" + motherboard.isRunning() + " paused=" + motherboard.isPaused());
+                
+                // Use resumeInThread to put devices in running state without starting timer thread
+                // This allows manual stepping while devices are in proper state for tick cascade
+                LOG.info("Calling motherboard.resumeInThread()");
+                motherboard.resumeInThread();
+                
+                LOG.info("Motherboard state after resumeInThread: running=" + motherboard.isRunning() + " paused=" + motherboard.isPaused());
+                
+                for (int i = 0; i < steps; i++) {
+                    try {
+                        LOG.info("Executing step " + (i+1) + " of " + steps);
+                        
+                        // Check motherboard child devices before tick
+                        int childCount = 0;
+                        for (Device child : motherboard.getChildren()) {
+                            childCount++;
+                            LOG.info("  Child device: " + child.getShortName() + 
+                                   " (running=" + child.isRunning() + 
+                                   ", paused=" + child.isPaused() + ")");
+                        }
+                        LOG.info("Motherboard child device count before step " + (i+1) + ": " + childCount);
+                        
+                        // Tick the motherboard - this will cascade to all child devices
+                        // (CPU, cards, speaker, etc.) that are running and not paused
+                        LOG.info("About to call motherboard.doTick() for step " + (i+1));
+                        motherboard.doTick();
+                        LOG.info("motherboard.doTick() completed for step " + (i+1));
+                        
+                        // Check motherboard child devices after tick
+                        int childCountAfter = 0;
+                        for (Device child : motherboard.getChildren()) {
+                            childCountAfter++;
+                        }
+                        LOG.info("Motherboard child device count after step " + (i+1) + ": " + childCountAfter);
+                        
+                        LOG.info("Step " + (i+1) + " completed");
+                    } catch (Exception e) {
+                        LOG.log(Level.WARNING, "Error executing step " + (i+1), e);
+                        output.println("Error executing step: " + e.getMessage());
+                        break;
+                    }
+                }
+                
+                LOG.info("All steps completed, calling final suspend");
+                // Keep motherboard suspended to prevent free-running
+                motherboard.suspend();
+                LOG.info("Final suspend completed");
+            });
+            
+            LOG.info("Exited Emulator.withComputer");
             
             // Print CPU state after stepping
             output.println("Stepped " + stepCount + " instruction" + (stepCount > 1 ? "s" : ""));
-            showCPUState(cpu);
+            // Get fresh CPU reference and show state
+            MOS65C02 finalCpu = Emulator.withComputer(c -> (MOS65C02) c.getCpu(), null);
+            if (finalCpu != null) {
+                showCPUState(finalCpu);
+            }
         } catch (Exception e) {
             output.println("Error during CPU step: " + e.getMessage());
         }
@@ -403,11 +548,7 @@ public class MainMode implements TerminalMode {
         int address;
 
         try {
-            if (args[1].startsWith("$")) {
-                address = Integer.parseInt(args[1].substring(1), 16) & 0xFFFF;
-            } else {
-                address = Integer.parseInt(args[1]) & 0xFFFF;
-            }
+            address = parseHexAddress(args[1]);
         } catch (NumberFormatException e) {
             LOG.info("Invalid address format: " + args[1]);
             output.println("Invalid address: " + args[1]);
@@ -415,8 +556,94 @@ public class MainMode implements TerminalMode {
         }
 
         LOG.info("Binary load requested: " + filename + " at $" + Integer.toHexString(address));
-        // TODO: Implement binary loading
-        output.println("Binary loading not yet implemented");
+        
+        try {
+            // Read the binary file
+            java.nio.file.Path filePath = java.nio.file.Paths.get(filename);
+            if (!java.nio.file.Files.exists(filePath)) {
+                output.println("File not found: " + filename);
+                return;
+            }
+            
+            byte[] fileData = java.nio.file.Files.readAllBytes(filePath);
+            if (fileData.length == 0) {
+                output.println("File is empty: " + filename);
+                return;
+            }
+            
+            // Check if the data will fit in memory
+            if (address + fileData.length > 0x10000) {
+                output.println("File too large: would exceed memory bounds");
+                return;
+            }
+            
+            // Ensure emulator is fully initialized before attempting memory operations
+            LOG.info("Ensuring emulator is fully initialized...");
+            
+            // Force a complete emulator initialization cycle
+            try {
+                Thread.sleep(100); // Give initialization time to complete
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            
+            // Check if emulator is running and properly initialized
+            boolean emulatorReady = Emulator.withComputer(computer -> {
+                if (computer == null) {
+                    LOG.warning("Computer is null - emulator not fully initialized");
+                    return false;
+                }
+                
+                if (computer.getMemory() == null) {
+                    LOG.warning("Memory system is null - emulator not fully initialized");
+                    return false;
+                }
+                
+                LOG.info("Computer type: " + computer.getClass().getSimpleName());
+                LOG.info("Memory type: " + computer.getMemory().getClass().getSimpleName());
+                
+                // Force memory reconfiguration to ensure it's in a known state
+                if (computer.getMemory() instanceof jace.apple2e.RAM128k) {
+                    jace.apple2e.RAM128k ram128k = (jace.apple2e.RAM128k) computer.getMemory();
+                    LOG.info("Pre-config memory state: " + ram128k.getState());
+                    ram128k.configureActiveMemory();
+                    LOG.info("Post-config memory state: " + ram128k.getState());
+                }
+                
+                return true;
+            }, false);
+            
+            if (!emulatorReady) {
+                output.println("Error: Emulator not fully initialized. Cannot load binary.");
+                return;
+            }
+            
+            // Load the data into emulator memory
+            Emulator.withMemory(memory -> {
+                LOG.info("Loading " + fileData.length + " bytes starting at $" + Integer.toHexString(address).toUpperCase());
+                
+                for (int i = 0; i < fileData.length; i++) {
+                    int addr = (address + i) & 0xFFFF;
+                    byte value = (byte) (fileData[i] & 0xFF);
+                    
+                    // Write to main memory (auxFlag = false) like MonitorMode does
+                    memory.write(addr, value, true, false);
+                }
+                
+                LOG.info("Memory write operations completed");
+            });
+            
+            output.println("Loaded " + fileData.length + " bytes from " + filename + 
+                          " to $" + Integer.toHexString(address).toUpperCase());
+            LOG.info("Successfully loaded " + fileData.length + " bytes to $" + Integer.toHexString(address));
+            
+        } catch (java.io.IOException e) {
+            LOG.log(Level.WARNING, "Error reading file: " + filename, e);
+            output.println("Error reading file: " + e.getMessage());
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error loading binary: " + filename, e);
+            output.println("Error loading binary: " + e.getMessage());
+        }
     }
 
     private void saveBinary(String[] args) {
@@ -429,17 +656,8 @@ public class MainMode implements TerminalMode {
         int address, size;
 
         try {
-            if (args[1].startsWith("$")) {
-                address = Integer.parseInt(args[1].substring(1), 16) & 0xFFFF;
-            } else {
-                address = Integer.parseInt(args[1]) & 0xFFFF;
-            }
-
-            if (args[2].startsWith("$")) {
-                size = Integer.parseInt(args[2].substring(1), 16) & 0xFFFF;
-            } else {
-                size = Integer.parseInt(args[2]) & 0xFFFF;
-            }
+            address = parseHexAddress(args[1]);
+            size = parseHexAddress(args[2]);
         } catch (NumberFormatException e) {
             LOG.info("Invalid address or size format");
             output.println("Invalid address or size");
@@ -448,8 +666,214 @@ public class MainMode implements TerminalMode {
 
         LOG.info("Binary save requested: " + filename + " from $" + 
                 Integer.toHexString(address) + " size $" + Integer.toHexString(size));
-        // TODO: Implement binary saving
-        output.println("Binary saving not yet implemented");
+        
+        try {
+            // Check if size is valid
+            if (size <= 0) {
+                output.println("Size must be positive");
+                return;
+            }
+            
+            // Check if the memory range is valid
+            if (address + size > 0x10000) {
+                output.println("Memory range would exceed address space");
+                return;
+            }
+            
+            // Ensure emulator is fully initialized before attempting memory operations
+            LOG.info("Ensuring emulator is fully initialized...");
+            
+            // Check if emulator is running and properly initialized
+            boolean emulatorReady = Emulator.withComputer(computer -> {
+                if (computer == null) {
+                    LOG.warning("Computer is null - emulator not fully initialized");
+                    return false;
+                }
+                
+                if (computer.getMemory() == null) {
+                    LOG.warning("Memory system is null - emulator not fully initialized");
+                    return false;
+                }
+                
+                LOG.info("Computer type: " + computer.getClass().getSimpleName());
+                LOG.info("Memory type: " + computer.getMemory().getClass().getSimpleName());
+                
+                return true;
+            }, false);
+            
+            if (!emulatorReady) {
+                output.println("Error: Emulator not fully initialized. Cannot save binary.");
+                return;
+            }
+            
+            // Read data from emulator memory
+            byte[] dataToSave = new byte[size];
+            Emulator.withMemory(memory -> {
+                LOG.info("Reading " + size + " bytes starting at $" + Integer.toHexString(address).toUpperCase());
+                
+                for (int i = 0; i < size; i++) {
+                    int addr = (address + i) & 0xFFFF;
+                    // Read from main memory (auxFlag = false) like loadBinary does
+                    byte value = memory.read(addr, RAMEvent.TYPE.READ_DATA, true, false);
+                    dataToSave[i] = value;
+                }
+                
+                LOG.info("Memory read operations completed");
+            });
+            
+            // Write the data to file
+            java.nio.file.Path filePath = java.nio.file.Paths.get(filename);
+            java.nio.file.Files.write(filePath, dataToSave);
+            
+            output.println("Saved " + size + " bytes from $" + Integer.toHexString(address).toUpperCase() + 
+                          " to " + filename);
+            LOG.info("Successfully saved " + size + " bytes from $" + Integer.toHexString(address) + " to " + filename);
+            
+        } catch (java.io.IOException e) {
+            LOG.log(Level.WARNING, "Error writing file: " + filename, e);
+            output.println("Error writing file: " + e.getMessage());
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error saving binary: " + filename, e);
+            output.println("Error saving binary: " + e.getMessage());
+        }
+    }
+
+    private void simulateKeypress(String[] args) {
+        if (args.length < 1) {
+            output.println("Usage: key <value>");
+            return;
+        }
+
+        // Check if the first argument is a full string in double quotes
+        if (args[0].startsWith("\"")) {
+            // Handle a quoted string that might span multiple args due to spaces
+            String fullInput = String.join(" ", args);
+            if (fullInput.startsWith("\"") && fullInput.endsWith("\"") && fullInput.length() > 3) {
+                String textToType = fullInput.substring(1, fullInput.length() - 1);
+                processStringInput(textToType);
+                return;
+            }
+        }
+        
+        // Handle multiple arguments as separate key inputs
+        for (String arg : args) {
+            // Handle a quoted string for a single argument
+            if (arg.startsWith("\"") && arg.endsWith("\"") && arg.length() > 3) {
+                String textToType = arg.substring(1, arg.length() - 1);
+                processStringInput(textToType);
+                continue;
+            }
+            
+            // Handle a single key input
+            processSingleKeyInput(arg);
+        }
+    }
+    
+    /**
+     * Process a string of characters to simulate typing
+     * @param text The text to type
+     */
+    private void processStringInput(String text) {
+        output.println("Typing string: \"" + text + "\"");
+        LOG.info("Simulating string input: " + text);
+        
+        // Process the string character by character, handling escape sequences
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            byte keyCode;
+            
+            // Handle escape sequences
+            if (c == '\\' && i + 1 < text.length()) {
+                char next = text.charAt(i + 1);
+                i++; // Skip the next character as we're handling it now
+                
+                switch (next) {
+                    case 'n':
+                        keyCode = 13; // Carriage return for Apple II
+                        break;
+                    case 't':
+                        keyCode = 9;  // Tab
+                        break;
+                    case '\\':
+                        keyCode = '\\'; // Backslash
+                        break;
+                    default:
+                        // If it's not a recognized escape, just use it as is
+                        keyCode = (byte)(next & 0xFF);
+                        break;
+                }
+            } else {
+                keyCode = (byte)(c & 0xFF);
+            }
+            
+            simulateKeypressInternal(keyCode);
+            
+            // Add a small delay between keypresses
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    /**
+     * Process a single key input
+     * @param input The key input string
+     */
+    private void processSingleKeyInput(String input) {
+        try {
+            byte keyCode;
+            
+            // Check if it's a hex value with $ prefix
+            if (input.startsWith("$")) {
+                keyCode = (byte)(Integer.parseInt(input.substring(1), 16) & 0xFF);
+            }
+            // Check if it's a quoted character (handles 'a' or "a")
+            else if ((input.startsWith("'") && input.endsWith("'") && input.length() == 3) || 
+                     (input.startsWith("\"") && input.endsWith("\"") && input.length() == 3)) {
+                keyCode = (byte)(input.charAt(1) & 0xFF);
+            }
+            // Handle escape sequences like \n or \t
+            else if (input.startsWith("\\") && input.length() == 2) {
+                switch (input.charAt(1)) {
+                    case 'n':
+                        keyCode = 13; // Carriage return for Apple II
+                        break;
+                    case 't':
+                        keyCode = 9;  // Tab
+                        break;
+                    default:
+                        // If it's not a recognized escape, just use the second character
+                        keyCode = (byte)(input.charAt(1) & 0xFF);
+                        break;
+                }
+            }
+            // Check if it's a single character that's not a digit (to avoid ambiguity)
+            else if (input.length() == 1 && !Character.isDigit(input.charAt(0))) {
+                keyCode = (byte)(input.charAt(0) & 0xFF);
+            }
+            // Otherwise try parsing as a decimal number
+            else {
+                keyCode = (byte)(Integer.parseInt(input) & 0xFF);
+            }
+
+            simulateKeypressInternal(keyCode);
+        } catch (NumberFormatException e) {
+            LOG.info("Invalid key value: " + input);
+            output.println("Invalid key value: " + input);
+        }
+    }
+
+    private void simulateKeypressInternal(byte keyCode) {
+        LOG.info("Simulating keypress with code: " + keyCode);
+        
+        // Send the keypress to the emulator
+        Emulator.withComputer(computer -> {
+            Keyboard.pressKey(keyCode);
+            output.println("Key pressed: " + String.format("$%02X", keyCode & 0xFF) + 
+                           (keyCode >= 32 && keyCode < 127 ? " ('" + (char)keyCode + "')" : ""));
+        });
     }
 
     private void showCPUState(MOS65C02 cpu) {
@@ -686,5 +1110,39 @@ public class MainMode implements TerminalMode {
      */
     protected void setCarryFlag(MOS65C02 cpu, boolean value) {
         cpu.setCarryFlag(value);
+    }
+
+    private void showHelp(String[] args) {
+        if (args.length > 0) {
+            // Show help for specific command
+            if (!printCommandHelp(args[0])) {
+                output.println("No help available for command: " + args[0]);
+            }
+        } else {
+            // Show general help
+            printHelp();
+        }
+    }
+    
+    /**
+     * Parse a hex address string that may have a $ prefix
+     * @param addrStr The address string (e.g., "$2000", "2000", "0x2000")
+     * @return The parsed address as an integer
+     * @throws NumberFormatException if the address is not valid
+     */
+    private int parseHexAddress(String addrStr) throws NumberFormatException {
+        String hexStr = addrStr;
+        
+        // Handle $ prefix (Apple II convention)
+        if (hexStr.startsWith("$")) {
+            hexStr = hexStr.substring(1);
+        }
+        // Handle 0x prefix (C convention)  
+        else if (hexStr.startsWith("0x") || hexStr.startsWith("0X")) {
+            hexStr = hexStr.substring(2);
+        }
+        
+        // Parse as hex and mask to 16-bit address space
+        return Integer.parseInt(hexStr, 16) & 0xFFFF;
     }
 }

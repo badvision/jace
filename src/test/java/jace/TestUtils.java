@@ -130,6 +130,11 @@ public class TestUtils {
         public PagedMemory getAuxLanguageCard2() {
             return fakeMemory;
         }
+
+        @Override
+        public void dumpMemoryMap() {
+            // No-op for fake RAM used in tests
+        }
     }
 
     public static void clearFakeRam(RAM ram) {
