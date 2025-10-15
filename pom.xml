@@ -31,14 +31,20 @@
                 <artifactId>gluonfx-maven-plugin</artifactId>
                 <version>1.0.23</version>
                 <configuration>
+                    <target>host</target>
                     <mainClass>jace.JaceApplication</mainClass>
-                    <resourcesList>ceAppl
+                    <executable>Jace</executable>
+                    <appIdentifier>jace</appIdentifier>
+                    <resourcesList>
                         <resource>.*</resource>
                     </resourcesList>
                     <releaseConfiguration>
                         <vendor>org.badvision</vendor>
                         <skipSigning>true</skipSigning>
                     </releaseConfiguration>
+                    <nativeImageArgs>
+                        <arg>--no-fallback</arg>
+                    </nativeImageArgs>
                 </configuration>
             </plugin>
             <plugin>
