@@ -572,7 +572,15 @@
   "methods":[{"name":"valueOf","parameterTypes":["java.lang.String"] }]
 },
 {
+  "name":"javafx.geometry.HPos",
+  "methods":[{"name":"valueOf","parameterTypes":["java.lang.String"] }]
+},
+{
   "name":"javafx.geometry.Pos",
+  "methods":[{"name":"valueOf","parameterTypes":["java.lang.String"] }]
+},
+{
+  "name":"javafx.geometry.VPos",
   "methods":[{"name":"valueOf","parameterTypes":["java.lang.String"] }]
 },
 {
@@ -853,14 +861,64 @@
   "queriedMethods":[{"name":"getAlignment","parameterTypes":["javafx.scene.Node"] }]
 },
 {
+  "name":"javafx.scene.layout.ColumnConstraints",
+  "queryAllDeclaredMethods":true,
+  "queryAllPublicConstructors":true,
+  "methods":[
+    {"name":"<init>","parameterTypes":[] },
+    {"name":"setHalignment","parameterTypes":["javafx.geometry.HPos"] },
+    {"name":"setHgrow","parameterTypes":["javafx.scene.layout.Priority"] },
+    {"name":"setMinWidth","parameterTypes":["double"] },
+    {"name":"setMaxWidth","parameterTypes":["double"] },
+    {"name":"setPrefWidth","parameterTypes":["double"] }
+  ]
+},
+{
+  "name":"javafx.scene.layout.RowConstraints",
+  "queryAllDeclaredMethods":true,
+  "queryAllPublicConstructors":true,
+  "methods":[
+    {"name":"<init>","parameterTypes":[] },
+    {"name":"setValignment","parameterTypes":["javafx.geometry.VPos"] },
+    {"name":"setVgrow","parameterTypes":["javafx.scene.layout.Priority"] },
+    {"name":"setMinHeight","parameterTypes":["double"] },
+    {"name":"setMaxHeight","parameterTypes":["double"] },
+    {"name":"setPrefHeight","parameterTypes":["double"] }
+  ]
+},
+{
+  "name":"javafx.scene.layout.GridPane",
+  "queryAllDeclaredMethods":true,
+  "queryAllPublicConstructors":true,
+  "methods":[
+    {"name":"<init>","parameterTypes":[] },
+    {"name":"getColumnConstraints","parameterTypes":[] },
+    {"name":"getRowConstraints","parameterTypes":[] },
+    {"name":"setAlignment","parameterTypes":["javafx.geometry.Pos"] },
+    {"name":"setAlignment","parameterTypes":["javafx.scene.Node","javafx.geometry.Pos"] },
+    {"name":"setColumnIndex","parameterTypes":["javafx.scene.Node","java.lang.Integer"] },
+    {"name":"setRowIndex","parameterTypes":["javafx.scene.Node","java.lang.Integer"] },
+    {"name":"setColumnSpan","parameterTypes":["javafx.scene.Node","java.lang.Integer"] },
+    {"name":"setRowSpan","parameterTypes":["javafx.scene.Node","java.lang.Integer"] },
+    {"name":"setHalignment","parameterTypes":["javafx.scene.Node","javafx.geometry.HPos"] },
+    {"name":"setValignment","parameterTypes":["javafx.scene.Node","javafx.geometry.VPos"] },
+    {"name":"setMargin","parameterTypes":["javafx.scene.Node","javafx.geometry.Insets"] }
+  ],
+  "queriedMethods":[
+    {"name":"getAlignment","parameterTypes":["javafx.scene.Node"] },
+    {"name":"getColumnIndex","parameterTypes":["javafx.scene.Node"] },
+    {"name":"getRowIndex","parameterTypes":["javafx.scene.Node"] }
+  ]
+},
+{
   "name":"javafx.scene.layout.HBox",
   "queryAllDeclaredMethods":true,
   "queryAllPublicConstructors":true,
   "methods":[
-    {"name":"<init>","parameterTypes":[] }, 
-    {"name":"setAlignment","parameterTypes":["javafx.geometry.Pos"] }, 
-    {"name":"setFillHeight","parameterTypes":["boolean"] }, 
-    {"name":"setHgrow","parameterTypes":["javafx.scene.Node","javafx.scene.layout.Priority"] }, 
+    {"name":"<init>","parameterTypes":[] },
+    {"name":"setAlignment","parameterTypes":["javafx.geometry.Pos"] },
+    {"name":"setFillHeight","parameterTypes":["boolean"] },
+    {"name":"setHgrow","parameterTypes":["javafx.scene.Node","javafx.scene.layout.Priority"] },
     {"name":"setMargin","parameterTypes":["javafx.scene.Node","javafx.geometry.Insets"] }
   ],
   "queriedMethods":[{"name":"getHgrow","parameterTypes":["javafx.scene.Node"] }]
@@ -905,11 +963,13 @@
   "queryAllDeclaredMethods":true,
   "queryAllPublicConstructors":true,
   "methods":[
-    {"name":"<init>","parameterTypes":[] }, 
-    {"name":"setAlignment","parameterTypes":["javafx.geometry.Pos"] }, 
-    {"name":"setAlignment","parameterTypes":["javafx.scene.Node","javafx.geometry.Pos"] }, 
-    {"name":"setHgap","parameterTypes":["double"] }, 
-    {"name":"setVgap","parameterTypes":["double"] }
+    {"name":"<init>","parameterTypes":[] },
+    {"name":"setAlignment","parameterTypes":["javafx.geometry.Pos"] },
+    {"name":"setAlignment","parameterTypes":["javafx.scene.Node","javafx.geometry.Pos"] },
+    {"name":"setHgap","parameterTypes":["double"] },
+    {"name":"setVgap","parameterTypes":["double"] },
+    {"name":"setPrefColumns","parameterTypes":["int"] },
+    {"name":"setPrefRows","parameterTypes":["int"] }
   ],
   "queriedMethods":[{"name":"getAlignment","parameterTypes":["javafx.scene.Node"] }]
 },
