@@ -1508,6 +1508,7 @@ public class MOS65C02 extends CPU {
      * !byte $fc, $50, NN ; print number NN to stdout
      * !byte $fc, $5b, NN ; print number NN to stdout with newline
      * !byte $fc, $5c, NN ; print character NN to stdout
+     * !byte $fc, $44, NN ; dump processor state with identifier NN
      * @param param1
      * @param param2
      */
@@ -1525,6 +1526,13 @@ public class MOS65C02 extends CPU {
             case 0x5c:
                 // System out char
                 System.out.print((char) (param2 & 0x0ff));
+                break;
+            case 0x44:
+                // Dump processor state with identifier
+                System.out.printf("CPU[%02X]: A=%02X X=%02X Y=%02X SP=%02X PC=%04X N=%d V=%d B=%d D=%d I=%d Z=%d C=%d\n",
+                    param2 & 0xFF, A & 0xFF, X & 0xFF, Y & 0xFF, getStackPointer() & 0xFF, 
+                    getProgramCounter() & 0xFFFF,
+                    N ? 1 : 0, V ? 1 : 0, B ? 1 : 0, D ? 1 : 0, I ? 1 : 0, Z ? 1 : 0, C > 0 ? 1 : 0);
                 break;
             case 0x65:
                 // CPU functions
