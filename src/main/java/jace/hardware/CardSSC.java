@@ -16,10 +16,8 @@
 
 package jace.hardware;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -29,7 +27,6 @@ import java.util.logging.Logger;
 
 import jace.Emulator;
 import jace.EmulatorUILogic;
-import jace.apple2e.MOS65C02;
 import jace.config.ConfigurableField;
 import jace.config.Name;
 import jace.core.Card;
@@ -51,7 +48,7 @@ public class CardSSC extends Card {
     public short IP_PORT = 1977;
     protected ServerSocket socket;
     protected Socket clientSocket;
-    protected BufferedReader socketInput;
+    protected InputStream directInput;
     protected Thread listenThread;
     private int lastInputByte = 0;
     private boolean FULL_ECHO = true;
@@ -180,21 +177,25 @@ public class CardSSC extends Card {
             try {
                 Logger.getLogger(CardSSC.class.getName()).log(Level.INFO, "Slot " + getSlot() + " listening on port " + IP_PORT, (Throwable) null);
                 while ((clientSocket = socket.accept()) != null) {
-                    socketInput = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                    directInput = clientSocket.getInputStream();
                     clientConnected();
                     clientSocket.setTcpNoDelay(true);
+                    clientSocket.setKeepAlive(true);  // Use TCP keepalive instead of manual liveness check
+                    clientSocket.setSoTimeout(50);    // 50ms timeout for non-blocking reads
                     while (isConnected()) {
-                        Thread.onSpinWait();
                         if (!newInputAvailable.get() && inputAvailable()) {
                             lastTransmission = System.currentTimeMillis();
                             synchronized (newInputAvailable) {
                                 newInputAvailable.set(true);
                             }
+                        } else {
+                            // Only yield CPU when no data activity - much faster than sleep
+                            Thread.yield();
                         }
                     }
                     clientDisconnected();
                     hangUp();
-                    socketInput = null;
+                    directInput = null;
                 }
                 Thread.yield();
             } catch (SocketTimeoutException ex) {
@@ -404,8 +405,8 @@ public class CardSSC extends Card {
     }
 
     public boolean inputAvailable() throws IOException {
-        if (isConnected() && clientSocket != null && socketInput != null) {
-            return socketInput.ready();
+        if (isConnected() && clientSocket != null && directInput != null) {
+            return directInput.available() > 0;
         } else {
             return false;
         }
@@ -414,12 +415,17 @@ public class CardSSC extends Card {
     private int getInputByte() throws IOException {
         if (isConnected() && newInputAvailable.get()) {
             synchronized (newInputAvailable) {
-                int in = socketInput.read() & DATA_BITS;
-                if (RECV_STRIP_LF && in == 10 && lastInputByte == 13) {
-                    in = socketInput.read() & DATA_BITS;
+                try {
+                    int in = directInput.read() & DATA_BITS;
+                    if (RECV_STRIP_LF && in == 10 && lastInputByte == 13) {
+                        in = directInput.read() & DATA_BITS;
+                    }
+                    lastInputByte = in;
+                    newInputAvailable.set(false);
+                } catch (SocketTimeoutException e) {
+                    // Non-blocking read timeout - no data available yet
+                    return lastInputByte;
                 }
-                lastInputByte = in;
-                newInputAvailable.set(false);
            }
            return lastInputByte;
         } else {
@@ -522,20 +528,23 @@ public class CardSSC extends Card {
     }
 
     public boolean isConnected() {
-        if (clientSocket == null || !clientSocket.isConnected()) {
+        if (clientSocket == null || !clientSocket.isConnected() || clientSocket.isClosed()) {
             return false;
         }
-        if (lastTransmission == -1 || System.currentTimeMillis() > (lastTransmission + livenessCheck)) {
-            try {
-                sendOutputByte(0);
-                // sendOutputByte sets lastTransmission to -1L if not actually connected
-                return lastTransmission != -1L;
-            } catch (IOException e) {
-                return false;
+        
+        // Use TCP socket state instead of sending test bytes
+        // TCP keepalive and socket state are much more reliable
+        try {
+            // Test if socket is still readable without consuming data
+            if (directInput != null && directInput.available() >= 0) {
+                return true;
             }
-        } else {
-            return true;
+        } catch (IOException e) {
+            // Socket is dead
+            return false;
         }
+        
+        return true;
     }
 
     @Override
