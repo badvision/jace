@@ -77,7 +77,7 @@ public class CardVotrax extends CardSSC {
     // ── Flush-trigger characters ──────────────────────────────────────────
 
     private static final Set<Character> FLUSH_CHARS = Set.of(
-            '\r', '\n', '.', '!', '?', ',', ';', ':'
+            '\r', '\n', '.', '!', '?', ';', ':'
     );
 
     // ── Runtime state (not serialised) ────────────────────────────────────
