@@ -11,6 +11,7 @@ public enum Cards implements DeviceEnum<Card> {
     DiskIIDrive("Disk II Floppy Controller", CardDiskII.class, CardDiskII::new),
     HayesMicroModem("Hayes MicroModem", CardHayesMicromodem.class, CardHayesMicromodem::new),
     MassStorage("Mass Storage", CardMassStorage.class, CardMassStorage::new),
+    MegaFlash("MegaFlash", CardMegaFlash.class, CardMegaFlash::new),
     Mockingboard("Mockingboard", CardMockingboard.class, CardMockingboard::new),
     PassportMidi("Passport MIDI", PassportMidiInterface.class, PassportMidiInterface::new),
     RamFactor("RamFactor", CardRamFactor.class, CardRamFactor::new),
