@@ -378,6 +378,9 @@ public class FloppyDisk {
             for (int i = 0; i < SECTOR_COUNT; i++) {
                 // Loop through number of sectors
                 pos = locatePattern(pos, trackNibbles, 0x0d5, 0x0aa, 0x096);
+                if (pos < 0) {
+                    continue;
+                }
                 // Locate track number
                 int trackVerify = decodeOddEven(trackNibbles[pos + 5], trackNibbles[pos + 6]);
                 // Locate sector number
@@ -387,8 +390,15 @@ public class FloppyDisk {
                 }
                 // Skip to end of address block
                 pos = locatePattern(pos, trackNibbles, 0x0de, 0x0aa /*, 0x0eb this is sometimes being written as FF??*/);
+                if (pos < 0) {
+                    continue;
+                }
                 // Locate start of sector data
                 pos = locatePattern(pos, trackNibbles, 0x0d5, 0x0aa, 0x0ad);
+                if (pos < 0) {
+                    continue;
+                }
+
                 // Determine offset in output data for sector
                 //int offset = reverseLoopkup(currentSectorOrder, sector) * 256;
                 int offset = currentSectorOrder[sector] * 256;
@@ -423,7 +433,7 @@ public class FloppyDisk {
             pos = (pos + 1) % data.length;
             max--;
             if (max < 0) {
-                throw new Throwable("Could not match pattern!");
+                return -1;
             }
         }
 //        System.out.print("Found pattern at "+pos+": ");
@@ -433,6 +443,9 @@ public class FloppyDisk {
     }
 
     private boolean matchPattern(int pos, byte[] data, int... pattern) {
+        if (pos < 0 || pos >= data.length) {
+            return false;
+        }
         int matched = 0;
         for (int i : pattern) {
             int d = data[pos] & 0x0ff;

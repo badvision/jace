@@ -16,6 +16,8 @@
 
 package jace.terminal;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -66,6 +68,12 @@ public class MainMode implements TerminalMode {
 
         commands.put("insertdisk", this::insertDisk);
         commands.put("ejectdisk", this::ejectDisk);
+        commands.put("bootdisk", this::bootDisk);
+        commands.put("showtext", this::showTextScreen);
+        commands.put("nohints", args -> disableHints());
+        commands.put("waitkey", this::waitForKeypress);
+        commands.put("type", this::typeString);
+        commands.put("expect", this::expectString);
 
         commands.put("loadbin", this::loadBinary);
         commands.put("savebin", this::saveBinary);
@@ -82,6 +90,8 @@ public class MainMode implements TerminalMode {
         addAlias("g", "run");
         addAlias("id", "insertdisk");
         addAlias("ed", "ejectdisk");
+        addAlias("bd", "bootdisk");
+        addAlias("st", "showtext");
         addAlias("lb", "loadbin");
         addAlias("sb", "savebin");
         addAlias("k", "key");
@@ -111,13 +121,39 @@ public class MainMode implements TerminalMode {
                 "If breakpoint is specified with # prefix, stops when that address is reached.");
 
         commandHelp.put("insertdisk",
-                "Inserts a disk image into a specified drive.\nUsage: insertdisk d<drive_number> (or id d<drive_number>)\n"
+                "Inserts a disk image into a specified drive.\nUsage: insertdisk d<drive_number> <filepath> [slot] (or id d<drive_number> <filepath> [slot])\n"
                         +
-                        "Example: insertdisk d1");
+                        "Example: insertdisk d1 /path/to/disk.po\nExample: insertdisk d1 /path/to/disk.po 6");
 
         commandHelp.put("ejectdisk",
-                "Ejects a disk from a specified drive.\nUsage: ejectdisk d<drive_number> (or ed d<drive_number>)\n" +
-                        "Example: ejectdisk d2");
+                "Ejects a disk from a specified drive.\nUsage: ejectdisk d<drive_number> [slot] (or ed d<drive_number> [slot])\n" +
+                        "Example: ejectdisk d2\nExample: ejectdisk d1 6");
+
+        commandHelp.put("bootdisk",
+                "Inserts a disk image, boots it, and runs until PC >= $2000.\nUsage: bootdisk d<drive_number> <filepath> [slot] (or bd d<drive_number> <filepath> [slot])\n"
+                        +
+                        "This is a convenience command that combines insertdisk, reset, and running until the system boots.\n" +
+                        "Example: bootdisk d1 /path/to/disk.po");
+
+        commandHelp.put("showtext",
+                "Displays the current text screen contents.\nUsage: showtext (or st)\n" +
+                        "Automatically detects 40-column vs 80-column mode and linearizes the screen memory.");
+
+        commandHelp.put("waitkey",
+                "Waits until the Apple II reads the keyboard ($C000).\nUsage: waitkey [timeout_ms]\n" +
+                        "This detects when the system is waiting for input. Default timeout: 30000ms (30 seconds).\n" +
+                        "Example: waitkey 5000");
+
+        commandHelp.put("type",
+                "Types a string by synchronizing each keypress with keyboard reads.\nUsage: type <string>\n" +
+                        "This command waits for keyboard read before each character, ensuring proper input.\n" +
+                        "Example: type \"hello world\\n\"\nExample: type +fptest.mf\\n");
+
+        commandHelp.put("expect",
+                "Waits for a string to appear on the text screen.\nUsage: expect <string> [timeout_seconds]\n" +
+                        "Polls the screen every 500ms until the string is found or timeout occurs.\n" +
+                        "Default timeout: 30 seconds\n" +
+                        "Example: expect \"Press any key\" 10\nExample: expect \"TEST PASSED\"");
 
         commandHelp.put("loadbin",
                 "Loads a binary file at a specified memory address.\nUsage: loadbin <filename> <address> (or lb <filename> <address>)\n"
@@ -160,12 +196,20 @@ public class MainMode implements TerminalMode {
 
     @Override
     public boolean processCommand(String command) {
-        // Handle exit command
+        // Handle exit commands
         if ("qq".equals(command.trim())) {
             terminal.stop();
             return true;
         }
-        
+
+        // Handle full exit (terminate JVM)
+        if ("qqq".equals(command.trim()) || "exit!".equals(command.trim())) {
+            terminal.stop();
+            output.println("Terminating emulator...");
+            System.exit(0);
+            return true;
+        }
+
         String[] parts = command.trim().split("\\s+", 2);
         String cmd = parts[0].toLowerCase();
         String[] args = parts.length > 1 ? parts[1].split("\\s+") : new String[0];
@@ -193,17 +237,24 @@ public class MainMode implements TerminalMode {
         output.println("Available commands:");
         output.println("  monitor/m       - Enter Monitor mode (includes debugger functionality)");
         output.println("  assembler/a     - Enter Assembler mode");
-        output.println("  qq              - Exit terminal");
+        output.println("  qq              - Exit terminal loop");
+        output.println("  qqq / exit!     - Exit terminal AND terminate emulator");
         output.println();
         output.println("  swlog (sl)     - Toggle softswitch state change logging");
         output.println("  swstate (ss)   - Display current state of all softswitches");
         output.println("  reset (re)     - Reset the Apple II");
         output.println("  step (s) [count] - Step the CPU for count cycles (default: 1)");
         output.println("  run (g) [count] - Run the CPU for count cycles or until breakpoint (default: 1000000)");
-        output.println("  insertdisk (id) d# - Insert disk image in drive # (1 or 2)");
-        output.println("  ejectdisk (ed) d# - Eject disk from drive # (1 or 2)");
+        output.println("  insertdisk (id) d# file [slot] - Insert disk image in drive # (1 or 2)");
+        output.println("  ejectdisk (ed) d# [slot] - Eject disk from drive # (1 or 2)");
+        output.println("  bootdisk (bd) d# file [slot] - Insert disk and boot until PC >= $2000");
+        output.println("  showtext (st)  - Display current text screen contents (40/80 column)");
+        output.println("  waitkey [timeout] - Wait until system reads keyboard (detects input prompt)");
+        output.println("  type <string> - Type string synchronized with keyboard reads");
+        output.println("  expect <string> [timeout] - Wait for string to appear on screen");
         output.println("  loadbin (lb) file addr - Load binary file at specified address (hex)");
         output.println("  savebin (sb) file addr size - Save binary data from memory to file");
+        output.println("  key (k) value  - Simulate keypresses");
         output.println("  help/?          - Show this help");
         output.println("  help/?  <cmd>   - Show detailed help for a specific command");
         output.println("  exit/quit       - Exit the Terminal");
@@ -468,40 +519,41 @@ public class MainMode implements TerminalMode {
         try {
             Emulator.withComputer((computer) -> {
                 if (finalBreakpointAddress != null) {
-                    output.println("Running until PC = $" + Integer.toHexString(finalBreakpointAddress).toUpperCase() + 
+                    output.println("Running until PC = $" + Integer.toHexString(finalBreakpointAddress).toUpperCase() +
                             " or " + finalCycleCount + " cycles");
                 } else {
                     output.println("Running for " + finalCycleCount + " cycles");
                 }
 
-                // Track cycles with our own counter
-                int currentCycles = 0;
-                
+                // Calculate run time in milliseconds (Apple II runs at ~1MHz)
+                // cycles / 1000 = milliseconds
+                long runTimeMs = finalCycleCount / 1000;
+                if (runTimeMs < 100) runTimeMs = 100; // Minimum 100ms
+
                 computer.resume();
-                
-                // Poll periodically to check breakpoint or cycle count
-                while (currentCycles < finalCycleCount) {
-                    if (finalBreakpointAddress != null && 
+                long startTime = System.currentTimeMillis();
+
+                // Poll for breakpoint or time elapsed
+                while (System.currentTimeMillis() - startTime < runTimeMs) {
+                    if (finalBreakpointAddress != null &&
                             computer.getCpu().getProgramCounter() == finalBreakpointAddress) {
-                        output.println("Breakpoint hit at $" + 
+                        output.println("Breakpoint hit at $" +
                                 Integer.toHexString(finalBreakpointAddress).toUpperCase());
                         break;
                     }
-                    
-                    // Increment our cycle counter
-                    currentCycles += 100;
-                    
+
                     try {
-                        Thread.sleep(10);
+                        Thread.sleep(50); // Check every 50ms
                     } catch (InterruptedException e) {
                         break;
                     }
                 }
-                
+
                 computer.pause();
-                
-                output.println("Ran for approximately " + currentCycles + " cycles");
-                
+
+                long actualTimeMs = System.currentTimeMillis() - startTime;
+                output.println("Ran for approximately " + (actualTimeMs * 1000) + " cycles (" + actualTimeMs + "ms)");
+
                 // Show CPU state after run
                 MOS65C02 cpuAfterRun = (MOS65C02) computer.getCpu();
                 showCPUState(cpuAfterRun);
@@ -513,29 +565,488 @@ public class MainMode implements TerminalMode {
 
     private void insertDisk(String[] args) {
         if (args.length < 2) {
-            output.println("Usage: insertdisk <drive> <filename>");
+            output.println("Usage: insertdisk d<drive_number> <filepath> [slot]");
+            output.println("Example: insertdisk d1 /path/to/disk.po");
+            output.println("Example: insertdisk d1 /path/to/disk.po 6");
             return;
         }
 
-        String drive = args[0];
+        String driveSpec = args[0];
         String filename = args[1];
+        int slot = args.length > 2 ? Integer.parseInt(args[2]) : 6; // Default to slot 6
 
-        LOG.info("Disk insertion requested for drive " + drive + ": " + filename);
-        // TODO: Implement disk insertion
-        output.println("Disk insertion not yet implemented");
+        if (!driveSpec.matches("d[12]")) {
+            output.println("Invalid drive specification: " + driveSpec + " (must be d1 or d2)");
+            return;
+        }
+
+        int driveNumber = Integer.parseInt(driveSpec.substring(1));
+
+        LOG.info("Disk insertion requested for slot " + slot + " drive " + driveNumber + ": " + filename);
+
+        try {
+            File diskFile = new File(filename);
+            if (!diskFile.exists()) {
+                output.println("File not found: " + filename);
+                return;
+            }
+
+            Emulator.withMemory(memory -> {
+                var cardOpt = memory.getCard(slot);
+                if (cardOpt.isEmpty()) {
+                    output.println("No disk controller found in slot " + slot);
+                    return;
+                }
+
+                // Handle Disk ][ controller
+                if (cardOpt.get() instanceof jace.hardware.CardDiskII) {
+                    jace.hardware.CardDiskII diskController = (jace.hardware.CardDiskII) cardOpt.get();
+                    jace.hardware.DiskIIDrive drive = driveNumber == 1 ? diskController.drive1 : diskController.drive2;
+
+                    try {
+                        drive.insertDisk(diskFile);
+                        output.println("Inserted " + diskFile.getName() + " into slot " + slot + " drive " + driveNumber);
+                    } catch (IOException e) {
+                        LOG.log(Level.WARNING, "Error inserting disk", e);
+                        output.println("Error inserting disk: " + e.getMessage());
+                    }
+                    return;
+                }
+
+                // Handle Mass Storage controller
+                if (cardOpt.get() instanceof jace.hardware.massStorage.CardMassStorage) {
+                    jace.hardware.massStorage.CardMassStorage massStorage =
+                        (jace.hardware.massStorage.CardMassStorage) cardOpt.get();
+                    jace.hardware.massStorage.MassStorageDrive drive =
+                        driveNumber == 1 ? massStorage.drive1 : massStorage.drive2;
+
+                    try {
+                        // Create a MediaFile and MediaEntry to insert
+                        jace.library.MediaEntry.MediaFile mediaFile = new jace.library.MediaEntry.MediaFile();
+                        mediaFile.path = diskFile;
+                        jace.library.MediaEntry mediaEntry = new jace.library.MediaEntry();
+                        drive.insertMedia(mediaEntry, mediaFile);
+                        output.println("Inserted " + diskFile.getName() + " into slot " + slot + " drive " + driveNumber);
+                    } catch (IOException e) {
+                        LOG.log(Level.WARNING, "Error inserting disk", e);
+                        output.println("Error inserting disk: " + e.getMessage());
+                    }
+                    return;
+                }
+
+                output.println("Card in slot " + slot + " is not a supported disk controller");
+            });
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error during disk insertion", e);
+            output.println("Error inserting disk: " + e.getMessage());
+        }
     }
 
     private void ejectDisk(String[] args) {
         if (args.length < 1) {
-            output.println("Usage: ejectdisk <drive>");
+            output.println("Usage: ejectdisk d<drive_number> [slot]");
+            output.println("Example: ejectdisk d1");
+            output.println("Example: ejectdisk d2 6");
             return;
         }
 
-        String drive = args[0];
+        String driveSpec = args[0];
+        int slot = args.length > 1 ? Integer.parseInt(args[1]) : 6; // Default to slot 6
 
-        LOG.info("Disk ejection requested for drive " + drive);
-        // TODO: Implement disk ejection
-        output.println("Disk ejection not yet implemented");
+        if (!driveSpec.matches("d[12]")) {
+            output.println("Invalid drive specification: " + driveSpec + " (must be d1 or d2)");
+            return;
+        }
+
+        int driveNumber = Integer.parseInt(driveSpec.substring(1));
+
+        LOG.info("Disk ejection requested for slot " + slot + " drive " + driveNumber);
+
+        try {
+            Emulator.withMemory(memory -> {
+                var cardOpt = memory.getCard(slot);
+                if (cardOpt.isEmpty()) {
+                    output.println("No disk controller found in slot " + slot);
+                    return;
+                }
+
+                if (!(cardOpt.get() instanceof jace.hardware.CardDiskII)) {
+                    output.println("Card in slot " + slot + " is not a Disk ][ controller");
+                    return;
+                }
+
+                jace.hardware.CardDiskII diskController = (jace.hardware.CardDiskII) cardOpt.get();
+                jace.hardware.DiskIIDrive drive = driveNumber == 1 ? diskController.drive1 : diskController.drive2;
+
+                drive.eject();
+                output.println("Ejected disk from slot " + slot + " drive " + driveNumber);
+            });
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error during disk ejection", e);
+            output.println("Error ejecting disk: " + e.getMessage());
+        }
+    }
+
+    private void bootDisk(String[] args) {
+        if (args.length < 2) {
+            output.println("Usage: bootdisk d<drive_number> <filepath> [slot]");
+            output.println("Example: bootdisk d1 /path/to/disk.po");
+            return;
+        }
+
+        // First insert the disk
+        insertDisk(args);
+
+        // Reset the system
+        output.println("Resetting system...");
+        performReset();
+
+        // Run until PC >= $2000
+        output.println("Booting disk (running until PC >= $2000)...");
+        try {
+            final int TARGET_PC = 0x2000;
+            final int MAX_CYCLES = 10_000_000; // 10 million cycles max
+
+            Emulator.withComputer((computer) -> {
+                int currentCycles = 0;
+                computer.resume();
+
+                // Poll for PC >= $2000
+                while (currentCycles < MAX_CYCLES) {
+                    int pc = computer.getCpu().getProgramCounter();
+                    if (pc >= TARGET_PC) {
+                        output.println("Boot complete - PC reached $" +
+                                Integer.toHexString(pc).toUpperCase());
+                        break;
+                    }
+
+                    currentCycles += 1000;
+
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        break;
+                    }
+                }
+
+                computer.pause();
+
+                if (currentCycles >= MAX_CYCLES) {
+                    output.println("Warning: Maximum cycles reached before PC >= $2000");
+                }
+
+                // Show CPU state
+                MOS65C02 cpu = (MOS65C02) computer.getCpu();
+                showCPUState(cpu);
+            });
+        } catch (Exception e) {
+            output.println("Error during boot: " + e.getMessage());
+        }
+    }
+
+    private String captureTextScreen() {
+        StringBuilder screenText = new StringBuilder();
+
+        try {
+            Emulator.withMemory(memory -> {
+                // Check if we're in 80-column mode
+                boolean col80 = SoftSwitches._80COL.isOn();
+
+                // Apple II text screen memory layout (interleaved rows)
+                int[] rowAddresses = {
+                    0x0400, 0x0480, 0x0500, 0x0580, 0x0600, 0x0680, 0x0700, 0x0780,
+                    0x0428, 0x04A8, 0x0528, 0x05A8, 0x0628, 0x06A8, 0x0728, 0x07A8,
+                    0x0450, 0x04D0, 0x0550, 0x05D0, 0x0650, 0x06D0, 0x0750, 0x07D0
+                };
+
+                for (int row = 0; row < 24; row++) {
+                    StringBuilder line = new StringBuilder();
+                    int baseAddr = rowAddresses[row];
+
+                    if (col80) {
+                        if (memory instanceof jace.apple2e.RAM128k) {
+                            jace.apple2e.RAM128k ram128k = (jace.apple2e.RAM128k) memory;
+                            jace.core.PagedMemory auxMem = ram128k.getAuxMemory();
+                            jace.core.PagedMemory mainMem = ram128k.getMainMemory();
+
+                            for (int col = 0; col < 40; col++) {
+                                int addr = baseAddr + col;
+                                byte auxByte = auxMem.getMemoryPage(addr)[addr & 0xFF];
+                                char auxChar = convertAppleTextToAscii(auxByte);
+                                line.append(auxChar);
+                                byte mainByte = mainMem.getMemoryPage(addr)[addr & 0xFF];
+                                char mainChar = convertAppleTextToAscii(mainByte);
+                                line.append(mainChar);
+                            }
+                        }
+                    } else {
+                        for (int col = 0; col < 40; col++) {
+                            int addr = baseAddr + col;
+                            byte b = memory.read(addr, RAMEvent.TYPE.READ_DATA, true, false);
+                            char c = convertAppleTextToAscii(b);
+                            line.append(c);
+                        }
+                    }
+
+                    screenText.append(line.toString()).append("\n");
+                }
+            });
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error capturing text screen", e);
+        }
+
+        return screenText.toString();
+    }
+
+    private void showTextScreen(String[] args) {
+        try {
+            Emulator.withMemory(memory -> {
+                boolean col80 = SoftSwitches._80COL.isOn();
+                int columns = col80 ? 80 : 40;
+                output.println("=== Text Screen (" + columns + " columns) ===");
+            });
+
+            String screenText = captureTextScreen();
+            output.print(screenText);
+            output.println("=== End of Text Screen ===");
+
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error reading text screen", e);
+            output.println("Error reading text screen: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Convert Apple II text screen byte to ASCII character
+     * Apple II uses high-bit ASCII with special character sets
+     */
+    private void disableHints() {
+        try {
+            Emulator.withComputer(computer -> {
+                if (computer instanceof jace.apple2e.Apple2e) {
+                    jace.apple2e.Apple2e apple = (jace.apple2e.Apple2e) computer;
+                    apple.enableHints = false;
+                    apple.reconfigure();
+                    output.println("Helpful hints disabled");
+                } else {
+                    output.println("This command is only supported on Apple //e");
+                }
+            });
+        } catch (Exception e) {
+            output.println("Error disabling hints: " + e.getMessage());
+        }
+    }
+
+    private void waitForKeypress(String[] args) {
+        int maxWaitMs = args.length > 0 ? Integer.parseInt(args[0]) : 30000; // Default 30 seconds
+        waitForKeyRead(maxWaitMs, true);
+    }
+
+    private boolean waitForKeyRead(int maxWaitMs, boolean printOutput) {
+        try {
+            final boolean[] keyReadDetected = new boolean[1];
+            final RAMListener[] listenerHolder = new RAMListener[1];
+
+            // Create a listener for keyboard reads at $C000
+            RAMListener keyListener = new RAMListener("WaitForKey", RAMEvent.TYPE.READ, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+                @Override
+                protected void doConfig() {
+                    setScopeStart(0xC000);
+                }
+
+                @Override
+                protected void doEvent(RAMEvent event) {
+                    synchronized (keyReadDetected) {
+                        keyReadDetected[0] = true;
+                        keyReadDetected.notify();
+                    }
+                }
+            };
+
+            listenerHolder[0] = keyListener;
+
+            Emulator.withMemory(memory -> {
+                memory.addListener(keyListener);
+            });
+
+            if (printOutput) {
+                output.println("Waiting for keyboard read (max " + maxWaitMs + "ms)...");
+            }
+
+            Emulator.withComputer(computer -> {
+                computer.resume();
+
+                synchronized (keyReadDetected) {
+                    try {
+                        keyReadDetected.wait(maxWaitMs);
+                    } catch (InterruptedException e) {
+                        // Interrupted, continue
+                    }
+                }
+
+                computer.pause();
+            });
+
+            Emulator.withMemory(memory -> {
+                memory.removeListener(keyListener);
+            });
+
+            if (printOutput) {
+                if (keyReadDetected[0]) {
+                    output.println("Keyboard read detected");
+                } else {
+                    output.println("Timeout waiting for keyboard read");
+                }
+            }
+
+            return keyReadDetected[0];
+
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error waiting for keypress", e);
+            if (printOutput) {
+                output.println("Error waiting for keypress: " + e.getMessage());
+            }
+            return false;
+        }
+    }
+
+    private void expectString(String[] args) {
+        if (args.length < 1) {
+            output.println("Usage: expect <string> [timeout_seconds]");
+            return;
+        }
+
+        // Get the string to search for
+        String searchString = String.join(" ", args);
+        int timeoutSeconds = 30; // Default timeout
+
+        // Check if last arg is a number (timeout)
+        try {
+            if (args.length > 1) {
+                int lastArgTimeout = Integer.parseInt(args[args.length - 1]);
+                timeoutSeconds = lastArgTimeout;
+                // Rebuild search string without the timeout
+                searchString = String.join(" ", java.util.Arrays.copyOf(args, args.length - 1));
+            }
+        } catch (NumberFormatException e) {
+            // Last arg wasn't a number, use full string
+        }
+
+        // Remove surrounding quotes if present
+        if (searchString.startsWith("\"") && searchString.endsWith("\"") && searchString.length() > 1) {
+            searchString = searchString.substring(1, searchString.length() - 1);
+        }
+
+        output.println("Expecting: \"" + searchString + "\" (timeout: " + timeoutSeconds + "s)");
+
+        long startTime = System.currentTimeMillis();
+        long timeoutMs = timeoutSeconds * 1000L;
+
+        try {
+            while (System.currentTimeMillis() - startTime < timeoutMs) {
+                // Capture and check screen first (in case it's already there)
+                String screenText = captureTextScreen();
+                if (screenText.contains(searchString)) {
+                    long elapsed = System.currentTimeMillis() - startTime;
+                    output.println("Match found after " + elapsed + "ms");
+                    return;
+                }
+
+                // Run 500k cycles and wait 500ms
+                Emulator.withComputer(computer -> {
+                    computer.resume();
+                    try {
+                        Thread.sleep(500); // 500ms (~500k cycles at 1MHz)
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    computer.pause();
+                });
+            }
+
+            // Timeout
+            output.println("Timeout waiting for: \"" + searchString + "\"");
+
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error during expect", e);
+            output.println("Error during expect: " + e.getMessage());
+        }
+    }
+
+    private void typeString(String[] args) {
+        if (args.length < 1) {
+            output.println("Usage: type <string>");
+            return;
+        }
+
+        // Join all args into one string
+        String text = String.join(" ", args);
+
+        // Remove surrounding quotes if present
+        if (text.startsWith("\"") && text.endsWith("\"") && text.length() > 1) {
+            text = text.substring(1, text.length() - 1);
+        }
+
+        // Process escape sequences
+        text = text.replace("\\n", "\r"); // Convert \n to carriage return
+        text = text.replace("\\t", "\t");
+
+        output.println("Typing string: \"" + text + "\"");
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            byte keyCode = (byte)(c & 0xFF);
+
+            // Wait for keyboard read multiple times to skip ROM routines that ignore keypresses
+            for (int j = 0; j < 3; j++) {
+                if (!waitForKeyRead(5000, false)) {
+                    output.println("Timeout waiting for keyboard read at character " + i + " (wait " + j + ")");
+                    return;
+                }
+            }
+
+            // Press the key
+            Emulator.withComputer(computer -> {
+                Keyboard.pressKey(keyCode);
+            });
+
+            // Wait for the key to be read
+            if (!waitForKeyRead(5000, false)) {
+                output.println("Timeout waiting for key to be read at character " + i);
+                return;
+            }
+        }
+
+        output.println("Typing complete");
+    }
+
+    private char convertAppleTextToAscii(byte b) {
+        int value = b & 0xFF;
+
+        // Strip high bit and convert to printable ASCII
+        int asciiValue = value & 0x7F;
+
+        // Handle special characters
+        if (asciiValue < 32) {
+            // Control characters - display as spaces or special symbols
+            return ' ';
+        } else if (asciiValue == 127) {
+            // Delete character
+            return ' ';
+        }
+
+        // Check display mode based on high bit
+        if ((value & 0x80) != 0) {
+            // Normal display (high bit set)
+            return (char) asciiValue;
+        } else if ((value & 0x40) != 0) {
+            // Flashing (bit 6 set, bit 7 clear) - just display as normal
+            return (char) asciiValue;
+        } else {
+            // Inverse (bits 6 and 7 clear) - display in brackets for visibility
+            // or just return the character
+            return (char) asciiValue;
+        }
     }
 
     private void loadBinary(String[] args) {

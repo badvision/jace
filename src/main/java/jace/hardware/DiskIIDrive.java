@@ -26,6 +26,7 @@ import java.util.concurrent.locks.LockSupport;
 
 import jace.Emulator;
 import jace.EmulatorUILogic;
+import jace.core.Device;
 import jace.library.MediaConsumer;
 import jace.library.MediaEntry;
 import jace.library.MediaEntry.MediaFile;
@@ -43,12 +44,16 @@ import javafx.scene.control.Label;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 @Stateful
-public class DiskIIDrive implements MediaConsumer {
+public class DiskIIDrive extends Device implements MediaConsumer {
 
     public DiskIIDrive() {
     }
     
     public boolean DEBUG = false;
+
+    // 4 ticks per bit, 6 bits per nibble
+    public static final int TICKS_PER_NIBBLE = 34;
+    public static final int TICKS_PER_BIT = 7;
 
     FloppyDisk disk;
     // Number of milliseconds to wait between last write and update to disk image
@@ -80,6 +85,10 @@ public class DiskIIDrive implements MediaConsumer {
     public byte latch;
     @Stateful
     public int spinCount;
+    @Stateful
+    public int tickCount;
+    boolean alreadyAccessedData = false;
+
     Set<Integer> dirtyTracks;
 
     public void reset() {
@@ -126,6 +135,11 @@ public class DiskIIDrive implements MediaConsumer {
             System.out.println("Drive setOn: "+b);
         }
         driveOn = b;
+        if (driveOn) {
+            resume();
+        } else {
+            suspend();
+        }
     }
 
     boolean isOn() {
@@ -133,27 +147,26 @@ public class DiskIIDrive implements MediaConsumer {
     }
 
     byte readLatch() {
+        if (disk == null) {
+            return (byte) 0x0ff;
+        }
         byte result = 0x07f;
+        // spinCount = (spinCount + 1) & 0x0F;
         if (!writeMode) {
-            spinCount = (spinCount + 1) & 0x0F;
-            if (spinCount > 0) {
-                if (disk != null) {
-                    result = disk.nibbles[trackStartOffset + nibbleOffset];
-                    if (isOn()) {
-                        nibbleOffset++;
-                        if (nibbleOffset >= FloppyDisk.TRACK_NIBBLE_LENGTH) {
-                            nibbleOffset = 0;
-                        }
-                    }
-                } else {
-                    result = (byte) 0x0ff;
-                }
+            if (!alreadyAccessedData) {
+                result = disk.nibbles[trackStartOffset + nibbleOffset];
+                alreadyAccessedData = true;
+                // System.out.print("Y");
+            } else {
+                result = (byte) (disk.nibbles[trackStartOffset + nibbleOffset] & 0x07f);
+                // System.out.print("N");
             }
         } else {
-            spinCount = (spinCount + 1) & 0x0F;
-            if (spinCount > 0) {
+            if (alreadyAccessedData)
+            // if (spinCount > 0) {
                 result = (byte) 0x080;
-            }
+                // System.out.print("?");
+            // }
         }
         return result;
     }
@@ -170,15 +183,11 @@ public class DiskIIDrive implements MediaConsumer {
                     // Do nothing if write-protection is enabled!
                     if (getMediaEntry() == null || !getMediaEntry().writeProtected) {
                         dirtyTracks.add(trackStartOffset / FloppyDisk.TRACK_NIBBLE_LENGTH);
-                        disk.nibbles[trackStartOffset + nibbleOffset++] = latch;
+                        disk.nibbles[trackStartOffset + nibbleOffset] = latch;
                         triggerDiskUpdate();
                         StateManager.markDirtyValue(disk.nibbles);
                     }
                 }
-            }
-
-            if (nibbleOffset >= FloppyDisk.TRACK_NIBBLE_LENGTH) {
-                nibbleOffset = 0;
             }
         }
     }
@@ -234,7 +243,7 @@ public class DiskIIDrive implements MediaConsumer {
         }
     }
 
-    void insertDisk(File diskPath) throws IOException {
+    public void insertDisk(File diskPath) throws IOException {
         if (DEBUG) {
             System.out.println("inserting disk " + diskPath.getAbsolutePath() + " into drive");
         }
@@ -328,6 +337,40 @@ public class DiskIIDrive implements MediaConsumer {
         while (diskUpdatePending.get()) {
             // If the current disk has unsaved changes, wait!!!
             Thread.onSpinWait();
+        }
+    }
+
+    @Override
+    public String getShortName() {
+        return "DiskDrive";
+    }
+
+    @Override
+    public void reconfigure() {
+        // Nothing to do
+    }
+
+    @Override
+    protected String getDeviceName() {
+        return "DiskDrive";
+    }
+
+    @Override
+    public void tick() {
+        if(isOn() && disk != null) {
+            tickCount = (tickCount + 1) % TICKS_PER_NIBBLE;
+            if (tickCount == 0) {
+                alreadyAccessedData = false;
+                // System.out.print("+");
+                nibbleOffset++;
+                if (nibbleOffset >= FloppyDisk.TRACK_NIBBLE_LENGTH) {
+                    nibbleOffset = 0;
+                }
+            } else if (tickCount == TICKS_PER_BIT) {
+                // After 7 ticks, data is no longer accessible for this nibble
+                alreadyAccessedData = true;
+                // System.out.print("-");
+            }
         }
     }
 }

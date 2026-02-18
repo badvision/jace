@@ -50,8 +50,8 @@ public class CardMassStorage extends Card implements MediaConsumerParent {
     public String disk1;
     @ConfigurableField(category = "Disk", shortName = "d2", name = "Drive 2 disk image", description = "Path of disk 2")
     public String disk2;
-    MassStorageDrive drive1;
-    MassStorageDrive drive2;
+    public MassStorageDrive drive1;
+    public MassStorageDrive drive2;
 
     public CardMassStorage() {
         super(false);

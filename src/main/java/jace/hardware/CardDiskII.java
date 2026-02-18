@@ -46,8 +46,8 @@ import jace.library.MediaConsumerParent;
 public class CardDiskII extends Card implements MediaConsumerParent {
 
     DiskIIDrive currentDrive;
-    DiskIIDrive drive1 = new DiskIIDrive();
-    DiskIIDrive drive2 = new DiskIIDrive();
+    public DiskIIDrive drive1 = new DiskIIDrive();
+    public DiskIIDrive drive2 = new DiskIIDrive();
     @ConfigurableField(category = "Disk", defaultValue = "254", name = "Default volume", description = "Value to use for disk volume number")
     static public int DEFAULT_VOLUME_NUMBER = 0x0FE;
     @ConfigurableField(category = "Disk", defaultValue = "true", name = "Speed boost", description = "If enabled, emulator will run at max speed during disk access")
@@ -66,6 +66,8 @@ public class CardDiskII extends Card implements MediaConsumerParent {
         }
         drive1.setIcon(Utility.loadIconLabel("disk_ii.png"));
         drive2.setIcon(Utility.loadIconLabel("disk_ii.png"));
+        addChildDevice(drive1);
+        addChildDevice(drive2);
         reset();
     }
 
@@ -191,9 +193,6 @@ public class CardDiskII extends Card implements MediaConsumerParent {
 
     @Override
     public void tick() {
-        // Do nothing (if you want 1mhz timing control, you can do that here...)
-//        drive1.tick();
-//        drive2.tick();
     }
 
     @Override
@@ -211,7 +210,6 @@ public class CardDiskII extends Card implements MediaConsumerParent {
         } catch (IOException ex) {
             Logger.getLogger(CardDiskII.class.getName()).log(Level.SEVERE, null, ex);
         }
-
     }
 
     private void tweakTiming() {
