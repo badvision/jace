@@ -12,6 +12,7 @@ public enum Cards implements DeviceEnum<Card> {
     HayesMicroModem("Hayes MicroModem", CardHayesMicromodem.class, CardHayesMicromodem::new),
     MassStorage("Mass Storage", CardMassStorage.class, CardMassStorage::new),
     MegaFlash("MegaFlash", CardMegaFlash.class, CardMegaFlash::new),
+    VotraxTypenTalk("Votrax Type-n-Talk", CardVotrax.class, CardVotrax::new),
     Mockingboard("Mockingboard", CardMockingboard.class, CardMockingboard::new),
     PassportMidi("Passport MIDI", PassportMidiInterface.class, PassportMidiInterface::new),
     RamFactor("RamFactor", CardRamFactor.class, CardRamFactor::new),

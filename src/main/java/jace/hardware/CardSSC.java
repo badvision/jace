@@ -435,7 +435,7 @@ public class CardSSC extends Card {
     }
     long lastTransmission = -1L;
 
-    private void sendOutputByte(int i) throws IOException {
+    protected void sendOutputByte(int i) throws IOException {
         if (clientSocket != null && clientSocket.isConnected()) {
             try {
                 clientSocket.getOutputStream().write(i & DATA_BITS);

@@ -296,6 +296,11 @@ public class Configuration implements Reconfigurable {
 
         for (Field f : node.subject.getClass().getFields()) {
 //            System.out.println("Evaluating field " + f.getName());
+            // If a more-derived class declares a field with the same name it is
+            // intentionally hiding this inherited field – respect that and skip.
+            try {
+                if (node.subject.getClass().getDeclaredField(f.getName()) != f) continue;
+            } catch (NoSuchFieldException ignored) {}
             try {
                 Object o = f.get(node.subject);
                 
