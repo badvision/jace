@@ -229,7 +229,7 @@ public class ApplesoftProgram {
         });
     }
 
-    private int getProgramSize() {
+    public int getProgramSize() {
         int size = lines.stream().collect(Collectors.summingInt(Line::getLength)) + 4;
         return size;
     }

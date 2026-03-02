@@ -8,6 +8,31 @@ This document describes the automation capabilities added to JACE's terminal mod
 
 JACE (Java Apple Computer Emulator) is a Java-based Apple II emulator. It includes a terminal mode (`--terminal` flag) that provides a command-line interface for scripting and automation. This work extends the terminal to support fully automated testing workflows.
 
+## Running Jace: Native Binary vs Maven
+
+Two ways to run Jace:
+
+### Native Binary
+
+`/Users/brobert/Downloads/Jace` (Gluon GraalVM native image, ~472MB)
+
+- Faster startup, no Maven/Java required
+- `headless` parameter is NOT recognized — the emulator runs with a display window ("Did not understand parameter headless, skipping")
+- Throws harmless `MacAccessible` JavaFX accessibility error on startup but continues normally
+- Boots and drops media on S6D1 correctly
+- Usage: `/Users/brobert/Downloads/Jace [disk_image.po]`
+- **Use for**: Running disk images interactively; does NOT support terminal/scripting mode
+
+### Maven (Required for Terminal/Scripting Mode)
+
+`mvn exec:java ...` from `~/Documents/code/jace/`
+
+- Required for headless/terminal testing mode
+- Supports the full terminal scripting interface documented in this file
+- Usage: `mvn -q exec:java -Dexec.mainClass="jace.JaceLauncher" -Dexec.args="--terminal"`
+
+---
+
 ## Terminal Mode Access
 
 ### Starting Terminal Mode
@@ -19,6 +44,20 @@ mvn -q exec:java -Dexec.mainClass="jace.JaceLauncher" -Dexec.args="--terminal"
 # Alternative: using javafx:run
 mvn -q javafx:run -Djavafx.args="--terminal"
 ```
+
+### Reaching Applesoft BASIC Without a Disk Image
+
+When Jace starts without a disk image, or after `reset` with no disk mounted,
+the system is in the Disk ][ boot ROM at $C600, waiting for a floppy. To start
+Applesoft BASIC directly from the ROM, use the monitor:
+
+  reset
+  monitor
+  E000G
+
+`E000G` jumps to the Applesoft BASIC cold-start entry in ROM, which initializes
+BASIC and presents the `]` prompt. To reach the warm-start (re-enter BASIC
+without reinitializing), use `FF69G` instead.
 
 ### Basic Terminal Commands
 
@@ -132,6 +171,21 @@ expect "TEST PASSED"      # Default 30s timeout
 - Returns immediately when the string is found
 - Prints timeout message if string not found within timeout
 
+**First-poll behavior**: The first screen check happens immediately when `expect`
+is called, before running any emulator cycles. If the expected string is already
+present on the text screen at the moment `expect` is invoked, it returns
+immediately without waiting. This means `expect` is safe to call even if the
+program may have already finished — it will not miss output that appeared before
+the command ran.
+
+**Caution**: Do NOT use `expect` with a string that is permanently present on
+screen (like the `]` BASIC prompt or `*` monitor prompt) as a way to wait for
+the computer to become responsive. Since the prompt is already there, `expect`
+returns immediately regardless of whether the machine is actually executing your
+command. Instead, to verify the machine is responding to input, type a test
+message (e.g. `type "TEST\n"`) and use `expect "TEST"` to confirm the keystrokes
+were echoed — typed characters echo to the text screen and indicate live response.
+
 **Alias**: None
 
 ### 5. `waitkey` - Wait for Keyboard Read
@@ -159,7 +213,63 @@ type <string>
 type "hello world\n"
 ```
 
-### 7. `loadbin` / `savebin` - Binary Memory Operations
+### 7. Tokenizing Applesoft BASIC Programs
+
+Jace includes a built-in Applesoft BASIC tokenizer. Use it to convert a plain-text
+BASIC listing into a tokenized program ready to inject into emulator memory — do NOT
+write a custom tokenizer.
+
+#### Terminal Command (easiest way)
+
+Use the `loadBasic` terminal command to load a plain-text BASIC listing directly:
+
+```
+loadBasic /path/to/program.bas
+```
+
+- Alias: `lbas`
+- On success: prints `Loaded N lines (M bytes) from /path/to/program.bas`
+- On failure: prints the error and file line number (e.g., `Error at file line 23: ...`)
+
+The program is injected into emulator RAM at the standard BASIC start address ($0801).
+Each non-blank line in the file must start with a BASIC line number; blank lines are
+silently skipped.
+
+Error cases handled: file not found, file not readable, lines missing a BASIC line
+number (reports 1-based file line number), empty file, and tokenizer exceptions.
+
+**Java API** (call it from Java/test code):
+
+```java
+// Parse plain-text BASIC source into a tokenized ApplesoftProgram
+ApplesoftProgram program = ApplesoftProgram.fromString(
+    "10 PRINT \"HELLO\"\n20 GOTO 10\n"
+);
+
+// Inject the tokenized program into the running emulator at the standard
+// BASIC start address ($0801) and run it
+program.run();
+
+// Alternatively, read the current BASIC program back out of emulator RAM
+ApplesoftProgram existing = ApplesoftProgram.fromMemory(memory);
+```
+
+**To produce a raw tokenized binary** (e.g. to save as a .BAS/.PRG file):
+
+1. Inject with `loadBasic <file>` or `program.run()` (writes tokenized bytes into
+   emulator memory starting at the address stored in the BASIC pointer at $0067,
+   normally $0801)
+2. Use `savebin <filename> 0801 <size>` in terminal mode to dump those bytes to a file
+
+The token byte codes match the standard Applesoft token table ($80–$EA); see
+`jace.applesoft.Command.TOKEN` for the complete mapping.
+
+**Source**: `src/main/java/jace/applesoft/ApplesoftProgram.java` and
+`src/main/java/jace/applesoft/Command.java`
+
+---
+
+### 8. `loadbin` / `savebin` - Binary Memory Operations
 
 **Purpose**: Load binary files directly into emulator memory or save memory to files. Critical for testing compiled programs without needing bootable disk images.
 
@@ -194,6 +304,11 @@ run 500000 #$2000    # Run until PC reaches $2000
 ```
 
 ### `key` - Simulate Keypresses
+
+**WARNING — Carriage Return**: `\r` does NOT send carriage return. Only `\n`
+sends carriage return (code 13, the Apple II Enter/Return key). If you use `\r`
+in a `key` or `type` command, it sends the letter 'r' (ASCII code 114).
+Always use `\n` for the Apple II Return/Enter key.
 
 ```
 key <value1> [value2] ...
@@ -471,6 +586,42 @@ qq
 
 `expect` polls the screen every 500ms and returns as soon as the text appears. If the program hangs, it times out after the specified seconds rather than running forever.
 
+### Testing Clean Exit to BASIC
+
+When testing whether a machine-language program properly returns to Applesoft
+BASIC, the key behaviors to verify are:
+
+1. **Control returns to BASIC**: After `CALL addr`, the next BASIC statement
+   should execute. Test by having a BASIC line after the CALL that prints a
+   sentinel value, e.g.:
+   ```
+   10 CALL 24576
+   20 PRINT "OK"
+   ```
+   Then use `expect "OK"` to confirm line 20 executed.
+
+2. **Display mode is restored**: `showtext` and `expect` read from text memory
+   ($0400-$07FF) regardless of the active display mode. A program can return to
+   BASIC with the display stuck in HGR mode, and `expect "]"` will still match
+   because BASIC wrote its prompt to text memory — but the user sees graphics.
+
+   To verify TEXT mode was restored, check the display soft switch via monitor:
+   ```
+   monitor
+   C01A.C01A
+   quit
+   ```
+   If bit 7 of the value at $C01A is 0, TEXT mode is active. If bit 7 is 1,
+   graphics mode is still on.
+
+3. **Verifying machine responsiveness without using prompt characters**: Since
+   the `]` BASIC prompt or `*` monitor prompt may already be on screen when
+   `expect` is called (causing immediate return), use typed input echoing instead:
+   ```
+   type "TEST\x18"   ; type TEST then Ctrl-X (cancel/delete)
+   expect "TEST"     ; confirm keystrokes echoed = machine is running
+   ```
+
 ### Debug Instrumentation: Character Breadcrumbs
 
 When a program hangs and you don't know where, add character prints at key points in the 65C02 code. The Apple II ROM provides `COUT` at $FDED:
@@ -612,6 +763,12 @@ quit
 
 ### Diagnosing Common Failures
 
+**`CALL addr` never returns to BASIC (caller never resumes)**:
+- Common cause: a JSR inside the machine-language routine calls a ROM entry point that does not exit via RTS. Example: on the Apple IIe, `JSR $FB39` does not return — it ends with `JMP $C100` (unconditional jump to slot 1 firmware ROM). The `RTS` that was supposed to follow the JSR is never reached.
+- How to detect: the machine is not crashed (it keeps running), but the BASIC line after the `CALL` never executes. A test BASIC program such as `10 CALL 24576 / 20 PRINT "DONE"` combined with `expect "DONE"` will time out.
+- Debug strategy: before running, set a breakpoint at `$C100` in the monitor (`break C100`). If the breakpoint fires, a ROM routine hijacked execution instead of returning.
+- Fix: remove or replace the offending JSR. If the goal was to restore TEXT mode, use the correct ROM entry point (`$FB36` is SETTXT on the Apple IIe) or simply omit the call if the caller does not require a display-mode switch.
+
 **Program prints banner then hangs**:
 - Add breadcrumbs after each initialization phase
 - Common: infinite loop in memory clear routine (wrong termination condition)
@@ -658,6 +815,7 @@ Reference: "Understanding the Apple IIe" by James Fielding Sather, p. 5-24.
 1. **Graphics modes not supported**: Only text mode can be captured via `showtext`
 2. **No asynchronous I/O**: All commands block until complete - cannot monitor screen while emulation runs
 3. **`expect` polling interval**: 500ms granularity means fast-completing programs may have slight delay before detection
+4. **Native binary does not support terminal mode**: `/Users/brobert/Downloads/Jace` (Gluon native) ignores the `headless` flag and opens a display window; use Maven for all scripted/automated testing
 
 ## Future Enhancements
 
@@ -675,6 +833,20 @@ Potential improvements:
 - Disk ][ controller: https://www.doc.ic.ac.uk/~ih/doc/stepper/others/example3/diskii_specs.html
 
 ## Change Log
+
+### 2026-03-02
+- Added "Running Jace: Native Binary vs Maven" section documenting `/Users/brobert/Downloads/Jace` (Gluon GraalVM native binary)
+- Native binary finding: `headless` parameter is NOT supported, runs with display window, throws harmless `MacAccessible` error but boots normally
+- Noted native binary does not support terminal/scripting mode; Maven required for automation
+- Added "Tokenizing Applesoft BASIC Programs" section documenting the built-in `ApplesoftProgram.fromString()` Java API; clarified there is no terminal command for tokenizing, and described the inject-then-`savebin` workflow to produce a raw binary file
+
+### 2026-03-01
+- Added "Reaching Applesoft BASIC Without a Disk Image" — `E000G` cold-start, `FF69G` warm-start
+- Documented `expect` first-poll behavior (returns immediately if string already on screen)
+- Added caution against using prompt characters (`]`, `*`) as readiness signals with `expect`
+- Added WARNING near `key`/`type`: `\r` sends the letter 'r', not carriage return; use `\n`
+- Added "Testing Clean Exit to BASIC" section: sentinel lines, soft switch check at $C01A, echo-based responsiveness testing
+- Added diagnosis entry for "`CALL addr` never returns to BASIC": JSR to ROM routine that ends in JMP (e.g. `$FB39` → `JMP $C100`), breakpoint strategy at `$C100`, fix guidance
 
 ### 2026-02-11
 - Documented Debug NOP ($FC) extended opcode: console output, register dumps, instruction tracing

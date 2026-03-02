@@ -28,6 +28,7 @@ import java.util.logging.Logger;
 import jace.Emulator;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.SoftSwitches;
+import jace.applesoft.ApplesoftProgram;
 import jace.core.Motherboard;
 import jace.core.Device;
 import jace.core.RAMListener;
@@ -77,6 +78,7 @@ public class MainMode implements TerminalMode {
 
         commands.put("loadbin", this::loadBinary);
         commands.put("savebin", this::saveBinary);
+        commands.put("loadbasic", this::loadBasic);
         commands.put("key", this::simulateKeypress);
         commands.put("help", this::showHelp);
 
@@ -94,6 +96,7 @@ public class MainMode implements TerminalMode {
         addAlias("st", "showtext");
         addAlias("lb", "loadbin");
         addAlias("sb", "savebin");
+        addAlias("lbas", "loadbasic");
         addAlias("k", "key");
         addAlias("?", "help");
 
@@ -164,6 +167,13 @@ public class MainMode implements TerminalMode {
                 "Saves a block of memory to a binary file.\nUsage: savebin <filename> <address> <size> (or sb <filename> <address> <size>)\n"
                         +
                         "Address and size can be decimal or hex with $ or 0x prefix.");
+
+        commandHelp.put("loadbasic",
+                "Loads a plain-text Applesoft BASIC listing from a file and injects it into emulator RAM.\n"
+                        + "Usage: loadbasic <filepath> (or lbas <filepath>)\n"
+                        + "On success: prints \"Loaded N lines (M bytes) from <filepath>\"\n"
+                        + "On failure: prints the error and file line number where determinable.\n"
+                        + "Example: loadbasic /path/to/program.bas");
 
         commandHelp.put("key",
                 "Simulates keypresses or types a string.\nUsage: key <value1> [value2] [value3] ... (or k <value1> [value2] ...)\n" +
@@ -254,6 +264,7 @@ public class MainMode implements TerminalMode {
         output.println("  expect <string> [timeout] - Wait for string to appear on screen");
         output.println("  loadbin (lb) file addr - Load binary file at specified address (hex)");
         output.println("  savebin (sb) file addr size - Save binary data from memory to file");
+        output.println("  loadbasic (lbas) file - Load plain-text Applesoft BASIC listing into RAM");
         output.println("  key (k) value  - Simulate keypresses");
         output.println("  help/?          - Show this help");
         output.println("  help/?  <cmd>   - Show detailed help for a specific command");
@@ -1155,6 +1166,71 @@ public class MainMode implements TerminalMode {
             LOG.log(Level.WARNING, "Error loading binary: " + filename, e);
             output.println("Error loading binary: " + e.getMessage());
         }
+    }
+
+    private void loadBasic(String[] args) {
+        if (args.length < 1) {
+            output.println("Usage: loadbasic <filepath>");
+            return;
+        }
+
+        // Join all args to support paths with spaces
+        String filepath = String.join(" ", args);
+
+        java.nio.file.Path filePath = java.nio.file.Paths.get(filepath);
+        if (!java.nio.file.Files.exists(filePath)) {
+            output.println("File not found: " + filepath);
+            return;
+        }
+
+        java.util.List<String> fileLines;
+        try {
+            fileLines = java.nio.file.Files.readAllLines(filePath);
+        } catch (java.io.IOException e) {
+            output.println("Error reading file: " + e.getMessage());
+            return;
+        }
+
+        // Validate each non-blank line starts with a BASIC line number
+        for (int i = 0; i < fileLines.size(); i++) {
+            String line = fileLines.get(i);
+            if (line.trim().isEmpty()) {
+                continue;
+            }
+            String trimmed = line.trim();
+            if (!Character.isDigit(trimmed.charAt(0))) {
+                output.println("Error at file line " + (i + 1) + ": expected BASIC line number, got: " + trimmed);
+                return;
+            }
+        }
+
+        ApplesoftProgram program;
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (String line : fileLines) {
+                sb.append(line).append("\n");
+            }
+            program = ApplesoftProgram.fromString(sb.toString());
+        } catch (Exception e) {
+            output.println("Error tokenizing BASIC program: " + e.getMessage());
+            return;
+        }
+
+        if (program.getLength() == 0) {
+            output.println("No BASIC lines found in file: " + filepath);
+            return;
+        }
+
+        try {
+            program.run();
+        } catch (Exception e) {
+            output.println("Error injecting program into RAM: " + e.getMessage());
+            return;
+        }
+
+        int byteCount = program.getProgramSize();
+        output.println("Loaded " + program.getLength() + " lines (" + byteCount + " bytes) from " + filepath);
+        LOG.info("Loaded BASIC program: " + program.getLength() + " lines from " + filepath);
     }
 
     private void saveBinary(String[] args) {
