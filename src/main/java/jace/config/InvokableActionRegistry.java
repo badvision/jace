@@ -26,7 +26,21 @@ public abstract class InvokableActionRegistry {
 
     public static InvokableActionRegistry getInstance() {
         if (instance == null) {
-            instance = new InvokableActionRegistryImpl();
+            try {
+                // Loaded dynamically so the project compiles on a clean bootstrap
+                // (firstRun profile) before the annotation processor has generated the class.
+                instance = (InvokableActionRegistry)
+                        Class.forName("jace.config.InvokableActionRegistryImpl")
+                             .getDeclaredConstructor()
+                             .newInstance();
+            } catch (Exception e) {
+                // firstRun bootstrap: processor hasn't generated the impl yet.
+                // Use a no-op stub so the rest of the app can start.
+                logger.warning("InvokableActionRegistryImpl not found – hotkeys unavailable (bootstrap build)");
+                instance = new InvokableActionRegistry() {
+                    @Override public void init() {}
+                };
+            }
             instance.init();
         }
         return instance;

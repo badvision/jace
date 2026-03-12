@@ -108,7 +108,7 @@ public class CardMegaFlash extends Card {
     @Stateful
     private int statusReg;
     @Stateful
-    private byte[] paramBuffer = new byte[256];
+    private byte[] paramBuffer = new byte[32];
     @Stateful
     private int paramPointer;
     @Stateful
@@ -182,6 +182,10 @@ public class CardMegaFlash extends Card {
             System.out.println("=== MegaFlash Card Initialized (Math Accelerator v2.0) ===");
         }
         indicatorIcon = Utility.loadIconLabel("megaflash.png");
+        // Minimal slot ROM: RTS at $Cs00 so firmware slot-scan returns cleanly.
+        // Without this, the default all-zero CxROM executes BRK ($00) when the
+        // Apple IIe reset/startup sequence probes each card slot.
+        getCxRom().get(0)[0] = (byte) 0x60; // $60 = RTS at $Cs00
         reset();
     }
 
@@ -230,7 +234,7 @@ public class CardMegaFlash extends Card {
     @Override
     public void reset() {
         statusReg = MFERR_NONE;
-        paramPointer = 0;
+        paramPointer = 2;   // matches post-boot-firmware state: ROM makes 2 writes to PARAMREG
         dataPointer = 0;
         initialized = false;
         isPaired = false;
@@ -277,13 +281,13 @@ public class CardMegaFlash extends Card {
                         System.out.println("MegaFlash: PARAMREG[" + paramPointer + "] write 0x" + String.format("%02X", value & 0xFF));
                     }
                     paramBuffer[paramPointer] = (byte) value;
-                    paramPointer = (paramPointer + 1) & 0xFF;
+                    paramPointer = (paramPointer + 1) & 0x1F;
                 } else if (type.isRead()) {
                     if (debugOutput) {
                         System.out.println("MegaFlash: PARAMREG[" + paramPointer + "] read 0x" + String.format("%02X", paramBuffer[paramPointer] & 0xFF));
                     }
                     e.setNewValue(paramBuffer[paramPointer] & 0xFF);
-                    paramPointer = (paramPointer + 1) & 0xFF;
+                    paramPointer = (paramPointer + 1) & 0x1F;
                 }
                 break;
 
@@ -312,10 +316,6 @@ public class CardMegaFlash extends Card {
         // Set BUSY flag when command starts
         statusReg = BUSYFLAG;
 
-        // Reset param pointer for output
-        paramPointer = 0;
-        dataPointer = 0;
-
         switch (commandCode) {
             // Math accelerator commands - Binary operations
             case CMD_FADD:
@@ -323,18 +323,21 @@ public class CardMegaFlash extends Card {
                     System.out.println("MegaFlash FPU: Received FADD command (0x30)");
                 }
                 cmdFAdd();
+                paramPointer = 0; // ResetParamPointer — matches Pico firmware
                 break;
             case CMD_FMUL:
                 if (debugOutput) {
                     System.out.println("MegaFlash FPU: Received FMUL command (0x31)");
                 }
                 cmdFMul();
+                paramPointer = 0;
                 break;
             case CMD_FDIV:
                 if (debugOutput) {
                     System.out.println("MegaFlash FPU: Received FDIV command (0x32)");
                 }
                 cmdFDiv();
+                paramPointer = 0;
                 break;
 
             // Math accelerator commands - Unary operations
@@ -343,42 +346,49 @@ public class CardMegaFlash extends Card {
                     System.out.println("MegaFlash FPU: Received FSIN command (0x33)");
                 }
                 cmdFSin();
+                paramPointer = 0;
                 break;
             case CMD_FCOS:
                 if (debugOutput) {
                     System.out.println("MegaFlash FPU: Received FCOS command (0x34)");
                 }
                 cmdFCos();
+                paramPointer = 0;
                 break;
             case CMD_FTAN:
                 if (debugOutput) {
                     System.out.println("MegaFlash FPU: Received FTAN command (0x35)");
                 }
                 cmdFTan();
+                paramPointer = 0;
                 break;
             case CMD_FATN:
                 if (debugOutput) {
                     System.out.println("MegaFlash FPU: Received FATN command (0x36)");
                 }
                 cmdFAtn();
+                paramPointer = 0;
                 break;
             case CMD_FLOG:
                 if (debugOutput) {
                     System.out.println("MegaFlash FPU: Received FLOG command (0x37)");
                 }
                 cmdFLog();
+                paramPointer = 0;
                 break;
             case CMD_FEXP:
                 if (debugOutput) {
                     System.out.println("MegaFlash FPU: Received FEXP command (0x38)");
                 }
                 cmdFExp();
+                paramPointer = 0;
                 break;
             case CMD_FSQR:
                 if (debugOutput) {
                     System.out.println("MegaFlash FPU: Received FSQR command (0x39)");
                 }
                 cmdFSqr();
+                paramPointer = 0;
                 break;
 
             // Math accelerator commands - I/O operations
@@ -387,6 +397,7 @@ public class CardMegaFlash extends Card {
                     System.out.println("MegaFlash FPU: Received FOUT command (0x3A)");
                 }
                 cmdFOut();
+                paramPointer = 0;
                 break;
             case CMD_FMUL10:
             case CMD_FDIV10:
@@ -433,6 +444,19 @@ public class CardMegaFlash extends Card {
             case CMD_MOUSE_REMOVE_DEVICE:
                 cmdMouseRemoveDevice();
                 break;
+            case 0x00: // CMD_RESETBOTHPTRS — reset both param and data pointers
+                paramPointer = 0;
+                dataPointer = 0;
+                statusReg = MFERR_NONE;
+                break;
+            case 0x01: // CMD_RESETDATAPTR — reset data pointer only
+                dataPointer = 0;
+                statusReg = MFERR_NONE;
+                break;
+            case 0x02: // CMD_RESETPARAMPTR — firmware bug: calls ResetDataPointer() not ResetParamPointer()
+                dataPointer = 0;
+                statusReg = MFERR_NONE;
+                break;
             default:
                 statusReg = MFERR_UNKNOWNCMD;
                 break;
@@ -454,8 +478,8 @@ public class CardMegaFlash extends Card {
      * - Special case: 0 formats as "0"
      */
     private void cmdFOut() {
-        // Read FAC from paramBuffer[0-6]
-        double value = jace.hardware.mbf.MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
+        // Read FAC from the interleaved parameter buffer (Pico protocol)
+        double value = extractFacFromInterleaved();
 
         if (debugOutput) {
             System.out.println("MegaFlash FPU: Executing FOUT");
@@ -542,27 +566,82 @@ public class CardMegaFlash extends Card {
     }
 
 
-    // ==================== Binary Math Operations (Stubs - awaiting Agent 2/3 implementation) ====================
+    // ==================== Pico Protocol Buffer Indices ====================
+    // Input buffer (13 bytes, interleaved FAC/ARG):
+    private static final int FACSIGN      = 0;
+    private static final int ARGSIGN      = 1;
+    private static final int FACMANTISSA4 = 2;
+    private static final int ARGMANTISSA4 = 3;
+    private static final int FACMANTISSA3 = 4;
+    private static final int ARGMANTISSA3 = 5;
+    private static final int FACMANTISSA2 = 6;
+    private static final int ARGMANTISSA2 = 7;
+    private static final int FACMANTISSA1 = 8;
+    private static final int ARGMANTISSA1 = 9;
+    private static final int FACEXP       = 10;
+    private static final int ARGEXP       = 11;
+    private static final int FACEXT       = 12;
+    // Output buffer (8 bytes, sequential):
+    private static final int RESERROR     = 0;
+    private static final int RESSIGN      = 1;
+    private static final int RESMANTISSA4 = 2;
+    private static final int RESMANTISSA3 = 3;
+    private static final int RESMANTISSA2 = 4;
+    private static final int RESMANTISSA1 = 5;
+    private static final int RESEXP       = 6;
+    private static final int RESEXT       = 7;
 
     /**
-     * CMD_FADD (0x30): Floating-point addition - FAC + ARG -> FAC
-     * STUB: Awaiting Agent 2 implementation
+     * Extract FAC from the 13-byte interleaved parameter buffer into a 7-byte MBF array.
+     * PLASMA MBF layout: [0]=EXP, [1]=M1, [2]=M2, [3]=M3, [4]=M4, [5]=SIGN, [6]=EXT
+     */
+    private double extractFacFromInterleaved() {
+        byte[] mbf = new byte[7];
+        mbf[0] = paramBuffer[FACEXP];
+        mbf[1] = paramBuffer[FACMANTISSA1];
+        mbf[2] = paramBuffer[FACMANTISSA2];
+        mbf[3] = paramBuffer[FACMANTISSA3];
+        mbf[4] = paramBuffer[FACMANTISSA4];
+        mbf[5] = paramBuffer[FACSIGN];
+        mbf[6] = paramBuffer[FACEXT];
+        return MicrosoftBinaryFormat.mbfToDouble(mbf, 0);
+    }
+
+    /**
+     * Extract ARG from the 13-byte interleaved parameter buffer into a 7-byte MBF array.
+     * PLASMA MBF layout: [0]=EXP, [1]=M1, [2]=M2, [3]=M3, [4]=M4, [5]=SIGN, [6]=EXT
+     */
+    private double extractArgFromInterleaved() {
+        byte[] mbf = new byte[7];
+        mbf[0] = paramBuffer[ARGEXP];
+        mbf[1] = paramBuffer[ARGMANTISSA1];
+        mbf[2] = paramBuffer[ARGMANTISSA2];
+        mbf[3] = paramBuffer[ARGMANTISSA3];
+        mbf[4] = paramBuffer[ARGMANTISSA4];
+        mbf[5] = paramBuffer[ARGSIGN];
+        mbf[6] = 0;
+        return MicrosoftBinaryFormat.mbfToDouble(mbf, 0);
+    }
+
+    // ==================== Binary Math Operations ====================
+
+    /**
+     * CMD_FADD (0x30): Floating-point addition - ARG + FAC -> result
+     * Input: 13-byte interleaved buffer (Pico protocol)
+     * Output: 8-byte result buffer (Pico protocol)
      */
     private void cmdFAdd() {
         if (debugOutput) {
             System.out.println("MegaFlash FPU: Executing FADD");
-            System.out.print("  ParamBuffer[0-13] = ");
-            for (int i = 0; i < 14; i++) {
+            System.out.print("  ParamBuffer[0-12] = ");
+            for (int i = 0; i < 13; i++) {
                 System.out.print(String.format("%02X ", paramBuffer[i] & 0xFF));
             }
             System.out.println();
         }
 
-        // Read FAC from paramBuffer[0-6]
-        double fac = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
-
-        // Read ARG from paramBuffer[7-13]
-        double arg = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 7);
+        double fac = extractFacFromInterleaved();
+        double arg = extractArgFromInterleaved();
 
         if (debugOutput) {
             System.out.println("  FAC (decoded) = " + fac);
@@ -582,23 +661,21 @@ public class CardMegaFlash extends Card {
 
     /**
      * CMD_FMUL (0x31): Floating-point multiplication (ARG * FAC)
+     * Input: 13-byte interleaved buffer (Pico protocol)
+     * Output: 8-byte result buffer (Pico protocol)
      */
     private void cmdFMul() {
         if (debugOutput) {
-            // Diagnostic: Dump first 14 bytes of paramBuffer
             System.out.println("MegaFlash FPU: Executing FMUL");
-            System.out.print("  ParamBuffer[0-13] = ");
-            for (int i = 0; i < 14; i++) {
+            System.out.print("  ParamBuffer[0-12] = ");
+            for (int i = 0; i < 13; i++) {
                 System.out.print(String.format("%02X ", paramBuffer[i] & 0xFF));
             }
             System.out.println();
         }
 
-        // Read FAC from paramBuffer[0-6]
-        double fac = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
-
-        // Read ARG from paramBuffer[7-13]
-        double arg = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 7);
+        double fac = extractFacFromInterleaved();
+        double arg = extractArgFromInterleaved();
 
         if (debugOutput) {
             System.out.println("  FAC = " + fac + ", ARG = " + arg);
@@ -616,49 +693,48 @@ public class CardMegaFlash extends Card {
     }
 
     /**
-     * CMD_FDIV (0x32): Floating-point division (FAC / ARG)
-     * Hardware operation: divides FAC by ARG
+     * CMD_FDIV (0x32): Floating-point division (ARG / FAC)
+     * The Pico hardware computes arg.d / fac.d (ARG divided by FAC).
+     * Input: 13-byte interleaved buffer (Pico protocol)
+     * Output: 8-byte result buffer (Pico protocol)
      */
     private void cmdFDiv() {
         if (debugOutput) {
-            // Diagnostic: Dump first 14 bytes of paramBuffer
             System.out.println("MegaFlash FPU: Executing FDIV");
-            System.out.print("  ParamBuffer[0-13] = ");
-            for (int i = 0; i < 14; i++) {
+            System.out.print("  ParamBuffer[0-12] = ");
+            for (int i = 0; i < 13; i++) {
                 System.out.print(String.format("%02X ", paramBuffer[i] & 0xFF));
             }
             System.out.println();
         }
 
-        // Read FAC from paramBuffer[0-6]
-        double fac = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
-
-        // Read ARG from paramBuffer[7-13]
-        double arg = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 7);
+        double fac = extractFacFromInterleaved();
+        double arg = extractArgFromInterleaved();
 
         if (debugOutput) {
             System.out.println("  FAC = " + fac + ", ARG = " + arg);
         }
 
-        // Check for division by zero (ARG is the divisor)
-        if (Math.abs(arg) < 1e-30) {
+        // Check for division by zero (FAC is the divisor — Pico computes arg.d / fac.d)
+        if (fac == 0.0) {
             if (debugOutput) {
                 System.out.println("  Error = 0x" + String.format("%02X", MATHERR_DIV0) + " (Division by zero)");
             }
-            // Division by zero error
-            paramBuffer[0] = (byte) MATHERR_DIV0;
-            // Write zero result
-            for (int i = 1; i < 8; i++) {
-                paramBuffer[i] = 0;
-            }
-            // Reset pointer for reading
-            paramPointer = 0;
+            // Division by zero error — write in Pico 8-byte output format
+            paramBuffer[RESERROR]     = (byte) MATHERR_DIV0;
+            paramBuffer[RESSIGN]      = 0;
+            paramBuffer[RESMANTISSA4] = 0;
+            paramBuffer[RESMANTISSA3] = 0;
+            paramBuffer[RESMANTISSA2] = 0;
+            paramBuffer[RESMANTISSA1] = 0;
+            paramBuffer[RESEXP]       = 0;
+            paramBuffer[RESEXT]       = 0;
             statusReg = MFERR_NONE;
             return;
         }
 
-        // Perform division: FAC / ARG (matches Pi Pico hardware)
-        double result = fac / arg;
+        // Perform division: ARG / FAC (matches Pi Pico hardware: result.d = arg.d / fac.d)
+        double result = arg / fac;
 
         if (debugOutput) {
             System.out.println("  Result = " + result);
@@ -669,40 +745,51 @@ public class CardMegaFlash extends Card {
     }
 
     /**
-     * Helper method to write math operation results to paramBuffer.
-     * Handles overflow detection and error code generation.
+     * Helper method to write math operation results to paramBuffer in Pico output format.
+     * Output buffer layout (8 bytes):
+     *   [RESERROR=0]     error code (0=OK, 0x80=overflow, 0x40=div0, 0x20=illegal)
+     *   [RESSIGN=1]      result sign byte (0x80=negative, 0=positive)
+     *   [RESMANTISSA4=2] least significant mantissa byte (LSB)
+     *   [RESMANTISSA3=3]
+     *   [RESMANTISSA2=4]
+     *   [RESMANTISSA1=5] most significant mantissa byte (MSB, bit7=explicit leading 1)
+     *   [RESEXP=6]       result exponent
+     *   [RESEXT=7]       result extension byte
+     *
+     * MicrosoftBinaryFormat.doubleToMbf writes: [0]=EXP, [1]=M1, [2]=M2, [3]=M3, [4]=M4, [5]=SIGN, [6]=EXT
      */
     private void writeMathResult(double result) {
-        // Check for NaN or Infinity (overflow)
         if (Double.isNaN(result) || Double.isInfinite(result) || MicrosoftBinaryFormat.isOverflow(result)) {
             if (debugOutput) {
                 System.out.println("  Error = 0x" + String.format("%02X", MATHERR_OVERFLOW) + " (Overflow)");
             }
-            // Write overflow error
-            paramBuffer[0] = (byte) MATHERR_OVERFLOW;
-            // Write zero result
-            for (int i = 1; i < 8; i++) {
-                paramBuffer[i] = 0;
-            }
+            paramBuffer[RESERROR]     = (byte) MATHERR_OVERFLOW;
+            paramBuffer[RESSIGN]      = 0;
+            paramBuffer[RESMANTISSA4] = 0;
+            paramBuffer[RESMANTISSA3] = 0;
+            paramBuffer[RESMANTISSA2] = 0;
+            paramBuffer[RESMANTISSA1] = 0;
+            paramBuffer[RESEXP]       = 0;
+            paramBuffer[RESEXT]       = 0;
         } else {
             if (debugOutput) {
                 System.out.println("  Error = 0x00 (Success)");
             }
-            // Write success error code
-            paramBuffer[0] = (byte) MATHERR_NONE;
-
-            // Convert result to MBF and write to paramBuffer[1-7]
-            byte[] resultBytes = new byte[7];
-            MicrosoftBinaryFormat.doubleToMbf(result, resultBytes, 0);
-            for (int i = 0; i < 7; i++) {
-                paramBuffer[1 + i] = resultBytes[i];
-            }
+            byte[] mbf = new byte[7];
+            MicrosoftBinaryFormat.doubleToMbf(result, mbf, 0);
+            // mbf[0]=EXP, mbf[1]=M1, mbf[2]=M2, mbf[3]=M3, mbf[4]=M4, mbf[5]=SIGN, mbf[6]=EXT
+            paramBuffer[RESERROR]     = (byte) MATHERR_NONE;
+            paramBuffer[RESSIGN]      = mbf[5];
+            paramBuffer[RESMANTISSA4] = mbf[4];
+            paramBuffer[RESMANTISSA3] = mbf[3];
+            paramBuffer[RESMANTISSA2] = mbf[2];
+            // Pico format: explicit leading 1-bit in M1 — but only for normalized (non-zero) numbers.
+            // For zero (EXP=0), mantissa must be 0; applying |0x80 would corrupt M1.
+            paramBuffer[RESMANTISSA1] = (mbf[0] == 0) ? (byte) 0 : (byte)(mbf[1] | 0x80);
+            paramBuffer[RESEXP]       = mbf[0];
+            paramBuffer[RESEXT]       = mbf[6];
         }
 
-        // Reset pointer for reading
-        paramPointer = 0;
-
-        // statusReg remains MFERR_NONE (math errors go in result byte 0)
         statusReg = MFERR_NONE;
     }
     private String formatDecimal(double value) {
@@ -727,12 +814,11 @@ public class CardMegaFlash extends Card {
 
     /**
      * CMD_FSIN (0x33): Compute sine of FAC
-     * Input: paramBuffer[0-6] = FAC (7-byte MBF format)
-     * Output: paramBuffer[0] = error code, paramBuffer[1-7] = result in MBF format
+     * Input: 13-byte interleaved buffer (Pico protocol) — only FAC is used
+     * Output: 8-byte result buffer (Pico protocol)
      */
     private void cmdFSin() {
-        // Read FAC from paramBuffer[0-6]
-        double operand = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
+        double operand = extractFacFromInterleaved();
 
         if (debugOutput) {
             System.out.println("MegaFlash FPU: Executing FSIN");
@@ -752,12 +838,11 @@ public class CardMegaFlash extends Card {
 
     /**
      * CMD_FCOS (0x34): Compute cosine of FAC
-     * Input: paramBuffer[0-6] = FAC (7-byte MBF format)
-     * Output: paramBuffer[0] = error code, paramBuffer[1-7] = result in MBF format
+     * Input: 13-byte interleaved buffer (Pico protocol) — only FAC is used
+     * Output: 8-byte result buffer (Pico protocol)
      */
     private void cmdFCos() {
-        // Read FAC from paramBuffer[0-6]
-        double operand = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
+        double operand = extractFacFromInterleaved();
 
         if (debugOutput) {
             System.out.println("MegaFlash FPU: Executing FCOS");
@@ -777,14 +862,13 @@ public class CardMegaFlash extends Card {
 
     /**
      * CMD_FTAN (0x35): Compute tangent of FAC
-     * Input: paramBuffer[0-6] = FAC (7-byte MBF format)
-     * Output: paramBuffer[0] = error code, paramBuffer[1-7] = result in MBF format
+     * Input: 13-byte interleaved buffer (Pico protocol) — only FAC is used
+     * Output: 8-byte result buffer (Pico protocol)
      *
      * Special handling: tan(π/2) and near π/2 values cause overflow
      */
     private void cmdFTan() {
-        // Read FAC from paramBuffer[0-6]
-        double operand = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
+        double operand = extractFacFromInterleaved();
 
         if (debugOutput) {
             System.out.println("MegaFlash FPU: Executing FTAN");
@@ -798,14 +882,7 @@ public class CardMegaFlash extends Card {
             if (debugOutput) {
                 System.out.println("  Error = 0x" + String.format("%02X", MATHERR_OVERFLOW) + " (Overflow at π/2)");
             }
-            // Overflow condition
-            paramPointer = 0;
-            paramBuffer[0] = (byte) MATHERR_OVERFLOW;
-            // Write zero result
-            for (int i = 1; i < 8; i++) {
-                paramBuffer[i] = 0;
-            }
-            statusReg = MFERR_NONE;
+            writeMathError(MATHERR_OVERFLOW);
             return;
         }
 
@@ -817,13 +894,7 @@ public class CardMegaFlash extends Card {
             if (debugOutput) {
                 System.out.println("  Error = 0x" + String.format("%02X", MATHERR_OVERFLOW) + " (Overflow)");
             }
-            paramPointer = 0;
-            paramBuffer[0] = (byte) MATHERR_OVERFLOW;
-            // Write zero result
-            for (int i = 1; i < 8; i++) {
-                paramBuffer[i] = 0;
-            }
-            statusReg = MFERR_NONE;
+            writeMathError(MATHERR_OVERFLOW);
             return;
         }
 
@@ -837,14 +908,13 @@ public class CardMegaFlash extends Card {
 
     /**
      * CMD_FATN (0x36): Compute arctangent of FAC
-     * Input: paramBuffer[0-6] = FAC (7-byte MBF format)
-     * Output: paramBuffer[0] = error code, paramBuffer[1-7] = result in MBF format
+     * Input: 13-byte interleaved buffer (Pico protocol) — only FAC is used
+     * Output: 8-byte result buffer (Pico protocol)
      *
      * Returns angle in radians in range [-π/2, π/2]
      */
     private void cmdFAtn() {
-        // Read FAC from paramBuffer[0-6]
-        double operand = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
+        double operand = extractFacFromInterleaved();
 
         if (debugOutput) {
             System.out.println("MegaFlash FPU: Executing FATN");
@@ -864,15 +934,14 @@ public class CardMegaFlash extends Card {
 
     /**
      * CMD_FLOG (0x37): Compute natural logarithm of FAC
-     * Input: paramBuffer[0-6] = FAC (7-byte MBF format)
-     * Output: paramBuffer[0] = error code, paramBuffer[1-7] = result in MBF format
+     * Input: 13-byte interleaved buffer (Pico protocol) — only FAC is used
+     * Output: 8-byte result buffer (Pico protocol)
      *
      * Domain: operand must be > 0
      * Returns IQERROR for operand <= 0
      */
     private void cmdFLog() {
-        // Read FAC from paramBuffer[0-6]
-        double operand = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
+        double operand = extractFacFromInterleaved();
 
         if (debugOutput) {
             System.out.println("MegaFlash FPU: Executing FLOG");
@@ -884,13 +953,7 @@ public class CardMegaFlash extends Card {
             if (debugOutput) {
                 System.out.println("  Error = 0x" + String.format("%02X", MATHERR_IQERROR) + " (Invalid operand <= 0)");
             }
-            paramPointer = 0;
-            paramBuffer[0] = (byte) MATHERR_IQERROR;
-            // Write zero result
-            for (int i = 1; i < 8; i++) {
-                paramBuffer[i] = 0;
-            }
-            statusReg = MFERR_NONE;
+            writeMathError(MATHERR_IQERROR);
             return;
         }
 
@@ -907,14 +970,13 @@ public class CardMegaFlash extends Card {
 
     /**
      * CMD_FEXP (0x38): Compute exponential e^FAC
-     * Input: paramBuffer[0-6] = FAC (7-byte MBF format)
-     * Output: paramBuffer[0] = error code, paramBuffer[1-7] = result in MBF format
+     * Input: 13-byte interleaved buffer (Pico protocol) — only FAC is used
+     * Output: 8-byte result buffer (Pico protocol)
      *
      * Returns OVERFLOW for excessively large inputs
      */
     private void cmdFExp() {
-        // Read FAC from paramBuffer[0-6]
-        double operand = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
+        double operand = extractFacFromInterleaved();
 
         if (debugOutput) {
             System.out.println("MegaFlash FPU: Executing FEXP");
@@ -929,13 +991,7 @@ public class CardMegaFlash extends Card {
             if (debugOutput) {
                 System.out.println("  Error = 0x" + String.format("%02X", MATHERR_OVERFLOW) + " (Overflow)");
             }
-            paramPointer = 0;
-            paramBuffer[0] = (byte) MATHERR_OVERFLOW;
-            // Write zero result
-            for (int i = 1; i < 8; i++) {
-                paramBuffer[i] = 0;
-            }
-            statusReg = MFERR_NONE;
+            writeMathError(MATHERR_OVERFLOW);
             return;
         }
 
@@ -949,15 +1005,14 @@ public class CardMegaFlash extends Card {
 
     /**
      * CMD_FSQR (0x39): Compute square root of FAC
-     * Input: paramBuffer[0-6] = FAC (7-byte MBF format)
-     * Output: paramBuffer[0] = error code, paramBuffer[1-7] = result in MBF format
+     * Input: 13-byte interleaved buffer (Pico protocol) — only FAC is used
+     * Output: 8-byte result buffer (Pico protocol)
      *
      * Domain: operand must be >= 0
      * Returns IQERROR for negative operands
      */
     private void cmdFSqr() {
-        // Read FAC from paramBuffer[0-6]
-        double operand = MicrosoftBinaryFormat.mbfToDouble(paramBuffer, 0);
+        double operand = extractFacFromInterleaved();
 
         if (debugOutput) {
             System.out.println("MegaFlash FPU: Executing FSQR");
@@ -969,13 +1024,7 @@ public class CardMegaFlash extends Card {
             if (debugOutput) {
                 System.out.println("  Error = 0x" + String.format("%02X", MATHERR_IQERROR) + " (Negative operand)");
             }
-            paramPointer = 0;
-            paramBuffer[0] = (byte) MATHERR_IQERROR;
-            // Write zero result
-            for (int i = 1; i < 8; i++) {
-                paramBuffer[i] = 0;
-            }
-            statusReg = MFERR_NONE;
+            writeMathError(MATHERR_IQERROR);
             return;
         }
 
@@ -991,41 +1040,27 @@ public class CardMegaFlash extends Card {
     }
 
     /**
-     * Helper method to write unary operation result to paramBuffer
-     * Format: Byte 0 = error code, Bytes 1-7 = result in MBF format
+     * Write a math error response in Pico output format and reset paramPointer.
+     * Used by unary and binary command implementations for error early-returns.
+     */
+    private void writeMathError(int errorCode) {
+        paramBuffer[RESERROR]     = (byte) errorCode;
+        paramBuffer[RESSIGN]      = 0;
+        paramBuffer[RESMANTISSA4] = 0;
+        paramBuffer[RESMANTISSA3] = 0;
+        paramBuffer[RESMANTISSA2] = 0;
+        paramBuffer[RESMANTISSA1] = 0;
+        paramBuffer[RESEXP]       = 0;
+        paramBuffer[RESEXT]       = 0;
+        statusReg = MFERR_NONE;
+    }
+
+    /**
+     * Helper method to write unary operation result to paramBuffer in Pico output format.
+     * Delegates to writeMathResult since the format is identical.
      */
     private void writeUnaryResult(double result) {
-        // Check for NaN or Infinity (overflow)
-        if (Double.isNaN(result) || Double.isInfinite(result) || MicrosoftBinaryFormat.isOverflow(result)) {
-            if (debugOutput) {
-                System.out.println("  Error = 0x" + String.format("%02X", MATHERR_OVERFLOW) + " (Overflow)");
-            }
-            // Write overflow error
-            paramBuffer[0] = (byte) MATHERR_OVERFLOW;
-            // Write zero result
-            for (int i = 1; i < 8; i++) {
-                paramBuffer[i] = 0;
-            }
-        } else {
-            if (debugOutput) {
-                System.out.println("  Error = 0x00 (Success)");
-            }
-            // Write success error code
-            paramBuffer[0] = (byte) MATHERR_NONE;
-
-            // Convert result to MBF and write to paramBuffer[1-7]
-            byte[] resultBytes = new byte[7];
-            MicrosoftBinaryFormat.doubleToMbf(result, resultBytes, 0);
-            for (int i = 0; i < 7; i++) {
-                paramBuffer[1 + i] = resultBytes[i];
-            }
-        }
-
-        // Reset pointer for reading
-        paramPointer = 0;
-
-        // statusReg remains MFERR_NONE (math errors go in result byte 0)
-        statusReg = MFERR_NONE;
+        writeMathResult(result);
     }
 
     // ==================== Mouse Commands ====================
@@ -1041,6 +1076,7 @@ public class CardMegaFlash extends Card {
             paramBuffer[0] = 0x00; // Success
             initialized = true;
         }
+        paramPointer = 0;
         statusReg = MFERR_NONE;
     }
 
@@ -1083,6 +1119,7 @@ public class CardMegaFlash extends Card {
                 (isConnected ? 0x40 : 0) // Connection bit
             );
         }
+        paramPointer = 0;
         statusReg = MFERR_NONE;
     }
 
@@ -1137,6 +1174,7 @@ public class CardMegaFlash extends Card {
             System.arraycopy(deviceMAC, 0, dataBuffer, 32, 6);
         }
 
+        paramPointer = 0;
         statusReg = MFERR_NONE;
     }
 
@@ -1197,6 +1235,7 @@ public class CardMegaFlash extends Card {
         // Validate timeout (must be >= 10)
         if (timeout < 10) {
             paramBuffer[0] = 0x04; // Invalid timeout
+            paramPointer = 0;
             statusReg = MFERR_NONE;
             return;
         }
@@ -1204,6 +1243,7 @@ public class CardMegaFlash extends Card {
         // Check if already pairing
         if (isPairing) {
             paramBuffer[0] = 0x01; // Already in pairing mode
+            paramPointer = 0;
             statusReg = MFERR_NONE;
             return;
         }
@@ -1237,6 +1277,7 @@ public class CardMegaFlash extends Card {
             }
         }).start();
 
+        paramPointer = 0;
         statusReg = MFERR_NONE;
     }
 
@@ -1341,6 +1382,7 @@ public class CardMegaFlash extends Card {
             dataBuffer[39] = (byte) (isConnected ? 0xFF : 0); // 0xFF = currently connected
         }
 
+        paramPointer = 0;
         statusReg = MFERR_NONE;
     }
 
@@ -1353,11 +1395,13 @@ public class CardMegaFlash extends Card {
 
         if (duration < 5 || duration > 60) {
             paramBuffer[0] = 0x02; // Invalid duration
+            paramPointer = 0;
             statusReg = MFERR_NONE;
             return;
         }
 
         paramBuffer[0] = 0x00; // Scan started
+        paramPointer = 0;
         statusReg = MFERR_NONE;
     }
 

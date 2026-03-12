@@ -1,15 +1,13 @@
 package jace.config;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.tools.JavaFileObject;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
@@ -29,6 +27,7 @@ public class InvokableActionAnnotationProcessor extends AbstractProcessor {
     Messager messager;
     Map<InvokableAction, ExecutableElement> staticMethods = new HashMap<>();
     Map<InvokableAction, ExecutableElement> instanceMethods = new HashMap<>();
+    boolean written = false;
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -41,18 +40,23 @@ public class InvokableActionAnnotationProcessor extends AbstractProcessor {
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         messager.printMessage(javax.tools.Diagnostic.Kind.NOTE, "InvokableActionAnnotationProcessor process()");
 
+        if (roundEnv.processingOver()) {
+            return false;
+        }
+
         // Get list of methods annotated with @InvokableAction.
         Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(InvokableAction.class);
         for (Element element : elements) {
             if (element.getModifiers().contains(javax.lang.model.element.Modifier.STATIC)) {
-                // If the annotation method is static, add it to the static method registry.
                 trackStaticMethod(element);
             } else {
-                // For non-static methods, track in a separate registry.
                 trackInstanceMethod(element);
             }
+        }
+
+        if (!written && (!staticMethods.isEmpty() || !instanceMethods.isEmpty())) {
+            written = true;
             try {
-                // Write class that contains static and instance methods.
                 writeRegistryClass();
             } catch (IOException ex) {
                 messager.printMessage(javax.tools.Diagnostic.Kind.ERROR, "Error writing InvokableActionRegistry.java: " + ex.getMessage());
@@ -90,10 +94,12 @@ public class InvokableActionAnnotationProcessor extends AbstractProcessor {
         ));
     }
 
-    // Write the registry class.
+    // Write the registry class via the standard filer API so javac manages
+    // the output location and compiles the result in the next round automatically.
     private void writeRegistryClass() throws IOException {
-        Files.createDirectories(new File("target/generated-sources/jace/config").toPath());
-        try (PrintWriter writer = new PrintWriter(new FileWriter("target/generated-sources/jace/config/InvokableActionRegistryImpl.java"))) {
+        JavaFileObject sourceFile = processingEnv.getFiler()
+                .createSourceFile("jace.config.InvokableActionRegistryImpl");
+        try (PrintWriter writer = new PrintWriter(sourceFile.openWriter())) {
             writer.write("""
 package jace.config;
 

@@ -266,4 +266,107 @@ public class LoadBasicCommandTest {
         String out = getOutput();
         assertTrue("Help listing should include loadbasic", out.contains("loadbasic"));
     }
+
+    /**
+     * Lines starting with ';' (semicolon comment) should be silently skipped.
+     * They must not be counted in the loaded line total.
+     */
+    @Test
+    public void testSemicolonCommentLinesAreSkipped() throws IOException {
+        String basicSource =
+                "; this is a comment\n" +
+                "10 HOME\n" +
+                "; another comment\n" +
+                "20 PRINT \"HELLO\"\n" +
+                "30 END\n";
+
+        Path tmp = writeTempFile(basicSource);
+        boolean result = mainMode.processCommand("loadbasic " + tmp.toAbsolutePath());
+
+        String out = getOutput();
+        assertTrue("Command should be recognised and return true", result);
+        assertTrue("Output should show successful load", out.contains("Loaded"));
+        assertTrue("Output should show 3 BASIC lines (comment lines excluded)", out.contains("3 lines"));
+    }
+
+    /**
+     * A bare REM line (no leading line number) should be silently skipped.
+     */
+    @Test
+    public void testRemCommentLineNoLineNumber_isSkipped() throws IOException {
+        String basicSource =
+                "REM this is a header comment\n" +
+                "10 HOME\n" +
+                "20 END\n";
+
+        Path tmp = writeTempFile(basicSource);
+        boolean result = mainMode.processCommand("loadbasic " + tmp.toAbsolutePath());
+
+        String out = getOutput();
+        assertTrue("Command should be recognised and return true", result);
+        assertTrue("Output should show successful load", out.contains("Loaded"));
+        assertTrue("Output should show 2 BASIC lines (REM comment excluded)", out.contains("2 lines"));
+    }
+
+    /**
+     * An indented semicolon comment (leading whitespace before ';') should be silently skipped.
+     */
+    @Test
+    public void testIndentedSemicolonComment_isSkipped() throws IOException {
+        String basicSource =
+                "   ; indented comment\n" +
+                "10 HOME\n" +
+                "20 END\n";
+
+        Path tmp = writeTempFile(basicSource);
+        boolean result = mainMode.processCommand("loadbasic " + tmp.toAbsolutePath());
+
+        String out = getOutput();
+        assertTrue("Command should be recognised and return true", result);
+        assertTrue("Output should show successful load", out.contains("Loaded"));
+        assertTrue("Output should show 2 BASIC lines (indented comment excluded)", out.contains("2 lines"));
+    }
+
+    /**
+     * An indented REM comment (leading whitespace before REM, no line number) should be silently skipped.
+     */
+    @Test
+    public void testIndentedRemComment_isSkipped() throws IOException {
+        String basicSource =
+                "   REM indented rem\n" +
+                "10 HOME\n" +
+                "20 END\n";
+
+        Path tmp = writeTempFile(basicSource);
+        boolean result = mainMode.processCommand("loadbasic " + tmp.toAbsolutePath());
+
+        String out = getOutput();
+        assertTrue("Command should be recognised and return true", result);
+        assertTrue("Output should show successful load", out.contains("Loaded"));
+        assertTrue("Output should show 2 BASIC lines (indented REM excluded)", out.contains("2 lines"));
+    }
+
+    /**
+     * Mixed file: real BASIC lines interleaved with comment lines.
+     * All comment lines (both ';' and bare REM) must be ignored; only BASIC lines tokenized.
+     */
+    @Test
+    public void testMixedCommentAndBasicLines() throws IOException {
+        String basicSource =
+                "; Program: Hello World\n" +
+                "REM Written for JACE test\n" +
+                "10 HOME\n" +
+                "   ; clear screen done\n" +
+                "20 PRINT \"HELLO, WORLD\"\n" +
+                "   REM print done\n" +
+                "30 END\n";
+
+        Path tmp = writeTempFile(basicSource);
+        boolean result = mainMode.processCommand("loadbasic " + tmp.toAbsolutePath());
+
+        String out = getOutput();
+        assertTrue("Command should be recognised and return true", result);
+        assertTrue("Output should show successful load", out.contains("Loaded"));
+        assertTrue("Output should show 3 BASIC lines (all comment lines excluded)", out.contains("3 lines"));
+    }
 }

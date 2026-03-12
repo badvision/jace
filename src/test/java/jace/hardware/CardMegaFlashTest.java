@@ -62,6 +62,10 @@ public class CardMegaFlashTest extends AbstractFXTest {
     public void setUp() {
         card = new CardMegaFlash();
         card.setSlot(4);
+        // CMD_RESETBOTHPTRS (0x00): reset paramPointer and dataPointer to 0.
+        // On real hardware, boot firmware leaves paramPointer=2; programs issue this
+        // command before using the FPU. Mirrors real usage so tests start clean.
+        executeCommand(0x00);
     }
 
     private RAMEvent createEvent(RAMEvent.TYPE type, int value) {
@@ -465,14 +469,8 @@ public class CardMegaFlashTest extends AbstractFXTest {
      */
     @Test
     public void testFOutFormatsOne() {
-        // Prepare FAC with 1.0 in MBF format
-        byte[] fac = new byte[7];
-        jace.hardware.mbf.MicrosoftBinaryFormat.doubleToMbf(1.0, fac, 0);
-
-        // Write FAC to paramBuffer
-        for (int i = 0; i < 7; i++) {
-            writeParam(fac[i] & 0xFF);
-        }
+        // Write FAC in interleaved Pico protocol format
+        writeUnaryOperand(1.0);
 
         // Execute FOUT
         executeCommand(CMD_FOUT);
@@ -499,12 +497,7 @@ public class CardMegaFlashTest extends AbstractFXTest {
      */
     @Test
     public void testFOutFormatsDecimal() {
-        byte[] fac = new byte[7];
-        jace.hardware.mbf.MicrosoftBinaryFormat.doubleToMbf(123.45, fac, 0);
-
-        for (int i = 0; i < 7; i++) {
-            writeParam(fac[i] & 0xFF);
-        }
+        writeUnaryOperand(123.45);
 
         executeCommand(CMD_FOUT);
 
@@ -527,12 +520,7 @@ public class CardMegaFlashTest extends AbstractFXTest {
      */
     @Test
     public void testFOutFormatsZero() {
-        byte[] fac = new byte[7];
-        jace.hardware.mbf.MicrosoftBinaryFormat.doubleToMbf(0.0, fac, 0);
-
-        for (int i = 0; i < 7; i++) {
-            writeParam(fac[i] & 0xFF);
-        }
+        writeUnaryOperand(0.0);
 
         executeCommand(CMD_FOUT);
 
@@ -555,12 +543,7 @@ public class CardMegaFlashTest extends AbstractFXTest {
      */
     @Test
     public void testFOutScientificNotationLarge() {
-        byte[] fac = new byte[7];
-        jace.hardware.mbf.MicrosoftBinaryFormat.doubleToMbf(1.23456e10, fac, 0);
-
-        for (int i = 0; i < 7; i++) {
-            writeParam(fac[i] & 0xFF);
-        }
+        writeUnaryOperand(1.23456e10);
 
         executeCommand(CMD_FOUT);
 
@@ -585,12 +568,7 @@ public class CardMegaFlashTest extends AbstractFXTest {
      */
     @Test
     public void testFOutScientificNotationSmall() {
-        byte[] fac = new byte[7];
-        jace.hardware.mbf.MicrosoftBinaryFormat.doubleToMbf(1.23456e-5, fac, 0);
-
-        for (int i = 0; i < 7; i++) {
-            writeParam(fac[i] & 0xFF);
-        }
+        writeUnaryOperand(1.23456e-5);
 
         executeCommand(CMD_FOUT);
 
@@ -615,12 +593,7 @@ public class CardMegaFlashTest extends AbstractFXTest {
      */
     @Test
     public void testFOutNegativeNumber() {
-        byte[] fac = new byte[7];
-        jace.hardware.mbf.MicrosoftBinaryFormat.doubleToMbf(-42.0, fac, 0);
-
-        for (int i = 0; i < 7; i++) {
-            writeParam(fac[i] & 0xFF);
-        }
+        writeUnaryOperand(-42.0);
 
         executeCommand(CMD_FOUT);
 
@@ -643,12 +616,7 @@ public class CardMegaFlashTest extends AbstractFXTest {
      */
     @Test
     public void testFOutFormatsSmallDecimal() {
-        byte[] fac = new byte[7];
-        jace.hardware.mbf.MicrosoftBinaryFormat.doubleToMbf(0.001, fac, 0);
-
-        for (int i = 0; i < 7; i++) {
-            writeParam(fac[i] & 0xFF);
-        }
+        writeUnaryOperand(0.001);
 
         executeCommand(CMD_FOUT);
 
@@ -694,43 +662,92 @@ public class CardMegaFlashTest extends AbstractFXTest {
 
     // ==================== Helper Methods for Binary Math Operations ====================
 
+    // Pico input buffer indices (13-byte interleaved)
+    private static final int FACSIGN      = 0;
+    private static final int ARGSIGN      = 1;
+    private static final int FACMANTISSA4 = 2;
+    private static final int ARGMANTISSA4 = 3;
+    private static final int FACMANTISSA3 = 4;
+    private static final int ARGMANTISSA3 = 5;
+    private static final int FACMANTISSA2 = 6;
+    private static final int ARGMANTISSA2 = 7;
+    private static final int FACMANTISSA1 = 8;
+    private static final int ARGMANTISSA1 = 9;
+    private static final int FACEXP       = 10;
+    private static final int ARGEXP       = 11;
+    private static final int FACEXT       = 12;
+    // Pico output buffer indices (8-byte sequential)
+    private static final int RESERROR     = 0;
+    private static final int RESSIGN      = 1;
+    private static final int RESMANTISSA4 = 2;
+    private static final int RESMANTISSA3 = 3;
+    private static final int RESMANTISSA2 = 4;
+    private static final int RESMANTISSA1 = 5;
+    private static final int RESEXP       = 6;
+    private static final int RESEXT       = 7;
+
     /**
-     * Write a binary operation parameter buffer with FAC and ARG operands.
-     * Binary operations expect 13 bytes: FAC (7 bytes) + ARG (6 bytes).
-     * Note: Simplified to write ARG as only first 6 bytes for now.
+     * Write FAC and ARG in the 13-byte interleaved Pico protocol format.
+     *
+     * PLASMA MBF layout: [0]=EXP, [1]=M1, [2]=M2, [3]=M3, [4]=M4, [5]=SIGN, [6]=EXT
+     * Pico interleaved order: FACSIGN, ARGSIGN, FACM4, ARGM4, FACM3, ARGM3,
+     *                         FACM2, ARGM2, FACM1, ARGM1, FACEXP, ARGEXP, FACEXT
      */
     private void writeBinaryOperands(double fac, double arg) {
-        byte[] facBytes = new byte[7];
-        byte[] argBytes = new byte[7];
+        byte[] facMbf = new byte[7];
+        byte[] argMbf = new byte[7];
+        MicrosoftBinaryFormat.doubleToMbf(fac, facMbf, 0);
+        MicrosoftBinaryFormat.doubleToMbf(arg, argMbf, 0);
 
-        MicrosoftBinaryFormat.doubleToMbf(fac, facBytes, 0);
-        MicrosoftBinaryFormat.doubleToMbf(arg, argBytes, 0);
+        // Build 13-byte interleaved buffer
+        // facMbf: [0]=EXP, [1]=M1, [2]=M2, [3]=M3, [4]=M4, [5]=SIGN, [6]=EXT
+        byte[] buf = new byte[13];
+        buf[FACSIGN]      = facMbf[5];
+        buf[ARGSIGN]      = argMbf[5];
+        buf[FACMANTISSA4] = facMbf[4];
+        buf[ARGMANTISSA4] = argMbf[4];
+        buf[FACMANTISSA3] = facMbf[3];
+        buf[ARGMANTISSA3] = argMbf[3];
+        buf[FACMANTISSA2] = facMbf[2];
+        buf[ARGMANTISSA2] = argMbf[2];
+        buf[FACMANTISSA1] = facMbf[1];
+        buf[ARGMANTISSA1] = argMbf[1];
+        buf[FACEXP]       = facMbf[0];
+        buf[ARGEXP]       = argMbf[0];
+        buf[FACEXT]       = facMbf[6];
 
-        // Write FAC (7 bytes at offset 0-6)
-        for (int i = 0; i < 7; i++) {
-            writeParam(facBytes[i] & 0xFF);
-        }
-
-        // Write ARG (all 7 bytes at offset 7-13 for simplicity)
-        // This makes reading easier in the implementation
-        for (int i = 0; i < 7; i++) {
-            writeParam(argBytes[i] & 0xFF);
+        for (int i = 0; i < 13; i++) {
+            writeParam(buf[i] & 0xFF);
         }
     }
 
     /**
-     * Read the result of a binary math operation.
+     * Read the result of a binary or unary math operation (8 bytes in Pico output format).
+     * Pico output: [RESERROR, RESSIGN, RESMANTISSA4, RESMANTISSA3, RESMANTISSA2, RESMANTISSA1, RESEXP, RESEXT]
+     * PLASMA MBF:  [0]=EXP,  [1]=M1,  [2]=M2,        [3]=M3,        [4]=M4,        [5]=SIGN,    [6]=EXT
      * Returns: [error_code, result_value]
      */
     private Object[] readBinaryResult() {
-        int errorCode = readParam();
+        int errorCode = readParam();                // RESERROR (index 0)
+        int ressign   = readParam();                // RESSIGN  (index 1)
+        int resm4     = readParam();                // RESMANTISSA4 (index 2)
+        int resm3     = readParam();                // RESMANTISSA3 (index 3)
+        int resm2     = readParam();                // RESMANTISSA2 (index 4)
+        int resm1     = readParam();                // RESMANTISSA1 (index 5)
+        int resexp    = readParam();                // RESEXP   (index 6)
+        int resext    = readParam();                // RESEXT   (index 7)
 
-        byte[] resultBytes = new byte[7];
-        for (int i = 0; i < 7; i++) {
-            resultBytes[i] = (byte) readParam();
-        }
+        // Reconstruct PLASMA MBF array from Pico output format
+        byte[] mbf = new byte[7];
+        mbf[0] = (byte) resexp;
+        mbf[1] = (byte) resm1;
+        mbf[2] = (byte) resm2;
+        mbf[3] = (byte) resm3;
+        mbf[4] = (byte) resm4;
+        mbf[5] = (byte) ressign;
+        mbf[6] = (byte) resext;
 
-        double result = MicrosoftBinaryFormat.mbfToDouble(resultBytes, 0);
+        double result = MicrosoftBinaryFormat.mbfToDouble(mbf, 0);
         return new Object[]{errorCode, result};
     }
 
@@ -832,10 +849,11 @@ public class CardMegaFlashTest extends AbstractFXTest {
 
     /**
      * Test 34: FDIV: 12.0 / 3.0 = 4.0
+     * Pico semantics: arg / fac. So fac=3.0 (divisor), arg=12.0 (dividend).
      */
     @Test
     public void testFDiv_Basic() {
-        writeBinaryOperands(12.0, 3.0);
+        writeBinaryOperands(3.0, 12.0);  // fac=3.0 (divisor), arg=12.0 (dividend)
         executeCommand(CMD_FDIV);
 
         Object[] result = readBinaryResult();
@@ -847,11 +865,11 @@ public class CardMegaFlashTest extends AbstractFXTest {
     }
 
     /**
-     * Test 35: FDIV by zero: Should return DIV0 error
+     * Test 35: FDIV by zero: FAC=0 triggers DIV0 error (Pico checks fac==0.0)
      */
     @Test
     public void testFDiv_DivisionByZero() {
-        writeBinaryOperands(10.0, 0.0);
+        writeBinaryOperands(0.0, 10.0);  // fac=0.0 (divisor=0 => error), arg=10.0
         executeCommand(CMD_FDIV);
 
         Object[] result = readBinaryResult();
@@ -864,10 +882,11 @@ public class CardMegaFlashTest extends AbstractFXTest {
 
     /**
      * Test 36: FDIV with negative divisor: 12.0 / -3.0 = -4.0
+     * Pico semantics: arg / fac. So fac=-3.0 (divisor), arg=12.0 (dividend).
      */
     @Test
     public void testFDiv_NegativeDivisor() {
-        writeBinaryOperands(12.0, -3.0);
+        writeBinaryOperands(-3.0, 12.0);  // fac=-3.0 (divisor), arg=12.0 (dividend)
         executeCommand(CMD_FDIV);
 
         Object[] result = readBinaryResult();
@@ -901,29 +920,20 @@ public class CardMegaFlashTest extends AbstractFXTest {
     // ==================== Unary Math Operation Tests ====================
 
     /**
-     * Helper to write a 7-byte MBF unary operand to param buffer.
-     * Each test method should call this once before executeCommand to avoid
-     * paramPointer overflow issues.
+     * Helper to write a unary operand in the 13-byte interleaved Pico protocol format.
+     * For unary operations, FAC is the only meaningful operand (ARG is sent as the same
+     * value, matching PLASMA's execUnaryOp which calls sendFACARG(reg, reg)).
      */
     private void writeUnaryOperand(double value) {
-        byte[] mbf = new byte[7];
-        jace.hardware.mbf.MicrosoftBinaryFormat.doubleToMbf(value, mbf, 0);
-        for (int i = 0; i < 7; i++) {
-            writeParam(mbf[i] & 0xFF);
-        }
+        writeBinaryOperands(value, value);
     }
 
     /**
-     * Helper to read unary operation result (1 error byte + 7 MBF bytes)
+     * Helper to read unary or binary operation result (8 bytes in Pico output format).
+     * Delegates to readBinaryResult since the format is identical.
      */
     private Object[] readUnaryResult() {
-        int errorCode = readParam();
-        byte[] mbf = new byte[7];
-        for (int i = 0; i < 7; i++) {
-            mbf[i] = (byte)readParam();
-        }
-        double value = jace.hardware.mbf.MicrosoftBinaryFormat.mbfToDouble(mbf, 0);
-        return new Object[]{errorCode, value};
+        return readBinaryResult();
     }
 
     /**
@@ -1328,5 +1338,177 @@ public class CardMegaFlashTest extends AbstractFXTest {
         int errorCode = (int) result[0];
 
         assertEquals("FSQR(-4) should return IQERROR", MATHERR_IQERROR, errorCode);
+    }
+
+    // ==================== Reset Command Tests ====================
+
+    /**
+     * Test 64: CMD_RESETBOTHPTRS (0x00) sets status to MFERR_NONE
+     *
+     * Before this fix, command 0x00 fell through to the default case and
+     * set status to MFERR_UNKNOWNCMD. Verify the fix returns MFERR_NONE.
+     */
+    @Test
+    public void testCmdResetBothPtrsReturnsNone() {
+        executeCommand(0x00);
+
+        int status = readStatus();
+        assertEquals("CMD_RESETBOTHPTRS (0x00) should return MFERR_NONE, not MFERR_UNKNOWNCMD",
+                MFERR_NONE, status & 0x7F);
+    }
+
+    /**
+     * Test 65: CMD_RESETDATAPTR (0x01) sets status to MFERR_NONE
+     */
+    @Test
+    public void testCmdResetDataPtrReturnsNone() {
+        executeCommand(0x01);
+
+        int status = readStatus();
+        assertEquals("CMD_RESETDATAPTR (0x01) should return MFERR_NONE",
+                MFERR_NONE, status & 0x7F);
+    }
+
+    /**
+     * Test 66: CMD_RESETPARAMPTR (0x02) sets status to MFERR_NONE
+     */
+    @Test
+    public void testCmdResetParamPtrReturnsNone() {
+        executeCommand(0x02);
+
+        int status = readStatus();
+        assertEquals("CMD_RESETPARAMPTR (0x02) should return MFERR_NONE",
+                MFERR_NONE, status & 0x7F);
+    }
+
+    /**
+     * Run one FPU operation exactly as mftest.bas does after the CMD_RESETBOTHPTRS fix:
+     *   1. POKE 49344,0  — CMD_RESETBOTHPTRS: reset both paramPointer and dataPointer
+     *   2. POKE 49344,2  — CMD_RESETPARAMPTR: firmware bug resets dataPointer (not paramPointer)
+     *   3. Write 13 interleaved bytes to PARAMREG
+     *   4. Issue the FPU command
+     *   5. POKE 49344,2  — reset before reading
+     *   6. Read 8 result bytes from PARAMREG
+     *
+     * @param cmd     FPU command byte (e.g. CMD_FADD=0x30)
+     * @param sendBuf 13-byte interleaved buffer: [FS,AS,F4,A4,F3,A3,F2,A2,F1,A1,FE,AE,FX]
+     * @return int[8]: [ERR, SIGN, M4, M3, M2, M1, EXP, EXT]
+     */
+    private int[] runMftestOp(int cmd, int[] sendBuf) {
+        executeCommand(0x00); // CMD_RESETBOTHPTRS — ensures clean buffer state
+        executeCommand(0x02); // CMD_RESETPARAMPTR (firmware bug: resets dataPointer only)
+        for (int b : sendBuf) writeParam(b);
+        executeCommand(cmd);
+        executeCommand(0x02); // reset before reading
+        int[] rb = new int[8];
+        for (int i = 0; i < 8; i++) rb[i] = readParam();
+        return rb;
+    }
+
+    /**
+     * Test 68: mftest.bas — all 5 FPU operations pass with CMD_RESETBOTHPTRS fix.
+     *
+     * Simulates the exact POKE/PEEK sequence that mftest.bas performs on the Apple II,
+     * using the raw MBF bytes the BASIC program would send.  The fix on line 8010 of
+     * mftest.bas issues CMD_RESETBOTHPTRS (POKE 49344,0) before each operation so the
+     * parameter buffer is always in a known state regardless of firmware boot state.
+     *
+     * Interleaved send buffer: [FS, AS, F4, A4, F3, A3, F2, A2, F1, A1, FE, AE, FX]
+     * Result buffer: [ERR, SIGN, M4, M3, M2, M1, EXP, EXT]
+     */
+    @Test
+    public void testMfTestBasicProgram() {
+        int passed = 0;
+        StringBuilder failures = new StringBuilder();
+
+        // Test 1: FADD 3+4=7
+        // FAC=3.0: EXP=$82=130, M1=$C0=192  |  ARG=4.0: EXP=$83=131, M1=$80=128
+        // Expected=7.0: EXP=$83=131, M1=$E0=224
+        {
+            int[] rb = runMftestOp(CMD_FADD, new int[]{0,0,0,0,0,0,0,0,192,128,130,131,0});
+            if (rb[0]==0 && rb[6]==131 && rb[5]==224 && rb[4]==0 && rb[3]==0 && rb[2]==0 && rb[1]==0) {
+                passed++;
+            } else {
+                failures.append("\n  FADD 3+4=7: ERR=").append(rb[0])
+                        .append(" EXP=").append(rb[6]).append(" M1=").append(rb[5]).append(" SIGN=").append(rb[1]);
+            }
+        }
+
+        // Test 2: FMUL 3*4=12
+        // FAC=3.0: EXP=$82=130, M1=$C0=192  |  ARG=4.0: EXP=$83=131, M1=$80=128
+        // Expected=12.0: EXP=$84=132, M1=$C0=192
+        {
+            int[] rb = runMftestOp(CMD_FMUL, new int[]{0,0,0,0,0,0,0,0,192,128,130,131,0});
+            if (rb[0]==0 && rb[6]==132 && rb[5]==192 && rb[4]==0 && rb[3]==0 && rb[2]==0 && rb[1]==0) {
+                passed++;
+            } else {
+                failures.append("\n  FMUL 3*4=12: ERR=").append(rb[0])
+                        .append(" EXP=").append(rb[6]).append(" M1=").append(rb[5]).append(" SIGN=").append(rb[1]);
+            }
+        }
+
+        // Test 3: FSQR(4)=2 (unary — ARG unused, sent as zero)
+        // FAC=4.0: EXP=$83=131, M1=$80=128
+        // Expected=2.0: EXP=$82=130, M1=$80=128
+        {
+            int[] rb = runMftestOp(CMD_FSQR, new int[]{0,0,0,0,0,0,0,0,128,0,131,0,0});
+            if (rb[0]==0 && rb[6]==130 && rb[5]==128 && rb[4]==0 && rb[3]==0 && rb[2]==0 && rb[1]==0) {
+                passed++;
+            } else {
+                failures.append("\n  FSQR(4)=2: ERR=").append(rb[0])
+                        .append(" EXP=").append(rb[6]).append(" M1=").append(rb[5]).append(" SIGN=").append(rb[1]);
+            }
+        }
+
+        // Test 4: FSIN(0)=0 (unary — FAC=0.0, all zeros)
+        // Expected=0.0: all zeros
+        {
+            int[] rb = runMftestOp(CMD_FSIN, new int[]{0,0,0,0,0,0,0,0,0,0,0,0,0});
+            if (rb[0]==0 && rb[6]==0 && rb[5]==0 && rb[4]==0 && rb[3]==0 && rb[2]==0 && rb[1]==0) {
+                passed++;
+            } else {
+                failures.append("\n  FSIN(0)=0: ERR=").append(rb[0])
+                        .append(" EXP=").append(rb[6]).append(" M1=").append(rb[5]).append(" SIGN=").append(rb[1]);
+            }
+        }
+
+        // Test 5: FDIV 12/4=3  (Pico semantics: result = ARG/FAC)
+        // FAC=4.0 (divisor): EXP=$83=131, M1=$80=128
+        // ARG=12.0 (dividend): EXP=$84=132, M1=$C0=192
+        // Expected=3.0: EXP=$82=130, M1=$C0=192
+        {
+            int[] rb = runMftestOp(CMD_FDIV, new int[]{0,0,0,0,0,0,0,0,128,192,131,132,0});
+            if (rb[0]==0 && rb[6]==130 && rb[5]==192 && rb[4]==0 && rb[3]==0 && rb[2]==0 && rb[1]==0) {
+                passed++;
+            } else {
+                failures.append("\n  FDIV 12/4=3: ERR=").append(rb[0])
+                        .append(" EXP=").append(rb[6]).append(" M1=").append(rb[5]).append(" SIGN=").append(rb[1]);
+            }
+        }
+
+        assertEquals("mftest.bas: all 5 tests should pass" + failures, 5, passed);
+    }
+
+    /**
+     * Test 69: CMD_RESETBOTHPTRS does not corrupt subsequent operations
+     *
+     * Sends a reset command and then verifies a math command still works correctly.
+     */
+    @Test
+    public void testCmdResetBothPtrsDoesNotCorruptSubsequentOps() {
+        // Send reset command
+        executeCommand(0x00);
+        assertEquals("Status after reset should be MFERR_NONE", MFERR_NONE, readStatus() & 0x7F);
+
+        // Now perform a real math operation to confirm nothing is broken
+        writeBinaryOperands(3.0, 4.0);
+        executeCommand(CMD_FMUL);
+
+        Object[] result = readBinaryResult();
+        int errorCode = (int) result[0];
+        double value = (double) result[1];
+
+        assertEquals("FMUL after reset should succeed", MATHERR_NONE, errorCode);
+        assertEquals("3.0 * 4.0 should equal 12.0 after reset", 12.0, value, 0.001);
     }
 }

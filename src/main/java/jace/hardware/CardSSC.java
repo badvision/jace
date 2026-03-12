@@ -50,7 +50,7 @@ public class CardSSC extends Card {
     protected Socket clientSocket;
     protected InputStream directInput;
     protected Thread listenThread;
-    private int lastInputByte = 0;
+    protected int lastInputByte = 0;
     private boolean FULL_ECHO = true;
 //    private boolean RECV_STRIP_LF = true;
 //    private boolean TRANS_ADD_LF = true;
@@ -412,7 +412,7 @@ public class CardSSC extends Card {
         }
     }
 
-    private int getInputByte() throws IOException {
+    protected int getInputByte() throws IOException {
         if (isConnected() && newInputAvailable.get()) {
             synchronized (newInputAvailable) {
                 try {

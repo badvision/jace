@@ -105,10 +105,24 @@ public class ApplesoftProgram {
         return out;
     }
 
+    private static final java.util.regex.Pattern COMMENT_LINE =
+            java.util.regex.Pattern.compile("\\s*(REM|;).*", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Returns true if the given source line is a comment line that should be silently skipped
+     * during tokenization. Comment lines match {@code \s*REM.*} or {@code \s*;.*}.
+     */
+    public static boolean isCommentLine(String line) {
+        return COMMENT_LINE.matcher(line).matches();
+    }
+
     public static ApplesoftProgram fromString(String programSource) {
         ApplesoftProgram program = new ApplesoftProgram();
         for (String line : programSource.split("\\n")) {
             if (line.trim().isEmpty()) {
+                continue;
+            }
+            if (COMMENT_LINE.matcher(line).matches()) {
                 continue;
             }
             program.lines.add(Line.fromString(line));
