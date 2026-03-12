@@ -16,6 +16,7 @@
 
 package jace.terminal;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.imageio.ImageIO;
 
 import jace.Emulator;
 import jace.apple2e.MOS65C02;
@@ -47,6 +49,9 @@ public class MainMode implements TerminalMode {
     private final Map<String, String> commandAliases = new HashMap<>();
     private final Map<String, String> commandHelp = new HashMap<>();
     private boolean softSwitchLoggingEnabled = false;
+    private boolean charlogEnabled = false;
+    RAMListener charlogExecListener = null;
+    RAMListener charlogWriteListener = null;
     
 
     public MainMode(JaceTerminal terminal) {
@@ -78,9 +83,12 @@ public class MainMode implements TerminalMode {
 
         commands.put("loadbin", this::loadBinary);
         commands.put("savebin", this::saveBinary);
+        commands.put("saveauxbin", this::saveAuxBinary);
+        commands.put("screenshot", this::takeScreenshot);
         commands.put("loadbasic", this::loadBasic);
         commands.put("key", this::simulateKeypress);
         commands.put("help", this::showHelp);
+        commands.put("charlog", this::toggleCharLog);
 
         addAlias("m", "monitor");
         addAlias("a", "assembler");
@@ -96,9 +104,12 @@ public class MainMode implements TerminalMode {
         addAlias("st", "showtext");
         addAlias("lb", "loadbin");
         addAlias("sb", "savebin");
+        addAlias("sab", "saveauxbin");
+        addAlias("ss2", "screenshot");
         addAlias("lbas", "loadbasic");
         addAlias("k", "key");
         addAlias("?", "help");
+        addAlias("cl", "charlog");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -148,9 +159,11 @@ public class MainMode implements TerminalMode {
                         "Example: waitkey 5000");
 
         commandHelp.put("type",
-                "Types a string by synchronizing each keypress with keyboard reads.\nUsage: type <string>\n" +
-                        "This command waits for keyboard read before each character, ensuring proper input.\n" +
-                        "Example: type \"hello world\\n\"\nExample: type +fptest.mf\\n");
+                "Types a string by synchronizing each keypress with keyboard reads.\nUsage: type <string>[, timeout_seconds]\n" +
+                        "Without timeout: waits for keyboard read before each character (emulator paused between chars).\n" +
+                        "With timeout: resumes emulator once, types all chars within the time limit, re-pauses if previously paused.\n" +
+                        "Timeout is indicated by a trailing comma and 1-2 digit number.\n" +
+                        "Example: type \"hello world\\n\"\nExample: type \"RUN\\n\", 5");
 
         commandHelp.put("expect",
                 "Waits for a string to appear on the text screen.\nUsage: expect <string> [timeout_seconds]\n" +
@@ -168,12 +181,34 @@ public class MainMode implements TerminalMode {
                         +
                         "Address and size can be decimal or hex with $ or 0x prefix.");
 
+        commandHelp.put("saveauxbin",
+                "Saves a block of AUXILIARY memory to a binary file.\nUsage: saveauxbin <filename> <address> <size> (or sab <filename> <address> <size>)\n"
+                        +
+                        "Reads from auxiliary (AUX) video memory — e.g., the aux DHGR page at $2000.\n"
+                        +
+                        "Address and size can be decimal or hex with $ or 0x prefix.");
+
+        commandHelp.put("screenshot",
+                "Captures the DHGR page 1 framebuffer and saves it as a PNG file.\n"
+                        + "Usage: screenshot <filename.png> (or ss2 <filename.png>)\n"
+                        + "Reads main and aux memory at $2000-$3FFF, renders 560x192 DHGR monochrome\n"
+                        + "at 2x scale (1120x384) and writes a PNG.\n"
+                        + "Example: screenshot /tmp/frame.png");
+
         commandHelp.put("loadbasic",
                 "Loads a plain-text Applesoft BASIC listing from a file and injects it into emulator RAM.\n"
                         + "Usage: loadbasic <filepath> (or lbas <filepath>)\n"
                         + "On success: prints \"Loaded N lines (M bytes) from <filepath>\"\n"
                         + "On failure: prints the error and file line number where determinable.\n"
                         + "Example: loadbasic /path/to/program.bas");
+
+        commandHelp.put("charlog",
+                "Toggles character output logging for the Z-machine character writer at $5DA3.\n" +
+                        "Usage: charlog (or cl)\n" +
+                        "When enabled, prints each character written by the Z-machine:\n" +
+                        "  CHAR: 0xNN 'C'  (execute listener at $5DA3, A register)\n" +
+                        "  WRITE $XXXX = 0xNN  (write listener on $0280-$02FF)\n" +
+                        "Second call disables logging.");
 
         commandHelp.put("key",
                 "Simulates keypresses or types a string.\nUsage: key <value1> [value2] [value3] ... (or k <value1> [value2] ...)\n" +
@@ -264,6 +299,8 @@ public class MainMode implements TerminalMode {
         output.println("  expect <string> [timeout] - Wait for string to appear on screen");
         output.println("  loadbin (lb) file addr - Load binary file at specified address (hex)");
         output.println("  savebin (sb) file addr size - Save binary data from memory to file");
+        output.println("  saveauxbin (sab) file addr size - Save binary data from AUXILIARY memory to file");
+        output.println("  screenshot (ss2) file.png - Capture DHGR page 1 as 1120x384 PNG");
         output.println("  loadbasic (lbas) file - Load plain-text Applesoft BASIC listing into RAM");
         output.println("  key (k) value  - Simulate keypresses");
         output.println("  help/?          - Show this help");
@@ -337,6 +374,62 @@ public class MainMode implements TerminalMode {
         } else {
             Emulator.withMemory(m -> m.removeListener(softSwitchListener));
             softSwitchListener = null;
+        }
+    }
+
+    private void toggleCharLog(String[] args) {
+        charlogEnabled = !charlogEnabled;
+        if (charlogEnabled) {
+            output.println("charlog enabled");
+            // Listener 1: EXECUTE at $5DA3 — reads cpu.A for the character being written
+            charlogExecListener = new RAMListener("CharLogExec", RAMEvent.TYPE.EXECUTE, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+                @Override
+                protected void doConfig() {
+                    setScopeStart(0x5DA3);
+                    setScopeEnd(0x5DA3);
+                }
+
+                @Override
+                protected void doEvent(RAMEvent event) {
+                    Emulator.withComputer(c -> {
+                        MOS65C02 cpu = (MOS65C02) c.getCpu();
+                        int ch = cpu.A & 0x7F;
+                        String printable = (ch >= 32) ? " '" + (char) ch + "'" : "";
+                        output.printf("CHAR: 0x%02X%s%n", ch, printable);
+                    });
+                }
+            };
+            // Listener 2: WRITE on $0280-$02FF — backup trap on the screen-hole write range
+            charlogWriteListener = new RAMListener("CharLogWrite", RAMEvent.TYPE.WRITE, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
+                @Override
+                protected void doConfig() {
+                    setScopeStart(0x0280);
+                    setScopeEnd(0x02FF);
+                }
+
+                @Override
+                protected void doEvent(RAMEvent event) {
+                    int val = event.getNewValue() & 0x7F;
+                    String printable = (val >= 32) ? " '" + (char) val + "'" : "";
+                    output.printf("WRITE $%04X = 0x%02X%s%n", event.getAddress(), val, printable);
+                }
+            };
+            Emulator.withMemory(m -> {
+                m.addListener(charlogExecListener);
+                m.addListener(charlogWriteListener);
+            });
+        } else {
+            output.println("charlog disabled");
+            Emulator.withMemory(m -> {
+                if (charlogExecListener != null) {
+                    m.removeListener(charlogExecListener);
+                }
+                if (charlogWriteListener != null) {
+                    m.removeListener(charlogWriteListener);
+                }
+            });
+            charlogExecListener = null;
+            charlogWriteListener = null;
         }
     }
 
@@ -986,12 +1079,20 @@ public class MainMode implements TerminalMode {
 
     private void typeString(String[] args) {
         if (args.length < 1) {
-            output.println("Usage: type <string>");
+            output.println("Usage: type <string> [timeout_seconds]");
             return;
         }
 
-        // Join all args into one string
+        // Join all args first, then look for trailing ,N or , N timeout suffix
         String text = String.join(" ", args);
+
+        // Parse optional timeout: string must end with ,\s*\d{1,2}
+        int timeoutSeconds = 0; // 0 = no timeout (original per-char behavior)
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(",\\s*(\\d{1,2})\\s*$").matcher(text);
+        if (m.find()) {
+            timeoutSeconds = Integer.parseInt(m.group(1));
+            text = text.substring(0, m.start());
+        }
 
         // Remove surrounding quotes if present
         if (text.startsWith("\"") && text.endsWith("\"") && text.length() > 1) {
@@ -1002,33 +1103,138 @@ public class MainMode implements TerminalMode {
         text = text.replace("\\n", "\r"); // Convert \n to carriage return
         text = text.replace("\\t", "\t");
 
-        output.println("Typing string: \"" + text + "\"");
+        output.println("Typing string: \"" + text + "\"" + (timeoutSeconds > 0 ? " (timeout: " + timeoutSeconds + "s)" : ""));
 
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            byte keyCode = (byte)(c & 0xFF);
+        if (timeoutSeconds > 0) {
+            // Timeout mode: resume once, type all chars, re-pause at the end if we resumed
+            final String finalText = text;
+            final int finalTimeout = timeoutSeconds;
+            final boolean[] wasRunning = {false};
 
-            // Wait for keyboard read multiple times to skip ROM routines that ignore keypresses
-            for (int j = 0; j < 3; j++) {
-                if (!waitForKeyRead(5000, false)) {
-                    output.println("Timeout waiting for keyboard read at character " + i + " (wait " + j + ")");
-                    return;
+            Emulator.withComputer(computer -> {
+                wasRunning[0] = !computer.getMotherboard().isPaused();
+                if (!wasRunning[0]) {
+                    computer.resume();
+                }
+            });
+
+            long deadline = System.currentTimeMillis() + finalTimeout * 1000L;
+
+            for (int i = 0; i < finalText.length(); i++) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    output.println("Timeout reached at character " + i);
+                    break;
+                }
+
+                final byte keyCode = (byte)(finalText.charAt(i) & 0xFF);
+
+                // Wait for keyboard read multiple times to skip ROM routines
+                for (int j = 0; j < 3; j++) {
+                    long rem = deadline - System.currentTimeMillis();
+                    if (rem <= 0 || !waitForKeyReadWithoutResume((int)Math.min(rem, 5000), false)) {
+                        if (deadline - System.currentTimeMillis() <= 0) {
+                            output.println("Timeout at character " + i);
+                        } else {
+                            output.println("Timeout waiting for keyboard read at character " + i + " (wait " + j + ")");
+                        }
+                        break;
+                    }
+                }
+
+                Emulator.withComputer(computer -> {
+                    Keyboard.pressKey(keyCode);
+                });
+
+                long rem = deadline - System.currentTimeMillis();
+                if (rem <= 0 || !waitForKeyReadWithoutResume((int)Math.min(rem, 5000), false)) {
+                    if (deadline - System.currentTimeMillis() <= 0) {
+                        output.println("Timeout after key " + i);
+                    } else {
+                        output.println("Timeout waiting for key to be read at character " + i);
+                    }
+                    break;
                 }
             }
 
-            // Press the key
-            Emulator.withComputer(computer -> {
-                Keyboard.pressKey(keyCode);
-            });
+            // Re-pause if we resumed
+            if (!wasRunning[0]) {
+                Emulator.withComputer(computer -> computer.pause());
+            }
 
-            // Wait for the key to be read
-            if (!waitForKeyRead(5000, false)) {
-                output.println("Timeout waiting for key to be read at character " + i);
-                return;
+        } else {
+            // Original per-char behavior: each waitForKeyRead does its own resume/pause
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                byte keyCode = (byte)(c & 0xFF);
+
+                // Wait for keyboard read multiple times to skip ROM routines that ignore keypresses
+                for (int j = 0; j < 3; j++) {
+                    if (!waitForKeyRead(5000, false)) {
+                        output.println("Timeout waiting for keyboard read at character " + i + " (wait " + j + ")");
+                        return;
+                    }
+                }
+
+                // Press the key
+                Emulator.withComputer(computer -> {
+                    Keyboard.pressKey(keyCode);
+                });
+
+                // Wait for the key to be read
+                if (!waitForKeyRead(5000, false)) {
+                    output.println("Timeout waiting for key to be read at character " + i);
+                    return;
+                }
             }
         }
 
         output.println("Typing complete");
+    }
+
+    /**
+     * Waits for a keyboard read at $C000 without managing the emulator resume/pause state.
+     * The emulator must already be running when this is called.
+     */
+    private boolean waitForKeyReadWithoutResume(int maxWaitMs, boolean printOutput) {
+        try {
+            final boolean[] keyReadDetected = new boolean[1];
+
+            RAMListener keyListener = new RAMListener("WaitForKey", RAMEvent.TYPE.READ, RAMEvent.SCOPE.ADDRESS, RAMEvent.VALUE.ANY) {
+                @Override
+                protected void doConfig() {
+                    setScopeStart(0xC000);
+                }
+
+                @Override
+                protected void doEvent(RAMEvent event) {
+                    synchronized (keyReadDetected) {
+                        keyReadDetected[0] = true;
+                        keyReadDetected.notify();
+                    }
+                }
+            };
+
+            Emulator.withMemory(memory -> memory.addListener(keyListener));
+
+            synchronized (keyReadDetected) {
+                if (!keyReadDetected[0]) {
+                    try {
+                        keyReadDetected.wait(maxWaitMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+
+            Emulator.withMemory(memory -> memory.removeListener(keyListener));
+
+            return keyReadDetected[0];
+
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Error waiting for keypress", e);
+            return false;
+        }
     }
 
     private char convertAppleTextToAscii(byte b) {
@@ -1191,10 +1397,13 @@ public class MainMode implements TerminalMode {
             return;
         }
 
-        // Validate each non-blank line starts with a BASIC line number
+        // Validate each non-blank, non-comment line starts with a BASIC line number
         for (int i = 0; i < fileLines.size(); i++) {
             String line = fileLines.get(i);
             if (line.trim().isEmpty()) {
+                continue;
+            }
+            if (ApplesoftProgram.isCommentLine(line)) {
                 continue;
             }
             String trimmed = line.trim();
@@ -1322,6 +1531,64 @@ public class MainMode implements TerminalMode {
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Error saving binary: " + filename, e);
             output.println("Error saving binary: " + e.getMessage());
+        }
+    }
+
+    private void saveAuxBinary(String[] args) {
+        if (args.length < 3) {
+            output.println("Usage: saveauxbin <filename> <address> <size>");
+            return;
+        }
+
+        String filename = args[0];
+        int address, size;
+
+        try {
+            address = parseHexAddress(args[1]);
+            size = parseHexAddress(args[2]);
+        } catch (NumberFormatException e) {
+            output.println("Invalid address or size");
+            return;
+        }
+
+        try {
+            if (size <= 0) {
+                output.println("Size must be positive");
+                return;
+            }
+            if (address + size > 0x10000) {
+                output.println("Memory range would exceed address space");
+                return;
+            }
+
+            byte[] dataToSave = new byte[size];
+            boolean[] success = {false};
+
+            Emulator.withMemory(memory -> {
+                if (memory instanceof jace.apple2e.RAM128k) {
+                    jace.apple2e.RAM128k ram128k = (jace.apple2e.RAM128k) memory;
+                    jace.core.PagedMemory auxMem = ram128k.getAuxVideoMemory();
+                    for (int i = 0; i < size; i++) {
+                        int addr = (address + i) & 0xFFFF;
+                        dataToSave[i] = auxMem.readByte(addr);
+                    }
+                    success[0] = true;
+                }
+            });
+
+            if (!success[0]) {
+                output.println("Error: RAM128k aux memory not available");
+                return;
+            }
+
+            java.nio.file.Files.write(java.nio.file.Paths.get(filename), dataToSave);
+            output.println("Saved " + size + " aux bytes from $" + Integer.toHexString(address).toUpperCase()
+                    + " to " + filename);
+
+        } catch (java.io.IOException e) {
+            output.println("Error writing file: " + e.getMessage());
+        } catch (Exception e) {
+            output.println("Error saving aux binary: " + e.getMessage());
         }
     }
 
@@ -1711,6 +1978,93 @@ public class MainMode implements TerminalMode {
         }
     }
     
+    private void takeScreenshot(String[] args) {
+        if (args.length < 1) {
+            output.println("Usage: screenshot <filename.png>");
+            return;
+        }
+
+        String filename = args[0];
+
+        final int PAGE_START = 0x2000;
+        final int PAGE_SIZE  = 0x2000; // 8192 bytes
+        final int WIDTH      = 560;
+        final int HEIGHT     = 192;
+        final int SCALE      = 2;
+
+        byte[] mainMem = new byte[PAGE_SIZE];
+        byte[] auxMem  = new byte[PAGE_SIZE];
+        boolean[] success = {false};
+
+        Emulator.withMemory(memory -> {
+            if (!(memory instanceof jace.apple2e.RAM128k)) {
+                return;
+            }
+            jace.apple2e.RAM128k ram128k = (jace.apple2e.RAM128k) memory;
+            jace.core.PagedMemory auxVideo = ram128k.getAuxVideoMemory();
+
+            // Read main memory via standard read (same as saveBinary)
+            for (int i = 0; i < PAGE_SIZE; i++) {
+                int addr = (PAGE_START + i) & 0xFFFF;
+                mainMem[i] = memory.read(addr, RAMEvent.TYPE.READ_DATA, true, false);
+            }
+
+            // Read aux video memory (same as saveAuxBinary)
+            for (int i = 0; i < PAGE_SIZE; i++) {
+                int addr = (PAGE_START + i) & 0xFFFF;
+                auxMem[i] = auxVideo.readByte(addr);
+            }
+
+            success[0] = true;
+        });
+
+        if (!success[0]) {
+            output.println("Error: RAM128k memory not available for screenshot");
+            return;
+        }
+
+        // Render 560x192 DHGR monochrome at 2x scale -> 1120x384
+        BufferedImage img = new BufferedImage(WIDTH * SCALE, HEIGHT * SCALE, BufferedImage.TYPE_INT_RGB);
+
+        for (int y = 0; y < HEIGHT; y++) {
+            // Apple II HGR interleaved row address formula
+            int rowAddr = ((y & 7) << 10) + (((y >> 3) & 7) * 0x80) + ((y >> 6) * 0x28);
+
+            int px = 0;
+            for (int xoff = 0; xoff < 40; xoff++) {
+                int auxByte  = auxMem [rowAddr + xoff] & 0x7F;
+                int mainByte = mainMem[rowAddr + xoff] & 0x7F;
+                // 7 sequential pixels from aux byte (bit 0 = leftmost)
+                for (int bit = 0; bit < 7; bit++) {
+                    int color = ((auxByte >> bit) & 1) != 0 ? 0xFFFFFF : 0x000000;
+                    for (int sy = 0; sy < SCALE; sy++) {
+                        for (int sx = 0; sx < SCALE; sx++) {
+                            img.setRGB(px * SCALE + sx, y * SCALE + sy, color);
+                        }
+                    }
+                    px++;
+                }
+                // 7 sequential pixels from main byte (bit 0 = leftmost)
+                for (int bit = 0; bit < 7; bit++) {
+                    int color = ((mainByte >> bit) & 1) != 0 ? 0xFFFFFF : 0x000000;
+                    for (int sy = 0; sy < SCALE; sy++) {
+                        for (int sx = 0; sx < SCALE; sx++) {
+                            img.setRGB(px * SCALE + sx, y * SCALE + sy, color);
+                        }
+                    }
+                    px++;
+                }
+            }
+        }
+
+        try {
+            ImageIO.write(img, "PNG", new File(filename));
+            output.println("Screenshot saved to " + filename + " (" + (WIDTH * SCALE) + "x" + (HEIGHT * SCALE) + ")");
+        } catch (IOException e) {
+            output.println("Error writing screenshot: " + e.getMessage());
+        }
+    }
+
     /**
      * Parse a hex address string that may have a $ prefix
      * @param addrStr The address string (e.g., "$2000", "2000", "0x2000")
