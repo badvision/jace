@@ -8,28 +8,53 @@ This document describes the automation capabilities added to JACE's terminal mod
 
 JACE (Java Apple Computer Emulator) is a Java-based Apple II emulator. It includes a terminal mode (`--terminal` flag) that provides a command-line interface for scripting and automation. This work extends the terminal to support fully automated testing workflows.
 
-## Running Jace: Native Binary vs Maven
+## Running Jace: Use Maven — Always
 
-Two ways to run Jace:
+**Use the Maven/Java version for everything.** Do not use the native binary for automation.
 
-### Native Binary
+### Native Binary (`/Users/brobert/Downloads/Jace`)
 
-`/Users/brobert/Downloads/Jace` (Gluon GraalVM native image, ~472MB)
+- Interactive use only (drag-and-drop disk images, manual play)
+- Does NOT support `--terminal` scripting mode — parameter is silently ignored
+- Throws harmless `MacAccessible` JavaFX accessibility error on startup
+- **Do not use for any automated testing or CI workflows**
 
-- Faster startup, no Maven/Java required
-- `headless` parameter is NOT recognized — the emulator runs with a display window ("Did not understand parameter headless, skipping")
-- Throws harmless `MacAccessible` JavaFX accessibility error on startup but continues normally
-- Boots and drops media on S6D1 correctly
-- Usage: `/Users/brobert/Downloads/Jace [disk_image.po]`
-- **Use for**: Running disk images interactively; does NOT support terminal/scripting mode
+### Maven — The Only Way to Script Jace
 
-### Maven (Required for Terminal/Scripting Mode)
+All automation, testing, memory inspection, and screenshot capture goes through Maven terminal mode.
 
-`mvn exec:java ...` from `~/Documents/code/jace/`
+```bash
+# Standard invocation — all scripting/automation
+cd ~/Documents/code/jace
+mvn -q exec:java -Dexec.mainClass="jace.JaceLauncher" -Dexec.args="--terminal" <<'EOF'
+bootdisk d1 /path/to/disk.po
+run 5000000
+screenshot /tmp/frame.png
+m
+C07F
+b
+qq
+EOF
+```
 
-- Required for headless/terminal testing mode
-- Supports the full terminal scripting interface documented in this file
-- Usage: `mvn -q exec:java -Dexec.mainClass="jace.JaceLauncher" -Dexec.args="--terminal"`
+**The `screenshot` command** (`ss2` alias) renders the current DHGR/HGR framebuffer directly to
+a 1120×384 PNG with NTSC color — fully headless, no display window required. Use `Read` tool on
+the output PNG for multimodal visual review.
+
+### Known Issue: cadius ProDOS Disk Images (146,432 bytes)
+
+Jace's `FloppyDisk.java` expects exactly 143,360 bytes (280 blocks × 512). Disk images built
+with `cadius` are 146,432 bytes (286 blocks × 512) — the extra 3,072 bytes are zero padding.
+
+**Fix already applied** to `src/main/java/jace/hardware/FloppyDisk.java`: truncates to 143,360
+before nibblizing when the image is exactly 146,432 bytes and the trailing bytes are zero.
+
+If this patch is ever lost, re-apply it: in `FloppyDisk.java`, before the nibblize step, add:
+```java
+if (diskData.length == 146432) {
+    diskData = Arrays.copyOf(diskData, 143360);
+}
+```
 
 ---
 
@@ -38,10 +63,11 @@ Two ways to run Jace:
 ### Starting Terminal Mode
 
 ```bash
-# From jace directory
+# Standard — preferred
+cd ~/Documents/code/jace
 mvn -q exec:java -Dexec.mainClass="jace.JaceLauncher" -Dexec.args="--terminal"
 
-# Alternative: using javafx:run
+# Alternative
 mvn -q javafx:run -Djavafx.args="--terminal"
 ```
 
@@ -351,6 +377,25 @@ savebin /tmp/memdump.bin 0900 100    # Save 256 bytes from $0900
 **Aliases**: `lb`, `sb`
 
 ## Other Useful Commands
+
+### `screenshot` / `ss2` - Capture Display as PNG
+
+```
+screenshot <filename.png>
+ss2 <filename.png>
+```
+
+Renders the current Apple II display (HGR or DHGR) to a PNG file using NTSC color simulation.
+Output is 1120×384 (2× scale). Works fully headless — no display window required.
+
+```
+screenshot /tmp/frame.png     # save current frame
+```
+
+After saving, use the `Read` tool on the PNG path for multimodal visual inspection.
+This is the correct way to do visual validation — do NOT try to screencapture a window.
+
+---
 
 ### `run` - Execute CPU Cycles
 
