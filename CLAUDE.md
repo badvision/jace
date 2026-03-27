@@ -25,9 +25,10 @@ All automation, testing, memory inspection, and screenshot capture goes through 
 
 ```bash
 # Standard invocation — all scripting/automation
+# Use slot 7 (SmartPort) for ProDOS disk images — instant reads, no spinning-disk emulation
 cd ~/Documents/code/jace
 mvn -q exec:java -Dexec.mainClass="jace.JaceLauncher" -Dexec.args="--terminal" <<'EOF'
-bootdisk d1 /path/to/disk.po
+bootdisk d1 /path/to/disk.po 7
 run 5000000
 screenshot /tmp/frame.png
 m
@@ -36,6 +37,18 @@ b
 qq
 EOF
 ```
+
+### Slot 6 vs Slot 7 — Always Use Slot 7 for ProDOS
+
+| Slot | Type | Load time | Use for |
+|------|------|-----------|---------|
+| 6 (default) | Disk ][ | Real-time spinning disk emulation — ~600s for full ProDOS boot | Floppy-specific testing only |
+| 7 | SmartPort | Instant — no spin delay | **All ProDOS .po disk images** |
+
+`bootdisk d1 /path/to/disk.po 7` — the trailing `7` selects slot 7.
+`insertdisk d1 /path/to/disk.po 7` — same syntax for manual insertion.
+
+Slot 6 (Disk ][) emulates a real floppy drive including rotation speed, making ProDOS file I/O take hundreds of real seconds. Slot 7 (SmartPort) is a virtual hard-disk interface — reads are instantaneous. All ChoplifterReverse validation should use slot 7.
 
 **The `screenshot` command** (`ss2` alias) renders the current DHGR/HGR framebuffer directly to
 a 1120×384 PNG with NTSC color — fully headless, no display window required. Use `Read` tool on
