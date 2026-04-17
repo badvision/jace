@@ -47,10 +47,13 @@ public class JaceLauncher {
                     }
                 }
                 
-                // Set headless mode before initializing emulator
+                // Set headless mode (no JavaFX window/UI). Video rendering remains
+                // enabled (videoEnabled defaults to true) so VideoNTSC can render
+                // into WritableImage for color screenshots. JavaFX software rendering
+                // (prism.order=sw) is initialized by HeadlessTerminal.
                 System.out.println("*** Setting headless mode for terminal operation ***");
                 jace.core.Utility.setHeadlessMode(true);
-                
+
                 // Initialize emulator with configuration arguments
                 System.out.println("*** Initializing emulator with args: " + emulatorArgs + " ***");
                 Emulator.getInstance(emulatorArgs);

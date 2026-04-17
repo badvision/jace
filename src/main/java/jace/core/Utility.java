@@ -184,11 +184,16 @@ public class Utility {
     }
 
     /**
-     * Check if video is enabled
-     * @return true if video is enabled, false otherwise
+     * Check if video is enabled.
+     * Video rendering (WritableImage creation and pixel output) is controlled
+     * independently of headless mode. Headless mode suppresses the JavaFX window
+     * and UI elements, but video can still be enabled for offline rendering
+     * (e.g. terminal mode color screenshots via VideoNTSC).
+     *
+     * @return true if video rendering is enabled
      */
     public static boolean isVideoEnabled() {
-        return videoEnabled && !isHeadlessMode();
+        return videoEnabled;
     }
 
     public static Optional<Image> loadIcon(String filename) {

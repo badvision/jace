@@ -36,6 +36,8 @@ import jace.core.Device;
 import jace.core.RAMListener;
 import jace.core.RAMEvent;
 import jace.core.Keyboard;
+import javafx.scene.image.Image;
+import javafx.scene.image.PixelReader;
 
 /**
  * Main command mode for the Terminal
@@ -77,6 +79,7 @@ public class MainMode implements TerminalMode {
         commands.put("bootdisk", this::bootDisk);
         commands.put("showtext", this::showTextScreen);
         commands.put("nohints", args -> disableHints());
+        commands.put("speed", this::setSpeed);
         commands.put("waitkey", this::waitForKeypress);
         commands.put("type", this::typeString);
         commands.put("expect", this::expectString);
@@ -84,6 +87,7 @@ public class MainMode implements TerminalMode {
         commands.put("loadbin", this::loadBinary);
         commands.put("savebin", this::saveBinary);
         commands.put("saveauxbin", this::saveAuxBinary);
+        commands.put("saveauxrambin", this::saveAuxRamBinary);
         commands.put("screenshot", this::takeScreenshot);
         commands.put("loadbasic", this::loadBasic);
         commands.put("key", this::simulateKeypress);
@@ -105,9 +109,11 @@ public class MainMode implements TerminalMode {
         addAlias("lb", "loadbin");
         addAlias("sb", "savebin");
         addAlias("sab", "saveauxbin");
+        addAlias("sarb", "saveauxrambin");
         addAlias("ss2", "screenshot");
         addAlias("lbas", "loadbasic");
         addAlias("k", "key");
+        addAlias("sp", "speed");
         addAlias("?", "help");
         addAlias("cl", "charlog");
 
@@ -188,11 +194,19 @@ public class MainMode implements TerminalMode {
                         +
                         "Address and size can be decimal or hex with $ or 0x prefix.");
 
+        commandHelp.put("saveauxrambin",
+                "Saves a block of general-purpose AUX RAM to a binary file.\nUsage: saveauxrambin <filename> <address> <size> (or sarb <filename> <address> <size>)\n"
+                        +
+                        "Reads from the full AUX RAM bank (getAuxMemory) — covers all addresses including $6000+ where the PLASMA heap lives.\n"
+                        +
+                        "Address and size can be decimal or hex with $ or 0x prefix.");
+
         commandHelp.put("screenshot",
-                "Captures the DHGR page 1 framebuffer and saves it as a PNG file.\n"
+                "Captures the current screen as a PNG using NTSC color rendering.\n"
                         + "Usage: screenshot <filename.png> (or ss2 <filename.png>)\n"
-                        + "Reads main and aux memory at $2000-$3FFF, renders 560x192 DHGR monochrome\n"
-                        + "at 2x scale (1120x384) and writes a PNG.\n"
+                        + "Reads the live NTSC framebuffer (560x192) rendered by VideoNTSC,\n"
+                        + "scales 2x to 1120x384, and writes a PNG.\n"
+                        + "Falls back to monochrome DHGR rendering if NTSC framebuffer is unavailable.\n"
                         + "Example: screenshot /tmp/frame.png");
 
         commandHelp.put("loadbasic",
@@ -201,6 +215,11 @@ public class MainMode implements TerminalMode {
                         + "On success: prints \"Loaded N lines (M bytes) from <filepath>\"\n"
                         + "On failure: prints the error and file line number where determinable.\n"
                         + "Example: loadbasic /path/to/program.bas");
+
+        commandHelp.put("speed",
+                "Sets emulator speed.\nUsage: speed max|normal (or sp max|normal)\n" +
+                "  speed max    - Remove throttle; run as fast as the host CPU allows\n" +
+                "  speed normal - Restore 1 MHz throttle");
 
         commandHelp.put("charlog",
                 "Toggles character output logging for the Z-machine character writer at $5DA3.\n" +
@@ -294,6 +313,7 @@ public class MainMode implements TerminalMode {
         output.println("  ejectdisk (ed) d# [slot] - Eject disk from drive # (1 or 2)");
         output.println("  bootdisk (bd) d# file [slot] - Insert disk and boot until PC >= $2000");
         output.println("  showtext (st)  - Display current text screen contents (40/80 column)");
+        output.println("  speed (sp) max|normal - Set emulator speed (max = unthrottled)");
         output.println("  waitkey [timeout] - Wait until system reads keyboard (detects input prompt)");
         output.println("  type <string> - Type string synchronized with keyboard reads");
         output.println("  expect <string> [timeout] - Wait for string to appear on screen");
@@ -941,6 +961,28 @@ public class MainMode implements TerminalMode {
         }
     }
 
+    private void setSpeed(String[] args) {
+        if (args.length < 1) {
+            output.println("Usage: speed max|normal");
+            return;
+        }
+        String mode = args[0].toLowerCase();
+        boolean maxSpeed;
+        if ("max".equals(mode)) {
+            maxSpeed = true;
+        } else if ("normal".equals(mode)) {
+            maxSpeed = false;
+        } else {
+            output.println("Unknown speed mode: " + args[0] + " (use max or normal)");
+            return;
+        }
+        final boolean enable = maxSpeed;
+        Emulator.withComputer(computer -> {
+            computer.getMotherboard().setMaxSpeed(enable);
+            output.println("Speed set to " + (enable ? "max (unthrottled)" : "normal (1 MHz)"));
+        });
+    }
+
     private void waitForKeypress(String[] args) {
         int maxWaitMs = args.length > 0 ? Integer.parseInt(args[0]) : 30000; // Default 30 seconds
         waitForKeyRead(maxWaitMs, true);
@@ -1045,31 +1087,41 @@ public class MainMode implements TerminalMode {
 
         long startTime = System.currentTimeMillis();
         long timeoutMs = timeoutSeconds * 1000L;
+        final String finalSearchString = searchString;
 
         try {
-            while (System.currentTimeMillis() - startTime < timeoutMs) {
-                // Capture and check screen first (in case it's already there)
-                String screenText = captureTextScreen();
-                if (screenText.contains(searchString)) {
-                    long elapsed = System.currentTimeMillis() - startTime;
-                    output.println("Match found after " + elapsed + "ms");
-                    return;
-                }
+            final boolean[] matchFound = new boolean[1];
 
-                // Run 500k cycles and wait 500ms
-                Emulator.withComputer(computer -> {
-                    computer.resume();
+            Emulator.withComputer(computer -> {
+                computer.resume();
+
+                // Poll the text screen every 100ms while the emulator runs at full speed.
+                // This avoids the old 500ms-burst-then-sleep throttle that caused cold-JVM
+                // timeouts (the JIT hadn't warmed up so each 500ms burst advanced only a
+                // tiny number of real Apple II cycles).
+                long deadline = startTime + timeoutMs;
+                while (System.currentTimeMillis() < deadline) {
+                    String screenText = captureTextScreen();
+                    if (screenText.contains(finalSearchString)) {
+                        long elapsed = System.currentTimeMillis() - startTime;
+                        output.println("Match found after " + elapsed + "ms");
+                        matchFound[0] = true;
+                        break;
+                    }
                     try {
-                        Thread.sleep(500); // 500ms (~500k cycles at 1MHz)
+                        Thread.sleep(100); // Check screen every 100ms; emulator runs freely
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
+                        break;
                     }
-                    computer.pause();
-                });
-            }
+                }
 
-            // Timeout
-            output.println("Timeout waiting for: \"" + searchString + "\"");
+                computer.pause();
+            });
+
+            if (!matchFound[0]) {
+                output.println("Timeout waiting for: \"" + searchString + "\"");
+            }
 
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Error during expect", e);
@@ -1592,6 +1644,64 @@ public class MainMode implements TerminalMode {
         }
     }
 
+    private void saveAuxRamBinary(String[] args) {
+        if (args.length < 3) {
+            output.println("Usage: saveauxrambin <filename> <address> <size>");
+            return;
+        }
+
+        String filename = args[0];
+        int address, size;
+
+        try {
+            address = parseHexAddress(args[1]);
+            size = parseHexAddress(args[2]);
+        } catch (NumberFormatException e) {
+            output.println("Invalid address or size");
+            return;
+        }
+
+        try {
+            if (size <= 0) {
+                output.println("Size must be positive");
+                return;
+            }
+            if (address + size > 0x10000) {
+                output.println("Memory range would exceed address space");
+                return;
+            }
+
+            byte[] dataToSave = new byte[size];
+            boolean[] success = {false};
+
+            Emulator.withMemory(memory -> {
+                if (memory instanceof jace.apple2e.RAM128k) {
+                    jace.apple2e.RAM128k ram128k = (jace.apple2e.RAM128k) memory;
+                    jace.core.PagedMemory auxMem = ram128k.getAuxMemory();
+                    for (int i = 0; i < size; i++) {
+                        int addr = (address + i) & 0xFFFF;
+                        dataToSave[i] = auxMem.readByte(addr);
+                    }
+                    success[0] = true;
+                }
+            });
+
+            if (!success[0]) {
+                output.println("Error: RAM128k aux memory not available");
+                return;
+            }
+
+            java.nio.file.Files.write(java.nio.file.Paths.get(filename), dataToSave);
+            output.println("Saved " + size + " aux RAM bytes from $" + Integer.toHexString(address).toUpperCase()
+                    + " to " + filename);
+
+        } catch (java.io.IOException e) {
+            output.println("Error writing file: " + e.getMessage());
+        } catch (Exception e) {
+            output.println("Error saving aux RAM binary: " + e.getMessage());
+        }
+    }
+
     private void simulateKeypress(String[] args) {
         if (args.length < 1) {
             output.println("Usage: key <value>");
@@ -1986,11 +2096,53 @@ public class MainMode implements TerminalMode {
 
         String filename = args[0];
 
+        final int WIDTH  = 560;
+        final int HEIGHT = 192;
+        final int SCALE  = 2;
+
+        // Attempt NTSC color capture from the live VideoNTSC render buffer.
+        // The render buffer is a JavaFX WritableImage (560x192) that VideoNTSC
+        // writes to during every CPU tick using the full NTSC composite color
+        // pipeline. We prefer getRenderBuffer() (live pixels) over
+        // getFrameBuffer() (vblank-synced copy) so the screenshot reflects the
+        // most recently rendered frame even when the emulator is paused.
+        Image[] frameBuffer = {null};
+        Emulator.withVideo(v -> {
+            frameBuffer[0] = v.getRenderBuffer();
+            if (frameBuffer[0] == null) {
+                frameBuffer[0] = v.getFrameBuffer();
+            }
+        });
+
+        if (frameBuffer[0] != null) {
+            // Color path: copy pixels from the NTSC framebuffer, scale 2x.
+            BufferedImage img = new BufferedImage(WIDTH * SCALE, HEIGHT * SCALE, BufferedImage.TYPE_INT_RGB);
+            PixelReader reader = frameBuffer[0].getPixelReader();
+            for (int y = 0; y < HEIGHT; y++) {
+                for (int x = 0; x < WIDTH; x++) {
+                    // getArgb returns 0xAARRGGBB; strip alpha for TYPE_INT_RGB
+                    int argb = reader.getArgb(x, y);
+                    int rgb  = argb & 0x00FFFFFF;
+                    for (int sy = 0; sy < SCALE; sy++) {
+                        for (int sx = 0; sx < SCALE; sx++) {
+                            img.setRGB(x * SCALE + sx, y * SCALE + sy, rgb);
+                        }
+                    }
+                }
+            }
+            try {
+                ImageIO.write(img, "PNG", new File(filename));
+                output.println("Screenshot saved to " + filename + " (" + (WIDTH * SCALE) + "x" + (HEIGHT * SCALE) + ") [NTSC color]");
+            } catch (IOException e) {
+                output.println("Error writing screenshot: " + e.getMessage());
+            }
+            return;
+        }
+
+        // Fallback: monochrome DHGR rendering from raw video memory.
+        // Used when the NTSC framebuffer is unavailable (e.g. video disabled).
         final int PAGE_START = 0x2000;
-        final int PAGE_SIZE  = 0x2000; // 8192 bytes
-        final int WIDTH      = 560;
-        final int HEIGHT     = 192;
-        final int SCALE      = 2;
+        final int PAGE_SIZE  = 0x2000;
 
         byte[] mainMem = new byte[PAGE_SIZE];
         byte[] auxMem  = new byte[PAGE_SIZE];
@@ -2003,18 +2155,14 @@ public class MainMode implements TerminalMode {
             jace.apple2e.RAM128k ram128k = (jace.apple2e.RAM128k) memory;
             jace.core.PagedMemory auxVideo = ram128k.getAuxVideoMemory();
 
-            // Read main memory via standard read (same as saveBinary)
             for (int i = 0; i < PAGE_SIZE; i++) {
                 int addr = (PAGE_START + i) & 0xFFFF;
                 mainMem[i] = memory.read(addr, RAMEvent.TYPE.READ_DATA, true, false);
             }
-
-            // Read aux video memory (same as saveAuxBinary)
             for (int i = 0; i < PAGE_SIZE; i++) {
                 int addr = (PAGE_START + i) & 0xFFFF;
                 auxMem[i] = auxVideo.readByte(addr);
             }
-
             success[0] = true;
         });
 
@@ -2023,18 +2171,14 @@ public class MainMode implements TerminalMode {
             return;
         }
 
-        // Render 560x192 DHGR monochrome at 2x scale -> 1120x384
         BufferedImage img = new BufferedImage(WIDTH * SCALE, HEIGHT * SCALE, BufferedImage.TYPE_INT_RGB);
 
         for (int y = 0; y < HEIGHT; y++) {
-            // Apple II HGR interleaved row address formula
             int rowAddr = ((y & 7) << 10) + (((y >> 3) & 7) * 0x80) + ((y >> 6) * 0x28);
-
             int px = 0;
             for (int xoff = 0; xoff < 40; xoff++) {
                 int auxByte  = auxMem [rowAddr + xoff] & 0x7F;
                 int mainByte = mainMem[rowAddr + xoff] & 0x7F;
-                // 7 sequential pixels from aux byte (bit 0 = leftmost)
                 for (int bit = 0; bit < 7; bit++) {
                     int color = ((auxByte >> bit) & 1) != 0 ? 0xFFFFFF : 0x000000;
                     for (int sy = 0; sy < SCALE; sy++) {
@@ -2044,7 +2188,6 @@ public class MainMode implements TerminalMode {
                     }
                     px++;
                 }
-                // 7 sequential pixels from main byte (bit 0 = leftmost)
                 for (int bit = 0; bit < 7; bit++) {
                     int color = ((mainByte >> bit) & 1) != 0 ? 0xFFFFFF : 0x000000;
                     for (int sy = 0; sy < SCALE; sy++) {
@@ -2059,7 +2202,7 @@ public class MainMode implements TerminalMode {
 
         try {
             ImageIO.write(img, "PNG", new File(filename));
-            output.println("Screenshot saved to " + filename + " (" + (WIDTH * SCALE) + "x" + (HEIGHT * SCALE) + ")");
+            output.println("Screenshot saved to " + filename + " (" + (WIDTH * SCALE) + "x" + (HEIGHT * SCALE) + ") [monochrome fallback]");
         } catch (IOException e) {
             output.println("Error writing screenshot: " + e.getMessage());
         }

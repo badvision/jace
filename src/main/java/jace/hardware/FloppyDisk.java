@@ -174,6 +174,12 @@ public class FloppyDisk {
             }
             System.out.println(null == sectorOrder ? "Sector order is null" : "Sector order is " + sectorOrder.name());
             currentSectorOrder = sectorOrder.sectors;
+            // Accept ProDOS volumes padded to 146432 bytes (cadius creates these)
+            // by truncating to the standard 143360-byte floppy image content
+            if (bytesRead > DISK_PLAIN_LENGTH && bytesRead <= DISK_PLAIN_LENGTH + 6144) {
+                nibbles = Arrays.copyOf(nibbles, DISK_PLAIN_LENGTH);
+                bytesRead = DISK_PLAIN_LENGTH;
+            }
             if (bytesRead == DISK_PLAIN_LENGTH) {
                 isNibblizedImage = false;
                 nibbles = nibblize(nibbles);

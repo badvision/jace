@@ -314,4 +314,19 @@ public abstract class Video extends TimedDevice {
         }
         return visible;
     }
+
+    /**
+     * Returns the live render buffer (the WritableImage that VideoNTSC writes
+     * to during CPU ticks). Unlike getFrameBuffer() which returns the
+     * vblank-synced copy, this always reflects the most recently rendered
+     * pixels — useful for screenshots taken while the emulator is paused.
+     *
+     * @return the render buffer, or null if video is disabled
+     */
+    public Image getRenderBuffer() {
+        if (!Utility.isVideoEnabled() || video == null) {
+            return null;
+        }
+        return video;
+    }
 }
