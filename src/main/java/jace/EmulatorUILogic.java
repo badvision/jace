@@ -568,14 +568,16 @@ public class EmulatorUILogic implements Reconfigurable {
         Emulator.withComputer(c -> {
             c.getKeyboard().openApple(true);
             c.warmStart();
-            Platform.runLater(() -> {
+            Thread releaseThread = new Thread(() -> {
                 try {
                     Thread.sleep(500);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(EmulatorUILogic.class.getName()).log(Level.SEVERE, null, ex);
+                    Thread.currentThread().interrupt();
                 }
                 c.getKeyboard().openApple(false);
             });
+            releaseThread.setDaemon(true);
+            releaseThread.start();
         });
     }
 
