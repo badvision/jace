@@ -4,7 +4,6 @@ import java.util.Calendar;
 import java.util.Optional;
 
 import jace.EmulatorUILogic;
-import jace.apple2e.SoftSwitches;
 import jace.config.ConfigurableField;
 import jace.core.Device;
 import jace.core.RAMEvent;
@@ -31,7 +30,7 @@ public class NoSlotClock extends Device {
     public boolean patchProdosClock = false;
     Optional<Label> clockIcon;
 
-    private final RAMListener listener = new RAMListener("No slot clock read", RAMEvent.TYPE.ANY, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
+    final RAMListener listener = new RAMListener("No slot clock read", RAMEvent.TYPE.ANY, RAMEvent.SCOPE.RANGE, RAMEvent.VALUE.ANY) {
         @Override
         protected void doConfig() {
             setScopeStart(0x0C100);
@@ -39,23 +38,11 @@ public class NoSlotClock extends Device {
         }
 
         @Override
-        public boolean isRelevant(RAMEvent e) {
-            // Ref: Sather UAIIe 5-28
-            if (SoftSwitches.CXROM.isOn()) {
-                return true;
-            }
-            if ((e.getAddress() & 0x0ff00) == 0x0c300 && SoftSwitches.SLOTC3ROM.isOff()) {
-                return true;
-            }
-            return e.getAddress() >= 0x0c800 && SoftSwitches.INTC8ROM.isOn();
-        }
-
-        @Override
         protected void doEvent(RAMEvent e) {
             boolean readMode = (e.getAddress() & 0x04) != 0;
             if (clockActive) {
                 if (readMode) {
-                    int val = e.getOldValue() & 0b011111110;
+                    int val = e.getOldValue() & 0xFE;
                     int bit = getNextDataBit();
                     val |= bit;
                     e.setNewValue(val);
@@ -80,9 +67,8 @@ public class NoSlotClock extends Device {
                     if (patternCount == 64) {
                         activateClock();
                     }
-                } else {
-                    writeEnabled = false;
                 }
+                // Mismatch: silently ignored per NSC spec
             }
         }
     };
@@ -125,11 +111,13 @@ public class NoSlotClock extends Device {
         Calendar now = Calendar.getInstance();
         dataRegisterBit = 0;
         dataRegister = 0L;
+        writeEnabled = false;
         storeBCD(now.get(Calendar.MILLISECOND) / 10, 0);
         storeBCD(now.get(Calendar.SECOND), 1);
         storeBCD(now.get(Calendar.MINUTE), 2);
-        storeBCD(now.get(Calendar.HOUR), 3);
-        storeBCD(now.get(Calendar.DAY_OF_WEEK), 4);
+        storeBCD(now.get(Calendar.HOUR_OF_DAY), 3);
+        int javaDow = now.get(Calendar.DAY_OF_WEEK);
+        storeBCD(((javaDow + 5) % 7) + 1, 4);
         storeBCD(now.get(Calendar.DAY_OF_MONTH), 5);
         storeBCD(now.get(Calendar.MONTH) + 1, 6);
         storeBCD(now.get(Calendar.YEAR) % 100, 7);
@@ -157,6 +145,7 @@ public class NoSlotClock extends Device {
 
     public void deactivateClock() {
         clockActive = false;
+        writeEnabled = false;
     }
 
     public int getNextDataBit() {
