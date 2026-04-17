@@ -183,8 +183,13 @@ public abstract class Computer implements Reconfigurable {
             alternatives = "reboot;reset;three-finger-salute;restart",
             defaultKeyMapping = {"Ctrl+Ignore Alt+Ignore Meta+Backspace", "Ctrl+Ignore Alt+Ignore Meta+Delete"})
     public static void invokeReset() {
-        System.out.println("Resetting computer");
-        Emulator.withComputer(Computer::coldStart);
+        if (Keyboard.isOpenApplePressed) {
+            System.out.println("Cold resetting computer (Open Apple held)");
+            Emulator.withComputer(Computer::coldStart);
+        } else {
+            System.out.println("Warm resetting computer");
+            Emulator.withComputer(Computer::warmStart);
+        }
     }
 
     /**
