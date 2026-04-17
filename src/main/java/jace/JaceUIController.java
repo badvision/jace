@@ -374,6 +374,7 @@ public class JaceUIController {
                     icon.setOnDragDropped(event -> {
                         System.out.println("Dropping media on " + icon.getText());
                         Emulator.whileSuspended(c-> {
+                            c.cancelAnimation();
                             try {
                                 consumer.insertMedia(media, media.files.get(0));
                             } catch (IOException ex) {
@@ -393,6 +394,7 @@ public class JaceUIController {
     private void endDragEvent() {
         stackPane.getChildren().remove(drivePanel);
         drivePanel.getChildren().forEach((n) -> n.setOnDragDropped(null));
+        Emulator.withComputer(c -> c.getKeyboard().resetState());
     }
 
     private List<MediaConsumer> getMediaConsumers() {

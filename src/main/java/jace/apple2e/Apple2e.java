@@ -398,6 +398,7 @@ public class Apple2e extends Computer {
     byte animOldValue;
     final String animation = "+xX*+-";
     ScheduledFuture<?> animationSchedule;
+    ScheduledFuture<?> drawHintsSchedule;
     Runnable doAnimation = () -> {
         if (animAddr == 0 || animCycleNumber >= animation.length()) {
             if (animAddr > 0) {
@@ -422,7 +423,7 @@ public class Apple2e extends Computer {
     private void enableHints() {
         if (hints.isEmpty()) {
             hints.add(getMemory().observe("Helpful hints", RAMEvent.TYPE.EXECUTE, 0x0FB63, (e)->{
-                animationTimer.schedule(drawHints, 1, TimeUnit.SECONDS);
+                drawHintsSchedule = animationTimer.schedule(drawHints, 1, TimeUnit.SECONDS);
                 if (animationSchedule != null) {
                     animationSchedule.cancel(true);
                 }
@@ -454,6 +455,21 @@ public class Apple2e extends Computer {
     private void disableHints() {
         hints.forEach((hint) -> getMemory().removeListener(hint));
         hints.clear();
+    }
+
+    public void cancelAnimation() {
+        if (drawHintsSchedule != null) {
+            drawHintsSchedule.cancel(true);
+            drawHintsSchedule = null;
+        }
+        if (animationSchedule != null) {
+            animationSchedule.cancel(true);
+            animationSchedule = null;
+        }
+        if (animAddr > 0) {
+            getMemory().write(animAddr, animOldValue, true, true);
+            animAddr = 0;
+        }
     }
 
     @Override
