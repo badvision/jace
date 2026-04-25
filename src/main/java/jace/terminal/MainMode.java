@@ -168,7 +168,7 @@ public class MainMode implements TerminalMode {
 
         commandHelp.put("cpu", "Displays the current CPU state (registers and flags).\nUsage: cpu");
         commandHelp.put("registers", "Shows or sets CPU register values.\nUsage: registers [reg value]\nExample: registers PC 4000");
-        commandHelp.put("break", "Manages execution breakpoints.\nUsage: break <addr> | break -<addr> | break clear | break list");
+        commandHelp.put("break", "Manages execution breakpoints.\nUsage: break           - List all active breakpoints\n       break <addr>   - Add a breakpoint\n       break -<addr>  - Remove a breakpoint\n       break clear    - Remove all breakpoints");
         commandHelp.put("runto", "Runs the CPU until it reaches the specified address.\nUsage: runto <addr> (or rt <addr>)");
 
         commandHelp.put("run", "Runs the CPU for a specified number of cycles or until a breakpoint is hit.\n" +

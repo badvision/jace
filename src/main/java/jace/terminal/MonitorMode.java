@@ -315,7 +315,8 @@ public class MonitorMode implements TerminalMode, WatchCallback {
                 "  reg PC $C000      - Set program counter to $C000\n" +
                 "  reg X 42          - Set X register to decimal 42");
         commandHelp.put("break", "Manages breakpoints.\n" +
-                "Usage: break addr              - Add a breakpoint at address\n" +
+                "Usage: break                   - List all active breakpoints\n" +
+                "       break addr              - Add a breakpoint at address\n" +
                 "       break -addr             - Remove a breakpoint at address\n" +
                 "       break clear             - Remove all breakpoints");
         commandHelp.put("step", "Steps through CPU instructions.\n" +
@@ -459,7 +460,7 @@ public class MonitorMode implements TerminalMode, WatchCallback {
     
     void handleBreakpoint(String[] args) {
         if (args.length == 0) {
-            output.println("Usage: break <address> or break -<address> or break clear");
+            listBreakpoints();
             return;
         }
         
