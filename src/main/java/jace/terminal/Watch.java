@@ -6,43 +6,40 @@ import jace.core.RAMListener;
 
 /**
  * Watch class to track memory changes
- * 
  */
 public class Watch {
-    private final MonitorMode monitorMode;
+    private final WatchCallback callback;
     final int address;
     final String name;
     private final MemoryMode mode;
     private final RAMListener readListener;
     private final RAMListener writeListener;
-    
-    public Watch(MonitorMode monitorMode, String name, int address, MemoryMode mode) {
-        this.monitorMode = monitorMode;
+
+    public Watch(WatchCallback callback, String name, int address, MemoryMode mode) {
+        this.callback = callback;
         this.name = name;
         this.address = address;
         this.mode = mode;
-        
+
         // Create a RAM listener to watch this address
         Boolean auxFlag = getAuxFlag();
-        
+
         // Create separate listeners for reads and writes
         readListener = Emulator.withMemory(ram -> {
-            return ram.observe("Watch-Read: " + name, RAMEvent.TYPE.READ, address, auxFlag, 
+            return ram.observe("Watch-Read: " + name, RAMEvent.TYPE.READ, address, auxFlag,
                 event -> {
-                    this.monitorMode.output.printf("Watch [%s] $%04X: READ $%02X%n", 
+                    this.callback.getOutput().printf("Watch [%s] $%04X: READ $%02X%n",
                         name, address, event.getNewValue() & 0xFF);
-                    // Show current CPU state
-                    this.monitorMode.displayCurrentInstruction();
+                    this.callback.displayCurrentInstruction();
                 });
         }, null);
-        
+
         writeListener = Emulator.withMemory(ram -> {
-            return ram.observe("Watch-Write: " + name, RAMEvent.TYPE.WRITE, address, auxFlag, 
+            return ram.observe("Watch-Write: " + name, RAMEvent.TYPE.WRITE, address, auxFlag,
                 event -> {
-                    this.monitorMode.output.printf("Watch [%s] $%04X: WRITE $%02X -> $%02X%n", 
+                    this.callback.getOutput().printf("Watch [%s] $%04X: WRITE $%02X -> $%02X%n",
                         name, address, event.getOldValue() & 0xFF, event.getNewValue() & 0xFF);
-                    // Show current CPU state
-                    this.monitorMode.displayCurrentInstruction();
+                    this.callback.displayCurrentInstruction();
                 });
         }, null);
     }

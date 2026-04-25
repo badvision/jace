@@ -31,9 +31,7 @@ mvn -q exec:java -Dexec.mainClass="jace.JaceLauncher" -Dexec.args="--terminal" <
 bootdisk d1 /path/to/disk.po 7
 run 5000000
 screenshot /tmp/frame.png
-m
-C07F
-b
+mem C07F C07F
 qq
 EOF
 ```
@@ -91,23 +89,21 @@ the system is in the Disk ][ boot ROM at $C600, waiting for a floppy. To start
 Applesoft BASIC directly from the ROM, use the monitor:
 
   reset
-  m
   E000G
-  q
   run 2000000
 
 **Critical**: `E000G` starts execution at $E000 asynchronously and returns
-immediately to the monitor prompt `*`. BASIC cold-start has NOT finished yet.
-You MUST run cycles after returning to main mode (`q`) to let BASIC initialize.
+immediately to the main prompt. BASIC cold-start has NOT finished yet.
+You MUST run cycles after `E000G` to let BASIC initialize.
 `run 2000000` gives enough cycles for BASIC to cold-start and reach its `]` prompt.
 
 After `run 2000000` completes, TXTTAB ($67-$68) should be `01 08` ($0801).
-**Verify with `m` / `67.68` / `q` before calling `lbas`** — if TXTTAB is
+**Verify with `67.68` before calling `lbas`** — if TXTTAB is
 wrong (e.g. pointing at screen memory $0400), `lbas` will overwrite screen RAM
 with the program text, causing garbled screen output and BASIC failures.
 
 To reach the warm-start (re-enter BASIC without reinitializing), use `FF69G`
-followed by `q` and `run 500000`.
+followed by `run 500000`.
 
 ### Complete Applesoft BASIC Test Workflow (No Disk)
 
@@ -115,9 +111,7 @@ followed by `q` and `run 500000`.
 
 ```
 reset
-m
 E000G
-q
 run 2000000
 lbas /path/to/program.bas
 key "RUN\n"
@@ -133,7 +127,7 @@ Notes:
 - **Using `PR#3`** to switch to 80-column mode goes through the 80-col firmware's
   keyboard input loop and screen output loop. This works correctly in headless
   terminal mode; it does NOT hang.
-- `waitkey` and `type` (synchronized keyboard) do NOT work after `E000G` + `q`
+- `waitkey` and `type` (synchronized keyboard) do NOT work after `E000G`
   because the emulator is paused; use `key` + `run N` or `key` + `expect` instead
 
 ### BASIC Variable Table Layout (Applesoft Internals)
@@ -313,7 +307,7 @@ confused with a number at the end of the string content.
 - If the emulator was paused, it is resumed once at the start
 - All characters are typed, each waiting for a keyboard read, but bounded by the total timeout
 - After the last character is typed (or timeout reached), if the emulator was paused before, it is re-paused
-- Use this when running a BASIC program after `E000G` + `q` since a single resume cycle is needed
+- Use this when running a BASIC program after `E000G` since a single resume cycle is needed
 
 ### 7. Tokenizing Applesoft BASIC Programs
 
@@ -449,13 +443,48 @@ Example for running a program:
 key "+FPUMF_AUTO_TEST\n"
 ```
 
-### `step` - Single-Step CPU
+### `tick` - Step Motherboard (All Devices)
+
+```
+tick [count]
+```
+
+Steps the full motherboard cascade (all devices) for N ticks (default: 1). Use for timing-sensitive device stepping. Alias: `tc`.
+
+### `step` - Single-Step CPU (Monitor Mode)
 
 ```
 step [count]
 ```
 
-Steps the CPU instruction-by-instruction (default: 1 step).
+Steps the CPU instruction-by-instruction (default: 1 step). Available in monitor mode and directly from main mode (no mode switch required).
+
+### `go` - Execute from Address (No Mode Switch)
+
+```
+go <addr>
+```
+
+Sets PC to the specified hex address and begins execution. Equivalent to entering monitor and typing `4000G`. Example: `go 4000`
+
+### `mem` - Dump Memory Range (No Mode Switch)
+
+```
+mem <start> <end>
+```
+
+Hex dump of a memory address range. Equivalent to entering monitor and typing `3800.3820`. Example: `mem 3800 3820`
+
+### `cpu` / `registers` / `break` / `runto` (No Mode Switch)
+
+These monitor commands are now available directly in main mode:
+
+```
+cpu                     # Show CPU state (PC, A, X, Y, SP, flags)
+registers [reg value]   # Show or set registers (alias: reg)
+break <addr>            # Set/remove/list breakpoints (alias: bp)
+runto <addr>            # Run until PC reaches address (alias: rt)
+```
 
 ### `reset` - System Reset
 
@@ -467,7 +496,11 @@ Performs a cold start reset of the Apple II.
 
 ## Monitor Mode Commands
 
-Enter monitor mode with `monitor` (or `m`). Return to main mode with `back` (or `b`).
+Enter monitor mode with `monitor` (or `m`). Return to main mode with `back`, `quit`, or `q`.
+
+**Note:** `b` is the alias for `break` (set breakpoint), NOT for `back`. Use `q` to exit monitor mode.
+
+**Tip:** Wozniak monitor syntax (`4000G`, `3800.3820`, `E000G`, etc.) and named commands (`cpu`, `registers`, `break`, `runto`) work directly from the main `JACE>` prompt — no mode switch needed.
 
 ### Memory Examination
 ```
@@ -662,14 +695,10 @@ This exact sequence has been validated to work reliably. Use it as a template:
 cat > /tmp/jace_test.txt << 'EOF'
 reset
 loadbin /path/to/program.bin 4000
-monitor
 4000G
-quit
 run 5000000
 showtext
-monitor
 3800.3820
-quit
 qq
 EOF
 
@@ -680,12 +709,11 @@ timeout 90 mvn -q exec:java -Dexec.mainClass="jace.JaceLauncher" \
 The flow:
 1. `reset` - Clean emulator state
 2. `loadbin` - Load binary directly into memory (no disk boot needed)
-3. `monitor` / `4000G` - Enter monitor, execute from address
-4. `quit` - Return to main mode
-5. `run N` - Let program run for N CPU cycles
-6. `showtext` - Capture what's on screen
-7. `monitor` / `ADDR.ADDR` - Dump memory to verify results
-8. `qq` - Quit JACE
+3. `4000G` - Set PC to $4000 and begin execution (Wozniak monitor syntax, works from main prompt)
+4. `run N` - Let program run for N CPU cycles
+5. `showtext` - Capture what's on screen
+6. `3800.3820` - Dump memory to verify results (Wozniak range syntax, works from main prompt)
+7. `qq` - Quit JACE
 
 ### Using `expect` Instead of Fixed Cycle Counts
 
@@ -694,14 +722,10 @@ When you know what text the program should produce, `expect` is more reliable th
 ```
 reset
 loadbin /path/to/program.bin 4000
-monitor
 4000G
-quit
 expect "DONE" 30
 showtext
-monitor
 3800.3820
-quit
 qq
 ```
 
@@ -726,11 +750,9 @@ BASIC, the key behaviors to verify are:
    BASIC with the display stuck in HGR mode, and `expect "]"` will still match
    because BASIC wrote its prompt to text memory — but the user sees graphics.
 
-   To verify TEXT mode was restored, check the display soft switch via monitor:
+   To verify TEXT mode was restored, check the display soft switch:
    ```
-   monitor
    C01A.C01A
-   quit
    ```
    If bit 7 of the value at $C01A is 0, TEXT mode is active. If bit 7 is 1,
    graphics mode is still on.
@@ -847,15 +869,13 @@ This allows test harnesses to extend the $FC command set for specialized testing
 
 ### Memory Inspection for Verification
 
-After running code, use the monitor to verify memory contents. This is more reliable than screen output for checking computed values:
+After running code, use these commands to verify memory contents. This is more reliable than screen output for checking computed values:
 
 ```
-monitor
 3800.3810       # Dump variable storage
 0900.0940       # Dump generated code
 D000.D020       # Check Language Card contents
 cpu             # Show CPU state (PC tells you where it stopped)
-quit
 ```
 
 Common patterns in memory dumps:
@@ -871,7 +891,6 @@ Common patterns in memory dumps:
 When you know roughly where a problem is, use breakpoints:
 
 ```
-monitor
 break 4050          # Break when PC reaches $4050
 4000G               # Start execution
 cpu                 # Check state at breakpoint
@@ -879,7 +898,6 @@ step 5              # Step through 5 instructions
 cpu                 # Check state again
 3800.3808           # Inspect memory
 resume              # Continue execution
-quit
 ```
 
 ### Diagnosing Common Failures
@@ -887,7 +905,7 @@ quit
 **`CALL addr` never returns to BASIC (caller never resumes)**:
 - Common cause: a JSR inside the machine-language routine calls a ROM entry point that does not exit via RTS. Example: on the Apple IIe, `JSR $FB39` does not return — it ends with `JMP $C100` (unconditional jump to slot 1 firmware ROM). The `RTS` that was supposed to follow the JSR is never reached.
 - How to detect: the machine is not crashed (it keeps running), but the BASIC line after the `CALL` never executes. A test BASIC program such as `10 CALL 24576 / 20 PRINT "DONE"` combined with `expect "DONE"` will time out.
-- Debug strategy: before running, set a breakpoint at `$C100` in the monitor (`break C100`). If the breakpoint fires, a ROM routine hijacked execution instead of returning.
+- Debug strategy: before running, set a breakpoint at `$C100` (`break C100`). If the breakpoint fires, a ROM routine hijacked execution instead of returning.
 - Fix: remove or replace the offending JSR. If the goal was to restore TEXT mode, use the correct ROM entry point (`$FB36` is SETTXT on the Apple IIe) or simply omit the call if the caller does not require a display-mode switch.
 
 **Program prints banner then hangs**:

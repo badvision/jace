@@ -92,8 +92,7 @@ public class JaceTerminal {
         TerminalMode mode = modes.get(modeName.toLowerCase());
         if (mode != null) {
             currentMode = mode;
-            output.println("Switched to " + mode.getName() + " mode");
-            mode.printHelp();
+            output.println("Switched to " + mode.getName() + " mode (type ? for help)");
             
             // Notify UI about mode change if we're in UI mode
             updateUIWithCurrentMode();
@@ -111,6 +110,15 @@ public class JaceTerminal {
         // Override in UI-specific implementations to update UI
     }
     
+    /**
+     * Get a mode instance by name — allows cross-mode command delegation.
+     * @param name Mode name (case-insensitive)
+     * @return The mode instance, or null if not found
+     */
+    public TerminalMode getModeByName(String name) {
+        return modes.get(name.toLowerCase());
+    }
+
     /**
      * Access to the PrintStream for output
      * @return the output stream

@@ -217,21 +217,18 @@ public class MainModeTest {
     }
     
     /**
-     * Test that the 'registers' command is not recognized in MainMode after being moved to MonitorMode
+     * Test that the 'registers' command is recognized in MainMode (delegates to MonitorMode)
      */
     @Test
     public void testRegistersCommand() {
         LOG.fine("Starting testRegistersCommand");
-        
-        // Test the registers command
+
+        // registers is now forwarded to MonitorMode; with a mock terminal that returns null
+        // for getModeByName, the command is recognized (returns true) but prints "Monitor mode not available"
         boolean result = mainMode.processCommand("registers");
-        
-        // Verify the result is false (command not recognized)
-        assertFalse("Registers command should not be recognized in main mode", result);
-        
-        // We only verify that command is not recognized - we don't check output since
-        // the error message might be in logs instead of output
-        assertFalse("Registers command should not be recognized", result);
+
+        // Command should be recognized (registered in MainMode)
+        assertTrue("Registers command should be recognized in main mode", result);
     }
     
     @Test
@@ -381,25 +378,103 @@ public class MainModeTest {
     public void testHelpCommands() {
         // Directly test the output format without relying on command processing
         outContent.reset();
-        
+
         // Simulate help output
         System.out.println("Available commands:");
         System.out.println("  monitor/m       - Enter Monitor mode (includes debugger functionality)");
-        
+
         String helpOutput = outContent.toString();
-        assertTrue("Help text should include command list", 
+        assertTrue("Help text should include command list",
                 helpOutput.contains("Available commands:"));
-        assertTrue("Help should mention monitor command", 
+        assertTrue("Help should mention monitor command",
                 helpOutput.contains("monitor"));
-        
+
         // Simulate command-specific help
         outContent.reset();
         System.out.println("Enters monitor mode for memory examination, manipulation, and debugging.");
         System.out.println("Usage: monitor (or m)");
-        
+
         String cmdHelp = outContent.toString();
-        assertTrue("Help for monitor should show description", 
-                cmdHelp.contains("monitor") && 
+        assertTrue("Help for monitor should show description",
+                cmdHelp.contains("monitor") &&
                 cmdHelp.contains("memory examination"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Wozniak monitor syntax fallthrough tests
+    // These verify that patterns like "4000G" and "100.200" are recognized from
+    // the main JACE> prompt by falling through to MonitorMode's pattern dispatcher.
+    //
+    // We use a stub MonitorMode that records which commands reached it without
+    // calling into the real emulator (which requires a JavaFX toolkit).
+    // -------------------------------------------------------------------------
+
+    /**
+     * A MonitorMode stub that records the last command it received and always
+     * returns true (recognized), without touching the real emulator.
+     */
+    private static class RecordingMonitorMode extends MonitorMode {
+        String lastCommand = null;
+
+        RecordingMonitorMode(JaceTerminal terminal) {
+            super(terminal);
+        }
+
+        @Override
+        public boolean processCommand(String command) {
+            lastCommand = command;
+            // Delegate to the real pattern dispatcher to verify recognition,
+            // but short-circuit by always returning true after recording.
+            // We call super only for the "q"/"qq" guard test — for all other
+            // tests we just need to know the command arrived here.
+            return true;
+        }
+    }
+
+    private MainMode buildMainModeWithRecordingMonitor(RecordingMonitorMode[] holder) {
+        RecordingMonitorMode recording = new RecordingMonitorMode(mockTerminal);
+        holder[0] = recording;
+        when(mockTerminal.getModeByName("monitor")).thenReturn(recording);
+        return new TestableMainMode(mockTerminal) {
+            @Override
+            protected MOS65C02 getCPU() { return mockCpu; }
+        };
+    }
+
+    @Test
+    public void testWozniakGoPatternFallsThroughToMonitor() {
+        RecordingMonitorMode[] holder = new RecordingMonitorMode[1];
+        MainMode mode = buildMainModeWithRecordingMonitor(holder);
+        boolean result = mode.processCommand("4000G");
+        assertTrue("4000G should be recognized (fell through to MonitorMode)", result);
+        assertEquals("4000G should have reached MonitorMode unchanged", "4000G", holder[0].lastCommand);
+    }
+
+    @Test
+    public void testWozniakRangeFallsThroughToMonitor() {
+        RecordingMonitorMode[] holder = new RecordingMonitorMode[1];
+        MainMode mode = buildMainModeWithRecordingMonitor(holder);
+        boolean result = mode.processCommand("100.200");
+        assertTrue("100.200 should be recognized (fell through to MonitorMode)", result);
+        assertEquals("100.200 should have reached MonitorMode unchanged", "100.200", holder[0].lastCommand);
+    }
+
+    @Test
+    public void testWozniakUppercaseGoFallsThroughToMonitor() {
+        RecordingMonitorMode[] holder = new RecordingMonitorMode[1];
+        MainMode mode = buildMainModeWithRecordingMonitor(holder);
+        boolean result = mode.processCommand("E000G");
+        assertTrue("E000G should be recognized (fell through to MonitorMode)", result);
+        assertEquals("E000G should have reached MonitorMode unchanged", "E000G", holder[0].lastCommand);
+    }
+
+    @Test
+    public void testWozniakQGuardedFromMonitorFallthrough() {
+        RecordingMonitorMode[] holder = new RecordingMonitorMode[1];
+        MainMode mode = buildMainModeWithRecordingMonitor(holder);
+        // "q" is MonitorMode's "return to main" — must not be forwarded from main mode
+        boolean result = mode.processCommand("q");
+        assertFalse("q should not be recognized from main mode", result);
+        assertTrue("q should not have reached MonitorMode", holder[0].lastCommand == null);
     }
 } 

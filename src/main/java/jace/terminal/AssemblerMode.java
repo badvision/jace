@@ -19,8 +19,10 @@ package jace.terminal;
 import java.io.PrintStream;
 
 /**
- * Assembler mode for the Terminal - handles assembly language input
- * This is a stub that will be implemented in the future
+ * Assembler mode for the Terminal — reserved stub.
+ * The "assembler" command in MainMode switches to this mode so the name
+ * exists in the mode registry. No assembly implementation is planned (YAGNI);
+ * this class exists only to hold the mode slot and prevent NPE on setMode("assembler").
  */
 public class AssemblerMode implements TerminalMode {
     private final JaceTerminal terminal;

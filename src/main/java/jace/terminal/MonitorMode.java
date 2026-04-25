@@ -38,7 +38,7 @@ import jace.core.RAMListener;
 /**
  * Monitor mode for the Terminal - emulates the Apple II monitor with debugger capabilities
  */
-public class MonitorMode implements TerminalMode {
+public class MonitorMode implements TerminalMode, WatchCallback {
     private final JaceTerminal terminal;
     final PrintStream output;
     private int lastExaminedAddress;
@@ -108,6 +108,11 @@ public class MonitorMode implements TerminalMode {
     public MOS65C02 getCpu() {
         return (MOS65C02) Emulator.withComputer(computer -> computer.getCpu(), null);
     }
+
+    @Override
+    public PrintStream getOutput() {
+        return output;
+    }
     
     private void initDebugger() {
         debugger = new Debugger() {
@@ -161,7 +166,7 @@ public class MonitorMode implements TerminalMode {
      * Displays the current CPU state in the format:
      * addr: disassembled instruction [padded] A:XX X:XX Y:XX S:XX [flags]
      */
-    void displayCurrentInstruction() {
+    public void displayCurrentInstruction() {
         displayCurrentInstruction(0, 0);
     }
     
@@ -234,7 +239,7 @@ public class MonitorMode implements TerminalMode {
         // Add single-letter aliases
         addAlias("f", "fill");
         addAlias("m", "move");
-        addAlias("c", "compare");
+        addAlias("cmp", "compare");
         addAlias("dbg", "debug");
         
         // Debugger aliases - shorter forms
@@ -247,7 +252,7 @@ public class MonitorMode implements TerminalMode {
         addAlias("w", "watch");
         addAlias("wl", "watchlist");
         addAlias("rt", "runto");
-        addAlias("c", "cheat");
+        addAlias("ch", "cheat");
         addAlias("cl", "cheatlist");
         
         // Add the setregister alias for backward compatibility
@@ -329,6 +334,11 @@ public class MonitorMode implements TerminalMode {
     }
     
     private void addAlias(String alias, String command) {
+        if (commandAliases.containsKey(alias)) {
+            throw new IllegalStateException(
+                "Alias conflict in MonitorMode: '" + alias + "' already maps to '" +
+                commandAliases.get(alias) + "', cannot also map to '" + command + "'");
+        }
         commandAliases.put(alias, command);
     }
     
@@ -418,7 +428,7 @@ public class MonitorMode implements TerminalMode {
         output.println("Emulation resumed");
     }
     
-    private void showCpuState() {
+    void showCpuState() {
         MOS65C02 cpu = getCpu();
         if (cpu != null) {
             output.println("CPU State:");
@@ -447,7 +457,7 @@ public class MonitorMode implements TerminalMode {
         }
     }
     
-    private void handleBreakpoint(String[] args) {
+    void handleBreakpoint(String[] args) {
         if (args.length == 0) {
             output.println("Usage: break <address> or break -<address> or break clear");
             return;
@@ -992,7 +1002,7 @@ public class MonitorMode implements TerminalMode {
         });
     }
     
-    private void handleRunTo(String[] args) {
+    void handleRunTo(String[] args) {
         if (args.length == 0) {
             output.println("Usage: runto <address>");
             return;
@@ -1329,7 +1339,7 @@ public class MonitorMode implements TerminalMode {
         }
     }
     
-    private void examineMemoryRange(int startAddr, int endAddr, MemoryMode mode) {
+    void examineMemoryRange(int startAddr, int endAddr, MemoryMode mode) {
         // Calculate number of bytes to dump (inclusive)
         int count = endAddr - startAddr + 1;
         if (count <= 0) {
@@ -1608,7 +1618,7 @@ public class MonitorMode implements TerminalMode {
         }
     }
     
-    private void executeCode(int address) {
+    void executeCode(int address) {
         // Set the program counter to the specified address using whileSuspended
         Emulator.whileSuspended(computer -> {
             MOS65C02 cpu = (MOS65C02) computer.getCpu();

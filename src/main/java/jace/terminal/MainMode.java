@@ -28,6 +28,7 @@ import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 
 import jace.Emulator;
+import jace.terminal.MemoryMode;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.SoftSwitches;
 import jace.applesoft.ApplesoftProgram;
@@ -71,7 +72,7 @@ public class MainMode implements TerminalMode {
         commands.put("swstate", this::showSoftSwitchState);
 
         commands.put("reset", args -> performReset());
-        commands.put("step", this::stepCPU);
+        commands.put("tick", this::stepCPU);
         commands.put("run", this::runCPU);
 
         commands.put("insertdisk", this::insertDisk);
@@ -94,13 +95,31 @@ public class MainMode implements TerminalMode {
         commands.put("help", this::showHelp);
         commands.put("charlog", this::toggleCharLog);
 
+        // Monitor forwarding commands — invoke MonitorMode capabilities without a mode switch
+        commands.put("go", args -> {
+            MonitorMode mon = getMonitorMode(); if (mon == null) return;
+            if (args.length < 1) { output.println("Usage: go <addr>"); return; }
+            try { mon.executeCode(parseHexAddress(args[0])); }
+            catch (NumberFormatException e) { output.println("Invalid address: " + e.getMessage()); }
+        });
+        commands.put("mem", args -> {
+            MonitorMode mon = getMonitorMode(); if (mon == null) return;
+            if (args.length < 2) { output.println("Usage: mem <start> <end>"); return; }
+            try { mon.examineMemoryRange(parseHexAddress(args[0]), parseHexAddress(args[1]), MemoryMode.ACTIVE); }
+            catch (NumberFormatException e) { output.println("Invalid address: " + e.getMessage()); }
+        });
+        commands.put("cpu", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.showCpuState(); });
+        commands.put("registers", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleRegisters(args); });
+        commands.put("break", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleBreakpoint(args); });
+        commands.put("runto", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleRunTo(args); });
+
         addAlias("m", "monitor");
         addAlias("a", "assembler");
         addAlias("d", "debugger");
         addAlias("sl", "swlog");
         addAlias("ss", "swstate");
         addAlias("re", "reset");
-        addAlias("s", "step");
+        addAlias("tc", "tick");
         addAlias("g", "run");
         addAlias("id", "insertdisk");
         addAlias("ed", "ejectdisk");
@@ -116,6 +135,9 @@ public class MainMode implements TerminalMode {
         addAlias("sp", "speed");
         addAlias("?", "help");
         addAlias("cl", "charlog");
+        addAlias("reg", "registers");
+        addAlias("bp", "break");
+        addAlias("rt", "runto");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -131,9 +153,23 @@ public class MainMode implements TerminalMode {
 
         commandHelp.put("reset", "Resets the Apple II.\nUsage: reset (or re)");
 
-        commandHelp.put("step",
-                "Steps the CPU for a specified number of cycles.\nUsage: step [count] (or s [count])\n" +
-                        "If count is omitted, steps for 1 cycle.");
+        commandHelp.put("tick",
+                "Steps the motherboard (all devices) for a specified number of ticks.\nUsage: tick [count] (or tc [count])\n" +
+                        "If count is omitted, steps for 1 tick.\n" +
+                        "Note: 'tick' advances the full motherboard cascade. Use 'step' (in monitor mode) for single CPU instruction stepping.");
+
+        commandHelp.put("go",
+                "Sets the program counter to the specified address and begins execution.\nUsage: go <addr>\n" +
+                        "Example: go 4000  (starts execution at $4000)");
+
+        commandHelp.put("mem",
+                "Dumps a range of memory as hex.\nUsage: mem <start> <end>\n" +
+                        "Example: mem 3800 3820");
+
+        commandHelp.put("cpu", "Displays the current CPU state (registers and flags).\nUsage: cpu");
+        commandHelp.put("registers", "Shows or sets CPU register values.\nUsage: registers [reg value]\nExample: registers PC 4000");
+        commandHelp.put("break", "Manages execution breakpoints.\nUsage: break <addr> | break -<addr> | break clear | break list");
+        commandHelp.put("runto", "Runs the CPU until it reaches the specified address.\nUsage: runto <addr> (or rt <addr>)");
 
         commandHelp.put("run", "Runs the CPU for a specified number of cycles or until a breakpoint is hit.\n" +
                 "Usage: run [count] [#breakpoint] (or g [count] [#breakpoint])\n" +
@@ -245,6 +281,11 @@ public class MainMode implements TerminalMode {
     }
 
     private void addAlias(String alias, String command) {
+        if (commandAliases.containsKey(alias)) {
+            throw new IllegalStateException(
+                "Alias conflict in MainMode: '" + alias + "' already maps to '" +
+                commandAliases.get(alias) + "', cannot also map to '" + command + "'");
+        }
         commandAliases.put(alias, command);
     }
 
@@ -289,10 +330,17 @@ public class MainMode implements TerminalMode {
             return true;
         }
 
-        // Log the unknown command for debugging purposes
+        // Try Wozniak monitor syntax (4000G, 100.200, E000G, etc.) via MonitorMode pattern fallthrough.
+        // Exclude MonitorMode's own navigation commands so they don't fire from main mode.
+        String trimmed = command.trim();
+        if (!trimmed.equalsIgnoreCase("q") && !trimmed.equalsIgnoreCase("back")) {
+            MonitorMode mon = getMonitorMode();
+            if (mon != null && mon.processCommand(trimmed)) {
+                return true;
+            }
+        }
+
         LOG.info("Unknown command received: " + cmd);
-        
-        // Display error message directly here - the JaceTerminal will not print its own error
         return false;
     }
 
@@ -307,8 +355,14 @@ public class MainMode implements TerminalMode {
         output.println("  swlog (sl)     - Toggle softswitch state change logging");
         output.println("  swstate (ss)   - Display current state of all softswitches");
         output.println("  reset (re)     - Reset the Apple II");
-        output.println("  step (s) [count] - Step the CPU for count cycles (default: 1)");
+        output.println("  tick (tc) [count] - Step the motherboard for count ticks (default: 1)");
         output.println("  run (g) [count] - Run the CPU for count cycles or until breakpoint (default: 1000000)");
+        output.println("  go <addr>        - Set PC to addr and begin execution (no mode switch needed)");
+        output.println("  mem <start> <end> - Hex dump memory range (no mode switch needed)");
+        output.println("  cpu              - Show CPU registers and flags (no mode switch needed)");
+        output.println("  registers (reg)  - Show or set CPU registers (no mode switch needed)");
+        output.println("  break (bp)       - Manage breakpoints (no mode switch needed)");
+        output.println("  runto (rt)       - Run until PC reaches address (no mode switch needed)");
         output.println("  insertdisk (id) d# file [slot] - Insert disk image in drive # (1 or 2)");
         output.println("  ejectdisk (ed) d# [slot] - Eject disk from drive # (1 or 2)");
         output.println("  bootdisk (bd) d# file [slot] - Insert disk and boot until PC >= $2000");
@@ -2228,5 +2282,14 @@ public class MainMode implements TerminalMode {
         
         // Parse as hex and mask to 16-bit address space
         return Integer.parseInt(hexStr, 16) & 0xFFFF;
+    }
+
+    private MonitorMode getMonitorMode() {
+        TerminalMode mode = terminal.getModeByName("monitor");
+        if (mode instanceof MonitorMode) {
+            return (MonitorMode) mode;
+        }
+        output.println("Monitor mode not available");
+        return null;
     }
 }
