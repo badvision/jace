@@ -28,6 +28,7 @@ import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 
 import jace.Emulator;
+import jace.ipc.CyreneIPCServer;
 import jace.terminal.MemoryMode;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.SoftSwitches;
@@ -94,6 +95,7 @@ public class MainMode implements TerminalMode {
         commands.put("key", this::simulateKeypress);
         commands.put("help", this::showHelp);
         commands.put("charlog", this::toggleCharLog);
+        commands.put("cyrene", this::cyreneCommand);
 
         // Monitor forwarding commands — invoke MonitorMode capabilities without a mode switch
         commands.put("go", args -> {
@@ -138,6 +140,7 @@ public class MainMode implements TerminalMode {
         addAlias("reg", "registers");
         addAlias("bp", "break");
         addAlias("rt", "runto");
+        addAlias("cy", "cyrene");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -2291,5 +2294,44 @@ public class MainMode implements TerminalMode {
         }
         output.println("Monitor mode not available");
         return null;
+    }
+
+    private void cyreneCommand(String[] args) {
+        CyreneIPCServer server = CyreneIPCServer.getInstance();
+        if (args.length == 0) {
+            output.println("Usage: cyrene <start|stop|status>");
+            output.println("  cyrene start   — Enable and start the Cyrene IPC server");
+            output.println("  cyrene stop    — Stop the Cyrene IPC server");
+            output.println("  cyrene status  — Show server status");
+            output.println("Alias: cy");
+            return;
+        }
+        switch (args[0].toLowerCase()) {
+            case "start":
+                server.enabled = true;
+                server.start();
+                output.println("Cyrene IPC server started on port " + server.port);
+                break;
+            case "stop":
+                server.stop();
+                server.enabled = false;
+                output.println("Cyrene IPC server stopped");
+                break;
+            case "status":
+                output.println("Cyrene IPC server:");
+                output.println("  Enabled: " + server.enabled);
+                output.println("  Port:    " + server.port);
+                output.println("  Active:  " + server.isActive());
+                if (server.isActive()) {
+                    output.println("  Session: connected");
+                } else {
+                    output.println("  Session: none");
+                }
+                break;
+            default:
+                output.println("Unknown cyrene sub-command: " + args[0]);
+                output.println("Usage: cyrene <start|stop|status>");
+                break;
+        }
     }
 }

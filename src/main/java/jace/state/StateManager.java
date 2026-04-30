@@ -31,6 +31,7 @@ import java.util.logging.Logger;
 import jace.Emulator;
 import jace.apple2e.SoftSwitches;
 import jace.config.ConfigurableField;
+import jace.ipc.CyreneIPCServer;
 import jace.config.InvokableAction;
 import jace.config.Reconfigurable;
 import jace.core.Computer;
@@ -401,6 +402,10 @@ public class StateManager implements Reconfigurable {
         }
         frameCounter = captureFrequency;
         captureState();
+        CyreneIPCServer server = CyreneIPCServer.getInstance();
+        if (server.isActive()) {
+            server.onVBL();
+        }
     }
 
     @InvokableAction(

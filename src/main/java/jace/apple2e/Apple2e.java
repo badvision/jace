@@ -31,6 +31,7 @@ import java.util.logging.Logger;
 
 import jace.apple2e.softswitch.VideoSoftSwitch;
 import jace.cheat.Cheats;
+import jace.ipc.CyreneIPCServer;
 import jace.config.ConfigurableField;
 import jace.config.DeviceSelection;
 import jace.core.Card;
@@ -340,6 +341,7 @@ public class Apple2e extends Computer {
             getMotherboard().attach();
             getMotherboard().reconfigure();
         });
+        CyreneIPCServer.getInstance().reconfigure();
     }
 
     @Override
