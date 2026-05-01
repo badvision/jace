@@ -280,6 +280,19 @@ public class MainMode implements TerminalMode {
                         "Multiple values will be processed sequentially.\n" +
                         "Strings support escape sequences (e.g. \"Hello\\nWorld\" types \"Hello\", CR, \"World\").");
         
+        commandHelp.put("cyrene",
+                "Manages the Aristaeus TCP debug server (Cyrene IPC protocol).\n" +
+                "Usage: cyrene start   — Enable the debug server and begin listening on port 57867\n" +
+                "       cyrene stop    — Stop the debug server and close all connections\n" +
+                "       cyrene status  — Show whether the server is running and the port number\n" +
+                "Alias: cy\n\n" +
+                "Once started, connect Aristaeus (https://github.com/badvision/aristaeus) to\n" +
+                "localhost:57867 to inspect registers, memory, soft switches, set breakpoints,\n" +
+                "and step through 65C02 code.\n\n" +
+                "Typical workflow:\n" +
+                "  cyrene start\n" +
+                "  run 999999999   (keep the emulator cycling while Aristaeus is connected)");
+
         LOG.fine("Commands initialized");
     }
 
@@ -380,6 +393,7 @@ public class MainMode implements TerminalMode {
         output.println("  screenshot (ss2) file.png - Capture DHGR page 1 as 1120x384 PNG");
         output.println("  loadbasic (lbas) file - Load plain-text Applesoft BASIC listing into RAM");
         output.println("  key (k) value  - Simulate keypresses");
+        output.println("  cyrene (cy) start|stop|status - Manage the Aristaeus TCP debug server (port 57867)");
         output.println("  help/?          - Show this help");
         output.println("  help/?  <cmd>   - Show detailed help for a specific command");
         output.println("  exit/quit       - Exit the Terminal");
