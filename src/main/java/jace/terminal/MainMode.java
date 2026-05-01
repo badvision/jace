@@ -140,8 +140,6 @@ public class MainMode implements TerminalMode {
         addAlias("reg", "registers");
         addAlias("bp", "break");
         addAlias("rt", "runto");
-        addAlias("cy", "rdb");
-        addAlias("cyrene", "rdb");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -286,7 +284,7 @@ public class MainMode implements TerminalMode {
                 "Usage: rdb start   — Start listening for an Aristaeus connection\n" +
                 "       rdb stop    — Stop the debug server and close all connections\n" +
                 "       rdb status  — Show whether the server is running\n" +
-                "Aliases: cy, cyrene\n\n" +
+                "\n" +
                 "Once started, connect Aristaeus (https://github.com/badvision/aristaeus) to\n" +
                 "localhost:57867 to inspect registers, memory, soft switches, set breakpoints,\n" +
                 "and step through 65C02 code.\n\n" +
@@ -394,7 +392,7 @@ public class MainMode implements TerminalMode {
         output.println("  screenshot (ss2) file.png - Capture DHGR page 1 as 1120x384 PNG");
         output.println("  loadbasic (lbas) file - Load plain-text Applesoft BASIC listing into RAM");
         output.println("  key (k) value  - Simulate keypresses");
-        output.println("  rdb (cy) start|stop|status - Start/stop Aristaeus remote debugger (port 57867)");
+        output.println("  rdb start|stop|status - Start/stop Aristaeus remote debugger (port 57867)");
         output.println("  help/?          - Show this help");
         output.println("  help/?  <cmd>   - Show detailed help for a specific command");
         output.println("  exit/quit       - Exit the Terminal");
