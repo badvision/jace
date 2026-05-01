@@ -178,6 +178,26 @@ class CyreneSession implements Runnable {
     }
 
     void handleWriteData(byte[] payload) {
+        if (payload == null || payload.length < 4) {
+            return;
+        }
+        int address = (payload[0] & 0xFF)
+                | ((payload[1] & 0xFF) << 8)
+                | ((payload[2] & 0xFF) << 16)
+                | ((payload[3] & 0xFF) << 24);
+
+        // Breakpoint sideband: address 0xFF_0001 = set, 0xFF_0000 = clear
+        if ((address & 0xFF_0000) == 0xFF_0000) {
+            int sub = address & 0xFFFF;
+            if (sub == 0x0001 && payload.length > 4) {
+                String text = new String(payload, 4, payload.length - 4, java.nio.charset.StandardCharsets.UTF_8);
+                breakpointBridge.updateFromText(text);
+            } else {
+                breakpointBridge.clear();
+            }
+            return;
+        }
+
         new MemoryWriteHandler().apply(payload);
     }
 
