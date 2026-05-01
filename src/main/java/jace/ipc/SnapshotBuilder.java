@@ -5,9 +5,10 @@ import java.nio.ByteOrder;
 
 import jace.Emulator;
 import jace.apple2e.RAM128k;
+import jace.apple2e.SoftSwitches;
 import jace.core.PagedMemory;
 import jace.core.RAM;
-import jace.core.RAMEvent;
+import jace.core.RAMListener;
 
 /**
  * Builds the binary snapshot payload for a K2C_SEND_SNAPSHOT response.
@@ -172,6 +173,33 @@ public class SnapshotBuilder {
     }
 
     /**
+     * Build a synthetic 256-byte $C0xx I/O page by reading soft switch state directly
+     * from the SoftSwitches enum. Avoids triggering RAM listeners (which have hardware
+     * side effects) while still returning accurate state.
+     *
+     * For each switch, find the listeners named "Softswitch read state …" to discover
+     * which $C0xx addresses that switch responds to, then write 0x80 (ON) or 0x00 (OFF).
+     */
+    private static byte[] buildIoPage() {
+        byte[] page = new byte[256]; // zero-filled by default
+        for (SoftSwitches sw : SoftSwitches.values()) {
+            byte value = sw.isOn() ? (byte) 0x80 : (byte) 0x00;
+            for (RAMListener l : sw.getSwitch().getListeners()) {
+                if (l.getName() != null && l.getName().startsWith("Softswitch read state")) {
+                    int start = l.getScopeStart() & 0xFFFF;
+                    int end   = l.getScopeEnd()   & 0xFFFF;
+                    if (start >= 0xC000 && start <= 0xC0FF) {
+                        for (int addr = start; addr <= end && addr <= 0xC0FF; addr++) {
+                            page[addr & 0xFF] = value;
+                        }
+                    }
+                }
+            }
+        }
+        return page;
+    }
+
+    /**
      * Write a 24-bit value as 3 bytes, little-endian, at the current buffer position.
      */
     private void put24(int value) {
@@ -200,10 +228,7 @@ public class SnapshotBuilder {
             buf.position(IpcConstants.SNAP_OFF_BANK00);
             for (int page = 0; page < 256; page++) {
                 if (page == 0xC0) {
-                    // I/O page: read without triggering listeners so no side effects
-                    for (int i = 0; i < 256; i++) {
-                        buf.put(memory.read(0xC000 + i, RAMEvent.TYPE.READ_DATA, false, false));
-                    }
+                    buf.put(buildIoPage());
                 } else {
                     byte[] pageData = activeRead.get(page);
                     if (pageData != null) {

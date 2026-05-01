@@ -223,6 +223,10 @@ public abstract class SoftSwitch {
 
     abstract protected byte readSwitch();
 
+    public List<RAMListener> getListeners() {
+        return java.util.Collections.unmodifiableList(listeners);
+    }
+
     protected void addListener(RAMListener l) {
         listeners.add(l);
     }
