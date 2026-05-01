@@ -198,13 +198,19 @@ public class SnapshotBuilder {
             PagedMemory activeRead = ram128.activeRead;
             buf.position(IpcConstants.SNAP_OFF_BANK00);
             for (int page = 0; page < 256; page++) {
-                byte[] pageData = activeRead.get(page);
-                if (pageData != null && page != 0xC0) {
-                    buf.put(pageData, 0, 256);
-                } else {
-                    // I/O page or unmapped: zero-fill
+                if (page == 0xC0) {
+                    // I/O page: read without triggering listeners so no side effects
                     for (int i = 0; i < 256; i++) {
-                        buf.put((byte) 0);
+                        buf.put(memory.read(0xC000 + i, RAMEvent.TYPE.READ_DATA, false, false));
+                    }
+                } else {
+                    byte[] pageData = activeRead.get(page);
+                    if (pageData != null) {
+                        buf.put(pageData, 0, 256);
+                    } else {
+                        for (int i = 0; i < 256; i++) {
+                            buf.put((byte) 0);
+                        }
                     }
                 }
             }
