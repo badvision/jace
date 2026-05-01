@@ -7,6 +7,7 @@ import jace.Emulator;
 import jace.apple2e.RAM128k;
 import jace.core.PagedMemory;
 import jace.core.RAM;
+import jace.core.RAMEvent;
 
 /**
  * Builds the binary snapshot payload for a K2C_SEND_SNAPSHOT response.
