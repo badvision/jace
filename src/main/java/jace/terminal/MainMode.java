@@ -95,7 +95,7 @@ public class MainMode implements TerminalMode {
         commands.put("key", this::simulateKeypress);
         commands.put("help", this::showHelp);
         commands.put("charlog", this::toggleCharLog);
-        commands.put("cyrene", this::cyreneCommand);
+        commands.put("rdb", this::cyreneCommand);
 
         // Monitor forwarding commands — invoke MonitorMode capabilities without a mode switch
         commands.put("go", args -> {
@@ -140,7 +140,8 @@ public class MainMode implements TerminalMode {
         addAlias("reg", "registers");
         addAlias("bp", "break");
         addAlias("rt", "runto");
-        addAlias("cy", "cyrene");
+        addAlias("cy", "rdb");
+        addAlias("cyrene", "rdb");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -280,17 +281,17 @@ public class MainMode implements TerminalMode {
                         "Multiple values will be processed sequentially.\n" +
                         "Strings support escape sequences (e.g. \"Hello\\nWorld\" types \"Hello\", CR, \"World\").");
         
-        commandHelp.put("cyrene",
-                "Manages the Aristaeus TCP debug server (Cyrene IPC protocol).\n" +
-                "Usage: cyrene start   — Enable the debug server and begin listening on port 57867\n" +
-                "       cyrene stop    — Stop the debug server and close all connections\n" +
-                "       cyrene status  — Show whether the server is running and the port number\n" +
-                "Alias: cy\n\n" +
+        commandHelp.put("rdb",
+                "Manages the Aristaeus remote debugger (TCP, port 57867).\n" +
+                "Usage: rdb start   — Start listening for an Aristaeus connection\n" +
+                "       rdb stop    — Stop the debug server and close all connections\n" +
+                "       rdb status  — Show whether the server is running\n" +
+                "Aliases: cy, cyrene\n\n" +
                 "Once started, connect Aristaeus (https://github.com/badvision/aristaeus) to\n" +
                 "localhost:57867 to inspect registers, memory, soft switches, set breakpoints,\n" +
                 "and step through 65C02 code.\n\n" +
                 "Typical workflow:\n" +
-                "  cyrene start\n" +
+                "  rdb start\n" +
                 "  run 999999999   (keep the emulator cycling while Aristaeus is connected)");
 
         LOG.fine("Commands initialized");
@@ -393,7 +394,7 @@ public class MainMode implements TerminalMode {
         output.println("  screenshot (ss2) file.png - Capture DHGR page 1 as 1120x384 PNG");
         output.println("  loadbasic (lbas) file - Load plain-text Applesoft BASIC listing into RAM");
         output.println("  key (k) value  - Simulate keypresses");
-        output.println("  cyrene (cy) start|stop|status - Manage the Aristaeus TCP debug server (port 57867)");
+        output.println("  rdb (cy) start|stop|status - Start/stop Aristaeus remote debugger (port 57867)");
         output.println("  help/?          - Show this help");
         output.println("  help/?  <cmd>   - Show detailed help for a specific command");
         output.println("  exit/quit       - Exit the Terminal");
@@ -2313,11 +2314,11 @@ public class MainMode implements TerminalMode {
     private void cyreneCommand(String[] args) {
         CyreneIPCServer server = CyreneIPCServer.getInstance();
         if (args.length == 0) {
-            output.println("Usage: cyrene <start|stop|status>");
-            output.println("  cyrene start   — Enable and start the Cyrene IPC server");
-            output.println("  cyrene stop    — Stop the Cyrene IPC server");
-            output.println("  cyrene status  — Show server status");
-            output.println("Alias: cy");
+            output.println("Usage: rdb <start|stop|status>");
+            output.println("  rdb start   — Start the Aristaeus remote debug server");
+            output.println("  rdb stop    — Stop the server");
+            output.println("  rdb status  — Show server status");
+            output.println("Aliases: cy, cyrene");
             return;
         }
         switch (args[0].toLowerCase()) {
@@ -2343,8 +2344,8 @@ public class MainMode implements TerminalMode {
                 }
                 break;
             default:
-                output.println("Unknown cyrene sub-command: " + args[0]);
-                output.println("Usage: cyrene <start|stop|status>");
+                output.println("Unknown rdb sub-command: " + args[0]);
+                output.println("Usage: rdb <start|stop|status>");
                 break;
         }
     }
