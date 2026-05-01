@@ -12,6 +12,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import jace.Emulator;
+import jace.apple2e.Apple2e;
 import jace.apple2e.MOS65C02;
 import jace.core.Debugger;
 import jace.core.RAM;
@@ -147,6 +148,20 @@ class CyreneSession implements Runnable {
     }
 
     void handleGetOperation() throws IOException {
+        // If the emulator is currently paused, perform a single-instruction step
+        // rather than a full resume.  This is what the Aristaeus "Step" button needs.
+        boolean wasPaused = isEmulatorPaused();
+        if (wasPaused) {
+            CyreneOperation op = stepOneInstruction();
+            if (op != null) {
+                byte[] payload = serializeOperations(java.util.List.of(op));
+                sendFrame(IpcConstants.K2C_SEND_OPERATION, payload);
+            } else {
+                sendFrame(IpcConstants.K2C_SEND_OPERATION, new byte[0]);
+            }
+            return;
+        }
+
         tracingOperations = true;
         // Resume emulator so it can generate operations
         try {
@@ -164,6 +179,58 @@ class CyreneSession implements Runnable {
 
         byte[] payload = serializeOperations(ops);
         sendFrame(IpcConstants.K2C_SEND_OPERATION, payload);
+    }
+
+    private boolean isEmulatorPaused() {
+        try {
+            Boolean paused = Emulator.withComputer(c -> !c.getRunningProperty().get(), false);
+            return Boolean.TRUE.equals(paused);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Executes exactly one 65C02 instruction while the motherboard stays suspended,
+     * captures the resulting CPU state, and returns it as a CyreneOperation.
+     */
+    private CyreneOperation stepOneInstruction() {
+        try {
+            return Emulator.withComputer(computer -> {
+                MOS65C02 cpu = (MOS65C02) computer.getCpu();
+                if (cpu == null) return null;
+
+                // Ensure the motherboard thread is not also ticking the CPU
+                computer.getMotherboard().suspend();
+
+                // Execute one complete instruction (opcode fetch + wait cycles)
+                cpu.doTick();
+                while (cpu.getWaitCycles() > 0) {
+                    cpu.doTick();
+                }
+
+                // Keep the motherboard suspended so the emulator stays paused
+                computer.getMotherboard().suspend();
+
+                // Capture state after the instruction
+                int pc = cpu.getProgramCounter();
+                byte opcode = readMemByte(computer.getMemory(), pc);
+                byte op1    = readMemByte(computer.getMemory(), pc + 1);
+                byte op2    = readMemByte(computer.getMemory(), pc + 2);
+                byte op3    = readMemByte(computer.getMemory(), pc + 3);
+                byte flags  = CyreneOperation.packFlags(cpu.N, cpu.V, cpu.B, cpu.D, cpu.I, cpu.Z, cpu.C);
+
+                return new CyreneOperation(
+                        cpu.A, cpu.X, cpu.Y, pc, cpu.STACK,
+                        flags, opcode, op1, op2, op3,
+                        0, 0, 0, 0, 0, (byte) 0,
+                        goid.incrementAndGet(), gcc.incrementAndGet(),
+                        (byte) 0, (byte) 0);
+            }, null);
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "stepOneInstruction: error", e);
+            return null;
+        }
     }
 
     void handlePause() {
