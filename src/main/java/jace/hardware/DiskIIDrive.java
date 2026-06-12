@@ -51,7 +51,9 @@ public class DiskIIDrive extends Device implements MediaConsumer {
     
     public boolean DEBUG = false;
 
-    // 4 ticks per bit, 6 bits per nibble
+    // Disk II: 300 RPM, 4 µs/bit, 8 bits/nibble → ~32 µs/nibble.
+    // 34 cycles is used for the read window to keep alreadyAccessedData timing correct;
+    // writes tolerate the small discrepancy since each $C08C strobe commits immediately.
     public static final int TICKS_PER_NIBBLE = 34;
     public static final int TICKS_PER_BIT = 7;
 
@@ -172,23 +174,19 @@ public class DiskIIDrive extends Device implements MediaConsumer {
     }
 
     void write() {
-        if (writeMode) {
-            while (diskUpdatePending.get()) {
-                // If another thread requested writes to block (e.g. because of disk activity), wait for it to finish!
-                Thread.onSpinWait();
-            }
-            // Holding the lock should block any other threads from writing to disk
+        if (isOn() && disk != null && writeMode) {
+            while (diskUpdatePending.get()) { Thread.onSpinWait(); }
             synchronized (diskUpdatePending) {
-                if (disk != null) {
-                    // Do nothing if write-protection is enabled!
-                    if (getMediaEntry() == null || !getMediaEntry().writeProtected) {
-                        dirtyTracks.add(trackStartOffset / FloppyDisk.TRACK_NIBBLE_LENGTH);
-                        disk.nibbles[trackStartOffset + nibbleOffset] = latch;
-                        triggerDiskUpdate();
-                        StateManager.markDirtyValue(disk.nibbles);
-                    }
+                if (getMediaEntry() == null || !getMediaEntry().writeProtected) {
+                    dirtyTracks.add(trackStartOffset / FloppyDisk.TRACK_NIBBLE_LENGTH);
+                    disk.nibbles[trackStartOffset + nibbleOffset] = latch;
+                    StateManager.markDirtyValue(disk.nibbles);
+                    triggerDiskUpdate();
                 }
             }
+            nibbleOffset++;
+            if (nibbleOffset >= FloppyDisk.TRACK_NIBBLE_LENGTH) nibbleOffset = 0;
+            tickCount = 0;
         }
     }
 
@@ -361,10 +359,11 @@ public class DiskIIDrive extends Device implements MediaConsumer {
             tickCount = (tickCount + 1) % TICKS_PER_NIBBLE;
             if (tickCount == 0) {
                 alreadyAccessedData = false;
-                // System.out.print("+");
-                nibbleOffset++;
-                if (nibbleOffset >= FloppyDisk.TRACK_NIBBLE_LENGTH) {
-                    nibbleOffset = 0;
+                if (!writeMode) {
+                    nibbleOffset++;
+                    if (nibbleOffset >= FloppyDisk.TRACK_NIBBLE_LENGTH) {
+                        nibbleOffset = 0;
+                    }
                 }
             } else if (tickCount == TICKS_PER_BIT) {
                 // After 7 ticks, data is no longer accessible for this nibble
