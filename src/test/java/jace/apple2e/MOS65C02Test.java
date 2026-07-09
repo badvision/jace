@@ -160,8 +160,70 @@ public class MOS65C02Test extends AbstractJaceTest {
         // For consistency, just verify the behavior is different than when interrupts are enabled
         int pcWithIFlagSet = cpu.getProgramCounter();
         // Either the PC shouldn't change at all, or it should go to a different location than before
-        assertTrue("Interrupt handling with I flag set wasn't different", 
+        assertTrue("Interrupt handling with I flag set wasn't different",
                 originalPC == pcWithIFlagSet || afterInterruptPC != pcWithIFlagSet);
+    }
+
+    @Test
+    public void testMaskedInterruptStaysPendingUntilUnmasked() {
+        // Real 6502/65C02 hardware: /IRQ is a level-held line. If an
+        // interrupt source asserts while I=1 (masked), the request must
+        // stay pending and be serviced the instant a later CLI clears I --
+        // it must NOT be silently dropped. This reproduces a real bug where
+        // processInterrupt() and the CLI opcode handler both unconditionally
+        // cleared interruptSignalled regardless of whether I was set.
+        //
+        // Note: $FFFE/$FFFF (INT_VECTOR) sit in ROM on the real RAM128k used
+        // by this test class, so the IRQ vector's contents cannot be
+        // controlled here. Instead of asserting an exact destination PC,
+        // this test asserts the two directly-observable, bug-relevant
+        // behaviors: (1) PC never leaves the known NOP block while masked,
+        // and (2) interruptSignalled correctly transitions pending -> still
+        // pending after CLI -> serviced (cleared) and PC has moved away
+        // from the NOP block on the very next tick after CLI.
+        final int startPC = 0x1234;
+        // Lay down real NOP ($EA) opcodes so the CPU has valid instructions
+        // to execute while masked (cpu.tick() decodes/executes unconditionally,
+        // it is not gated by wait-cycles the way doTick() is).
+        final int nopBlockEnd = startPC + 10;
+        for (int addr = startPC; addr < nopBlockEnd; addr++) {
+            ram.write(addr, (byte) 0xEA, true, false);
+        }
+        cpu.clearState();
+        cpu.I = true; // interrupts masked
+        cpu.B = false;
+        cpu.setProgramCounter(startPC);
+
+        // Signal an interrupt while masked.
+        cpu.generateInterrupt();
+
+        // While masked, several real ticks must NOT service the interrupt:
+        // PC just keeps stepping through the NOP block, and the request
+        // must remain pending rather than being silently dropped.
+        for (int i = 0; i < 5; i++) {
+            cpu.tick();
+            int pc = cpu.getProgramCounter();
+            assertTrue("PC must stay within the NOP block while interrupt is masked (tick " + i + "), was " + pc,
+                    pc >= startPC && pc < nopBlockEnd);
+        }
+        assertTrue("Interrupt must remain pending while masked", cpu.interruptSignalled);
+
+        // Now unmask via the real CLI opcode path (not by setting cpu.I
+        // directly) -- this is exactly the path that had the second bug.
+        cpu.I = false;
+        MOS65C02.OPCODE.CLI.execute(cpu);
+
+        // The interrupt must still be pending immediately after CLI...
+        assertTrue("Interrupt must still be pending immediately after CLI", cpu.interruptSignalled);
+
+        // ...and must be serviced on the very next tick: PC jumps away from
+        // the NOP block (to the real IRQ vector) and interruptSignalled is
+        // cleared once serviced.
+        cpu.tick();
+        int pcAfterService = cpu.getProgramCounter();
+        assertFalse("PC must have left the NOP block once the interrupt is serviced",
+                pcAfterService >= startPC && pcAfterService < nopBlockEnd);
+        assertFalse("interruptSignalled must be cleared once serviced", cpu.interruptSignalled);
     }
     
     @Test

@@ -28,6 +28,14 @@ import jace.core.SoftSwitch;
  */
 public class VideoSoftSwitch extends SoftSwitch {
 
+    // Number of CPU cycles (ticks) real hardware takes to propagate this
+    // switch's change from the softswitch write to a visible effect on
+    // screen. Defaults to 0 (immediate) for callers that don't care about
+    // beam-racing accuracy; jace.apple2e.SoftSwitches sets the real
+    // hardware-measured delay for each switch (see MAME PR #15247,
+    // a2_video_device::delayed_update() call sites in apple2video.cpp).
+    private int delayTicks = 0;
+
     public VideoSoftSwitch(String name, int offAddress, int onAddress, int queryAddress, RAMEvent.TYPE changeType, Boolean initalState) {
         super(name, offAddress, onAddress, queryAddress, changeType, initalState);
     }
@@ -36,10 +44,23 @@ public class VideoSoftSwitch extends SoftSwitch {
         super(name, offAddrs, onAddrs, queryAddrs, changeType, initalState);
     }
 
+    public VideoSoftSwitch(String name, int offAddress, int onAddress, int queryAddress, RAMEvent.TYPE changeType, Boolean initalState, int delayTicks) {
+        super(name, offAddress, onAddress, queryAddress, changeType, initalState);
+        this.delayTicks = delayTicks;
+    }
+
+    public int getDelayTicks() {
+        return delayTicks;
+    }
+
+    public void setDelayTicks(int delayTicks) {
+        this.delayTicks = delayTicks;
+    }
+
     @Override
     public void stateChanged() {
 //        System.out.println("Set "+getName()+" -> "+getState());
-        Emulator.withVideo(video -> video.configureVideoMode());
+        Emulator.withVideo(video -> video.scheduleModeChange(delayTicks, video::configureVideoMode));
     }
 
     @Override

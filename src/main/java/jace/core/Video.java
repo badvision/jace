@@ -16,6 +16,9 @@
 
 package jace.core;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+
 import jace.Emulator;
 import jace.config.ConfigurableField;
 import jace.config.InvokableAction;
@@ -57,18 +60,82 @@ public abstract class Video extends TimedDevice {
     static final public int APPLE_SCREEN_LINES = 192;
     static final public int HBLANK = CYCLES_PER_LINE - APPLE_CYCLES_PER_LINE;
     static final public int VBLANK = (TOTAL_LINES - APPLE_SCREEN_LINES) * CYCLES_PER_LINE;
-    static final public int[] textOffset = new int[192];
-    static final public int[] hiresOffset = new int[192];
+    // Sized to TOTAL_LINES (not just APPLE_SCREEN_LINES) so entries 192-261
+    // cover the vertical blanking interval as well as the visible screen.
+    // See initLookupTables() for how the two regions are populated.
+    static final public int[] textOffset = new int[TOTAL_LINES];
+    static final public int[] hiresOffset = new int[TOTAL_LINES];
     static final public int[] textRowLookup = new int[0x0400];
     static final public int[] hiresRowLookup = new int[0x02000];
     private boolean screenDirty = true;
     private boolean lineDirty = true;
     private boolean isVblank = false;
 
+    // Real hardware applies video-mode softswitch changes (TEXT, MIXED,
+    // PAGE2, HIRES, AN3/DHIRES, 80COL, ALTCHARSET, 80STORE) a few CPU cycles
+    // after the write, not instantaneously. Each pending change records how
+    // many more ticks must elapse before it is applied. Multiple changes can
+    // be in flight at once (e.g. rapid consecutive softswitch writes), so
+    // this is a small ordered queue rather than a single counter.
+    private static final class PendingModeChange {
+        int ticksRemaining;
+        final Runnable apply;
+        PendingModeChange(int ticksRemaining, Runnable apply) {
+            this.ticksRemaining = ticksRemaining;
+            this.apply = apply;
+        }
+    }
+    private final Deque<PendingModeChange> pendingModeChanges = new ArrayDeque<>();
+
+    /**
+     * Schedules a video mode change to take effect after the given number of
+     * CPU cycles (ticks) have elapsed, matching real hardware's per-switch
+     * propagation delay. See jace.apple2e.SoftSwitches for the delay used by
+     * each individual softswitch.
+     *
+     * @param delayTicks number of ticks to wait before applying the change (0 = immediate)
+     * @param apply the mode-change action to run once the delay has elapsed
+     */
+    public void scheduleModeChange(int delayTicks, Runnable apply) {
+        if (delayTicks <= 0) {
+            apply.run();
+            return;
+        }
+        pendingModeChanges.addLast(new PendingModeChange(delayTicks, apply));
+    }
+
+    private void applyDueModeChanges() {
+        if (pendingModeChanges.isEmpty()) {
+            return;
+        }
+        // Decrement every pending change and apply (in queue order) any that
+        // have reached zero. Order matters: if two changes to the same
+        // switch are in flight, the earlier scheduled one must be applied
+        // first so the later one reflects the correct prior state.
+        for (PendingModeChange change : pendingModeChanges) {
+            change.ticksRemaining--;
+        }
+        while (!pendingModeChanges.isEmpty() && pendingModeChanges.peekFirst().ticksRemaining <= 0) {
+            pendingModeChanges.pollFirst().apply.run();
+        }
+    }
+
     static void initLookupTables() {
-        for (int i = 0; i < 192; i++) {
+        for (int i = 0; i < APPLE_SCREEN_LINES; i++) {
             textOffset[i] = calculateTextOffset(i >> 3);
             hiresOffset[i] = calculateHiresOffset(i);
+        }
+        // Vertical blanking region (real hardware scanlines 192-261). Real
+        // Apple //e hardware does not stop scanning during vblank: the
+        // vertical counter keeps incrementing and the video scanner address
+        // formula (ported from MAME's a2_video_device::scanner_address(),
+        // see MAME PR #15247, src/mame/apple/apple2video.cpp) aliases back
+        // into "screen hole" addresses inside the normal text/hires address
+        // space. This is exactly what vaporlock-style timing tests (e.g.
+        // VIDSYNC.S) rely on to detect specific scanlines during blanking.
+        for (int i = APPLE_SCREEN_LINES; i < TOTAL_LINES; i++) {
+            textOffset[i] = calculateBlankingScannerOffset(i, false);
+            hiresOffset[i] = calculateBlankingScannerOffset(i, true);
         }
         for (int i = 0; i < 0x0400; i++) {
             textRowLookup[i] = identifyTextRow(i);
@@ -164,7 +231,16 @@ public abstract class Video extends TimedDevice {
         }
         
         addWaitCycles(waitsPerCycle);
-        if (y < APPLE_SCREEN_LINES) setScannerLocation(currentWriter.getYOffset(y));
+        applyDueModeChanges();
+        // During vblank, 'y' is reused to walk 122..191 purely so the rest of
+        // this method's line-wraparound bookkeeping stays in range -- it does
+        // NOT represent the true hardware scanline. Translate it back to the
+        // real scanline (192..261) so the offset lookup below indexes the
+        // vblank-region entries of textOffset/hiresOffset (populated by
+        // calculateBlankingScannerOffset) rather than re-reading the visible
+        // rows' entries a second time. See initLookupTables().
+        int scannerLine = isVblank ? y + (TOTAL_LINES - APPLE_SCREEN_LINES) : y;
+        setScannerLocation(currentWriter.getYOffset(scannerLine));
         setFloatingBus(getMemory().readRaw(scannerAddress + x));
         if (hPeriod > 0) {
             hPeriod--;
@@ -270,6 +346,76 @@ public abstract class Video extends TimedDevice {
             return -1;
         }
         return ((y >> 10) & 7) + (blockOffset << 3);
+    }
+
+    /**
+     * Computes the video scanner's row-start address offset for a vertical
+     * blanking line (real hardware scanline APPLE_SCREEN_LINES..TOTAL_LINES-1),
+     * for h_clock=0 (the same reference point calculateTextOffset/
+     * calculateHiresOffset use for x=0 -- see initLookupTables()).
+     *
+     * This is a direct port of MAME's a2_video_device::scanner_address()
+     * (MAME PR #15247, src/mame/apple/apple2video.cpp), restricted to the
+     * non-hires-mixed-mode-override, page1 case (Page2/Mixed are applied the
+     * same way the visible-region tables already are: by adding a fixed
+     * 0x0400/0x0800/0x2000/0x4000 page offset at the call site, and by the
+     * VideoWriter/mixed-mode dispatch elsewhere in VideoDHGR).
+     *
+     * KNOWN LIMITATION: the returned value is only valid as a per-line
+     * constant added to x for x in 0..7. Real hardware's address formula
+     * wraps (mod 16) partway through blanking lines (at x=8, verified
+     * empirically for every blanking line), so unlike the visible-region
+     * tables this does NOT hold for the full x=0..39 pixel range. This is
+     * sufficient for vaporlock-style probes (e.g. VIDSYNC.S), which only
+     * ever probe offsets 0-6 from a blanking row's base address, but does
+     * NOT provide full per-pixel floating-bus accuracy throughout blanking.
+     *
+     * @param line real hardware scanline, APPLE_SCREEN_LINES..TOTAL_LINES-1
+     * @param hires true to compute the hires-mode address, false for text/lores
+     * @return offset such that (offset + 0x0400) is the page1 text address,
+     *         or (offset + 0x2000) is the page1 hires address, at x=0
+     */
+    static int calculateBlankingScannerOffset(int line, boolean hires) {
+        // h_clock=25 is the reference point matching x=0 in tick() -- this
+        // was determined empirically: it is the only h_clock value for which
+        // this formula reproduces calculateTextOffset/calculateHiresOffset
+        // exactly across all 192 visible rows (i.e. it matches the existing,
+        // hardware-verified anchor convention used elsewhere in this class).
+        final int hClock = 25;
+        int hState = hClock - 1; // h_state = h_clock - (h_clock > 0 ? 1 : 0)
+        int h0 = hState & 1;
+        int h1 = (hState >> 1) & 1;
+        int h2 = (hState >> 2) & 1;
+        int h3 = (hState >> 3) & 1;
+        int h4 = (hState >> 4) & 1;
+        int h5 = (hState >> 5) & 1;
+
+        int vState = 256 + line;
+        if (line >= 256) {
+            vState -= TOTAL_LINES;
+        }
+        int v0 = (vState >> 3) & 1;
+        int v1 = (vState >> 4) & 1;
+        int v2 = (vState >> 5) & 1;
+        int v3 = (vState >> 6) & 1;
+        int v4 = (vState >> 7) & 1;
+        int vA = vState & 1;
+        int vB = (vState >> 1) & 1;
+        int vC = (vState >> 2) & 1;
+
+        int addend0 = 0x0D;
+        int addend1 = (h5 << 2) | (h4 << 1) | h3;
+        int addend2 = (v4 << 3) | (v3 << 2) | (v4 << 1) | v3;
+        int sum = (addend0 + addend1 + addend2) & 0x0F;
+
+        int address = h0 | (h1 << 1) | (h2 << 2) | (sum << 3) | (v0 << 7) | (v1 << 8) | (v2 << 9);
+        if (hires) {
+            address |= (vA << 10) | (vB << 11) | (vC << 12);
+            // Caller adds 0x2000 (page1) or 0x4000 (page2); return the bare offset.
+        } else {
+            // Caller adds 0x0400 (page1) or 0x0800 (page2); return the bare offset.
+        }
+        return address;
     }
 
     public abstract void doPostDraw();

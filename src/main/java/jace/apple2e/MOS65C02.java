@@ -904,8 +904,12 @@ public class MOS65C02 extends CPU {
             cpu.D = false;
         }),
         CLI((address, value, addressMode, cpu) -> {
+            // Do NOT clear interruptSignalled here: a pending interrupt that
+            // arrived while masked (I=true) must remain pending so that the
+            // next executeOpcode() interrupt check (which re-tests
+            // interruptSignalled) can service it now that I is clear. See
+            // processInterrupt() for the corresponding fix.
             cpu.I = false;
-            cpu.interruptSignalled = false;
         }),
         CLV((address, value, addressMode, cpu) -> {
             cpu.V = false;
@@ -1382,8 +1386,16 @@ public class MOS65C02 extends CPU {
         if (!interruptSignalled) {
             return;
         }
-        interruptSignalled = false;
+        // On real 6502/65C02 hardware, /IRQ is a level-held line: if an
+        // interrupt source asserts it while the I flag is set (masked, e.g.
+        // during SEI), the request stays pending and must be serviced the
+        // instant a later CLI (or PLP clearing I) re-enables interrupts.
+        // interruptSignalled must therefore only be cleared once the
+        // interrupt is actually serviced (inside the branch below), not
+        // unconditionally here -- otherwise a masked interrupt is dropped
+        // forever instead of held pending.
         if (!I || B) {
+            interruptSignalled = false;
             I = false;
             pushWord(getProgramCounter());
             push(getStatus());

@@ -41,7 +41,11 @@ public class EnvelopeGenerator extends TimedGenerator {
 
     @Override
     public int stepsPerCycle() {
-        return 8;
+        // AY-3-8910 envelope generator counter advances at half the rate of the
+        // tone generator's counter for the same period register value (per the
+        // AY-3-8910 datasheet and MAME's ay8910.cpp m_step=2 for classic AY-3-8910).
+        // SoundGenerator.stepsPerCycle() is 8, so envelope must be 2x that = 16.
+        return 16;
     }
 
     @Override

@@ -949,6 +949,56 @@ STA (write) to the switch RESETS the read counter!
 
 Reference: "Understanding the Apple IIe" by James Fielding Sather, p. 5-24.
 
+## Running the Java Unit Test Suite (`mvn test`)
+
+This is a different workflow from the terminal automation sections above — it exercises
+JUnit tests under `src/test/java`, not the emulator's terminal REPL.
+
+### Always use `mvn clean test`, never bare `mvn test`, after editing a file outside the Edit tool
+
+If a file was edited via sed, mv, or git stash/pop instead of the Edit tool, always run
+`mvn clean test` afterward, not bare `mvn test`.
+
+Maven's incremental compiler can silently skip recompiling a source file if its mtime
+doesn't look newer than the existing `.class` file — this has been observed in practice
+after using `sed -i` to patch a file and then restoring it via `mv file.java.bak file.java`.
+The symptom is confusing: you edit the source, `grep` confirms the new content is on disk,
+but `mvn test` (no `clean`) still runs against the old behavior and reports test results
+consistent with the *previous* code. If a test result seems to contradict what the source
+clearly says, don't assume the test or your reasoning is wrong — re-run with `mvn clean test`
+first to rule out a stale-class artifact.
+
+### Full suite run time
+
+A full `mvn clean test` run on this project takes several minutes (observed: 5+ minutes,
+sometimes more) because it runs under the JaCoCo coverage agent across ~300 tests including
+emulator boot/CPU/video subsystems. Launch it with a generous background timeout (run it as
+a background task, don't poll every few seconds) rather than assuming a hang. Don't
+re-launch a second `mvn clean test` while one is still running — check for a running
+`surefire` java process first (`ps aux | grep surefire`), since Maven's own build lock will
+just queue/serialize a second invocation and waste time.
+
+### Known pre-existing test failures (not caused by your change)
+
+As of 2026-07, the following tests fail on a clean baseline checkout, unrelated to sound,
+video, CPU, or terminal-automation work — do not treat these as regressions introduced by
+your change. If you see *new* failures beyond this list, investigate; if you see exactly
+this list, it's the known baseline:
+
+- `CardSSCTest` (multiple methods) — Super Serial Card, e.g. `testExpectedFirmwareContent`,
+  `testInputDelegationMechanism`, `testPhantomInputFixed`, `testSSCFirmwareExecution`,
+  `testCompleteSSCInitialization`
+- `CardSSCRegisterTest.testACIARegisterInitialValues`
+- `TerminalFeatureTest.testDeviceTickingDuringStep`
+- `TerminalFeatureTest.testSaveBinFunctionality`
+- `TerminalFeatureTest.testStartupWithMassStorageDisk` (depends on a local file,
+  `/Users/brobert/Downloads/ProDOS_2_4_3.po`, not present in this environment)
+- `TerminalFeatureTest.testStepModeBehavior`
+
+To confirm whether a failure is pre-existing vs. caused by your change, isolate your edit
+with `git stash push -- <your-file>`, re-run `mvn clean test -Dtest=<TheFailingClass>`
+against the unmodified baseline, then `git stash pop` to restore your work.
+
 ## Known Limitations
 
 1. **Graphics modes not supported**: Only text mode can be captured via `showtext`
@@ -972,6 +1022,25 @@ Potential improvements:
 - Disk ][ controller: https://www.doc.ic.ac.uk/~ih/doc/stepper/others/example3/diskii_specs.html
 
 ## Change Log
+
+### 2026-07-09
+- Fixed vaporlock/beam-racing hang: `Video.java`'s scanner address lookup tables (`textOffset`/`hiresOffset`) were sized to 192 entries (visible screen lines only); extended to the full 262-line `TOTAL_LINES` so vertical blanking now generates real hardware "screen hole" addresses instead of recycling visible-row addresses. Previously this caused vaporlock-style floating-bus timing probes (e.g. Lancaster/Elliott techniques) to hang forever waiting for byte patterns that never appeared during blanking. New `calculateBlankingScannerOffset()` ported from MAME PR #15247 (mamedev/mame, "apple2video: emulate softswitch-specific delays; improve read_floatingbus()"), specifically its `a2_video_device::scanner_address()` formula. Known limitation: the formula is only valid as a per-scanline-start constant for horizontal offsets 0-7 within a blanking line (real hardware's address formula wraps mod-16 at offset 8) — sufficient for the vaporlock probes tested against, not full per-pixel floating-bus accuracy throughout all of blanking.
+- Added video softswitch propagation delay: `SoftSwitches.java`, `VideoSoftSwitch.java`, `Video.java` — new `Video.scheduleModeChange()`/`applyDueModeChanges()` deferred-apply mechanism so video mode softswitch writes (TEXT, MIXED, PAGE2, HIRES, AN3/DHIRES, 80COL, ALTCHARSET, 80STORE) take effect after a hardware-measured number of CPU cycles instead of instantaneously. Previously mode changes applied synchronously on write, causing beam-racing/split-screen programs (e.g. text/graphics window-split demos) to render mode boundaries one column too far left. Delay values derived from MAME PR #15247's `delayed_update()` call sites, adjusted for that PR's `m_delay_bias` term: TEXT/MIXED=2, PAGE2/HIRES/80STORE=1, AN3(DHIRES)/80COL/ALTCHARSET=0. Covered by new test `VideoModeDelayTest.java`.
+- Fixed CPU dropped-interrupt bug: `MOS65C02.java`'s `processInterrupt()` and the `CLI` opcode handler both unconditionally cleared `interruptSignalled` regardless of the CPU's `I` (interrupt-disable) flag. On real 6502/65C02 hardware `/IRQ` is a level-held line — an interrupt that arrives while masked (e.g. during `SEI`) must stay pending and be serviced on the next `CLI`, not be silently dropped. Fixed so `interruptSignalled` is only cleared once the interrupt is actually serviced. Found incidentally while investigating an unrelated hang in a Mockingboard-timer-driven test program. Covered by new test `MOS65C02Test.testMaskedInterruptStaysPendingUntilUnmasked`.
+- Fixed Mockingboard envelope generator pitch: `EnvelopeGenerator.stepsPerCycle()` returned 8, identical to the tone generator's `stepsPerCycle()`. On real AY-3-8910 hardware the envelope counter advances at half the rate of the tone counter for the same period register value (confirmed against MAME's ay8910.cpp `m_step=2` for classic AY-3-8910, vs `m_step=1` for the later YM2149), matching the datasheet formulas (tone freq = clock/(16×TP), envelope freq = clock/(256×EP)). This bug made envelope-modulated notes play a full octave too sharp. Fixed by changing `EnvelopeGenerator.stepsPerCycle()` to return 16. Covered by new test `EnvelopeGeneratorPeriodTest.java`.
+- Added "Running the Java Unit Test Suite (`mvn test`)" section (this is unrelated to the
+  terminal-automation workflow above — it's for JUnit tests under `src/test/java`)
+- Documented a stale-class gotcha: editing a file outside the Edit tool (sed, mv, git
+  stash/pop) can leave Maven's incremental compiler serving old `.class` output even after
+  the source file visibly shows the fix; always `mvn clean test` to verify a source change
+  actually took effect before trusting a test result
+- Documented that a full `mvn clean test` run takes several minutes under JaCoCo — run it
+  as a background task with a generous timeout, don't poll aggressively, and check for an
+  already-running `surefire` process before launching a second one
+- Recorded the current list of known pre-existing test failures (`CardSSCTest`,
+  `CardSSCRegisterTest`, four `TerminalFeatureTest` methods) so future agents don't mistake
+  baseline-broken tests for regressions caused by their own change, and documented the
+  `git stash` isolation technique used to verify this
 
 ### 2026-03-02
 - Added "Running Jace: Native Binary vs Maven" section documenting `/Users/brobert/Downloads/Jace` (Gluon GraalVM native binary)

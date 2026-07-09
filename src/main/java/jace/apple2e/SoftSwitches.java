@@ -37,7 +37,18 @@ import jace.core.Video;
  */
 public enum SoftSwitches {
 
-    _80STORE(new MemorySoftSwitch("80Store", 0x0c000, 0x0c001, 0x0c018, RAMEvent.TYPE.WRITE, false)),
+    // 80STORE's video-visible effect (whether PAGE2 addresses main or aux
+    // memory) only happens when PAGE2 is on; hardware delay is 1 cycle (see
+    // delay derivation note above SoftSwitches._80COL below).
+    _80STORE(new MemorySoftSwitch("80Store", 0x0c000, 0x0c001, 0x0c018, RAMEvent.TYPE.WRITE, false) {
+        @Override
+        public void stateChanged() {
+            super.stateChanged();
+            if (PAGE2.isOn()) {
+                Emulator.withVideo(video -> video.scheduleModeChange(1, video::configureVideoMode));
+            }
+        }
+    }),
     RAMRD(new MemorySoftSwitch("AuxRead (RAMRD)", 0x0c002, 0x0c003, 0x0c013, RAMEvent.TYPE.WRITE, false)),
     RAMWRT(new MemorySoftSwitch("AuxWrite (RAMWRT)", 0x0c004, 0x0c005, 0x0c014, RAMEvent.TYPE.WRITE, false)),
     CXROM(new MemorySoftSwitch("IntCXROM", 0x0c006, 0x0c007, 0x0c015, RAMEvent.TYPE.WRITE, false)),
@@ -57,17 +68,31 @@ public enum SoftSwitches {
     new int[]{0x0c081, 0x0c083, 0x0c085, 0x0c087, 0x0c089, 0x0c08b, 0x0c08d, 0x0c08f},
     null, RAMEvent.TYPE.ANY, false)),
     //Renamed as per Sather 5-7
-    _80COL(new VideoSoftSwitch("80ColumnVideo (80COL/80VID)", 0x0c00c, 0x0c00d, 0x0c01f, RAMEvent.TYPE.WRITE, false)),
-    ALTCH(new VideoSoftSwitch("Mousetext", 0x0c00e, 0x0c00f, 0x0c01e, RAMEvent.TYPE.WRITE, false){
+    // Hardware-measured video mode propagation delays (in CPU cycles/ticks),
+    // derived from MAME PR #15247's a2_video_device::delayed_update() call
+    // sites in src/mame/apple/apple2video.cpp:
+    //     void a2_video_device::delayed_update(int cycles) {
+    //         int hpos = screen().hpos() + (cycles - m_delay_bias) * m_scanner_period;
+    //         ...
+    //     }
+    // m_delay_bias is 1 for non-IIGS models (II/IIe -- this codebase targets
+    // //e only, see VideoDHGR/RAM128k). So the call-site "cycles" argument is
+    // NOT itself the CPU-cycle delay -- the actual delay is (cycles - 1).
+    // Call-site arguments were: TEXT/MIXED=3, PAGE2/HIRES/80STORE=2,
+    // AN3/80COL/ALTCHARSET=1, giving real delays of 2, 1, 0 respectively.
+    // JACE ticks Video once per CPU cycle with CYCLES_PER_LINE=65 matching
+    // real hardware, so these delays translate directly to tick counts.
+    _80COL(new VideoSoftSwitch("80ColumnVideo (80COL/80VID)", 0x0c00c, 0x0c00d, 0x0c01f, RAMEvent.TYPE.WRITE, false, 0)),
+    ALTCH(new VideoSoftSwitch("Mousetext", 0x0c00e, 0x0c00f, 0x0c01e, RAMEvent.TYPE.WRITE, false, 0){
         @Override
         public void stateChanged() {
             super.stateChanged();
             Video.forceRefresh();
         }
     }),
-    TEXT(new VideoSoftSwitch("Text", 0x0c050, 0x0c051, 0x0c01a, RAMEvent.TYPE.ANY, true)),
-    MIXED(new VideoSoftSwitch("Mixed", 0x0c052, 0x0c053, 0x0c01b, RAMEvent.TYPE.ANY, false)),
-    PAGE2(new VideoSoftSwitch("Page2", 0x0c054, 0x0c055, 0x0c01c, RAMEvent.TYPE.ANY, false) {
+    TEXT(new VideoSoftSwitch("Text", 0x0c050, 0x0c051, 0x0c01a, RAMEvent.TYPE.ANY, true, 2)),
+    MIXED(new VideoSoftSwitch("Mixed", 0x0c052, 0x0c053, 0x0c01b, RAMEvent.TYPE.ANY, false, 2)),
+    PAGE2(new VideoSoftSwitch("Page2", 0x0c054, 0x0c055, 0x0c01c, RAMEvent.TYPE.ANY, false, 1) {
         @Override
         public void stateChanged() {
             // PAGE2 is a hybrid switch; 80STORE ? memory : video
@@ -78,7 +103,7 @@ public enum SoftSwitches {
             }
         }
     }),
-    HIRES(new VideoSoftSwitch("Hires", 0x0c056, 0x0c057, 0x0c01d, RAMEvent.TYPE.ANY, false) {
+    HIRES(new VideoSoftSwitch("Hires", 0x0c056, 0x0c057, 0x0c01d, RAMEvent.TYPE.ANY, false, 1) {
         @Override
         public void stateChanged() {
             // PAGE2 is a hybrid switch; 80STORE ? memory : video
@@ -88,7 +113,7 @@ public enum SoftSwitches {
             super.stateChanged();
         }
     }),
-    DHIRES(new VideoSoftSwitch("Double-hires", 0x0c05f, 0x0c05e, 0x0c07f, RAMEvent.TYPE.ANY, false)),
+    DHIRES(new VideoSoftSwitch("Double-hires", 0x0c05f, 0x0c05e, 0x0c07f, RAMEvent.TYPE.ANY, false, 0)),
     PB0(new MemorySoftSwitch("Pushbutton0", -1, -1, 0x0c061, RAMEvent.TYPE.ANY, null)),
     PB1(new MemorySoftSwitch("Pushbutton1", -1, -1, 0x0c062, RAMEvent.TYPE.ANY, null)),
     PB2(new MemorySoftSwitch("Pushbutton2", -1, -1, 0x0c063, RAMEvent.TYPE.ANY, null)),
