@@ -1,7 +1,16 @@
-/*
- * Empty Stylesheet file.
- */
+/* ── NativeEditorControl (RichTextFX CodeArea) ──────────────────────── */
 
-.mainFxmlClass {
+.native-editor-control {
+    -fx-padding: 0;
+}
 
+/* Token colors are injected dynamically via a data-URI stylesheet by
+   NativeEditorControl.buildThemeCss() — no static token rules here. */
+
+/* Find/replace bar */
+.find-replace-bar {
+    -fx-background-color: derive(-fx-base, 20%);
+    -fx-padding: 4 8 4 8;
+    -fx-border-color: derive(-fx-base, -20%);
+    -fx-border-width: 1 0 0 0;
 }

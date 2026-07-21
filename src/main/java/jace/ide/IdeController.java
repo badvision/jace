@@ -1,21 +1,16 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package jace.ide;
 
 import java.io.File;
 import java.net.URL;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ResourceBundle;
 
 import jace.JaceApplication;
+import jace.ide.EditorTheme;
 import jace.ide.Program.DocumentType;
-import jace.ide.Program.Option;
+import javafx.animation.PauseTransition;
 import javafx.collections.ListChangeListener;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
@@ -27,10 +22,9 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ToolBar;
-import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
+import javafx.util.Duration;
 
 /**
  * FXML Controller class
@@ -39,137 +33,65 @@ import javafx.stage.FileChooser;
  */
 public class IdeController {
 
-    @FXML // ResourceBundle that was given to the FXMLLoader
-    private ResourceBundle resources;
+    @FXML private ResourceBundle resources;
+    @FXML private URL location;
+    @FXML private MenuItem saveMenuItem;
+    @FXML private MenuItem viewCompilerOutputMenuItem;
+    @FXML private MenuItem viewSymbolTableMenuItem;
 
-    @FXML // URL location of the FXML file that was given to the FXMLLoader
-    private URL location;
+    private EditorTheme currentTheme = EditorTheme.DARK;
+    @FXML private MenuItem saveAllMenuItem;
+    @FXML private MenuItem saveAsMenuItem;
+    @FXML private MenuItem closeMenuItem;
+    @FXML private MenuItem closeAllMenuItem;
+    @FXML private Menu editMenu;
+    @FXML private Menu runMenu;
+    @FXML private TabPane tabPane;
+    @FXML private ToolBar statusBar;
 
-    @FXML // fx:id="saveMenuItem"
-    private MenuItem saveMenuItem; // Value injected by FXMLLoader
+    Map<Tab, Program> openDocuments = new HashMap<>();
 
-    @FXML // fx:id="saveAllMenuItem"
-    private MenuItem saveAllMenuItem; // Value injected by FXMLLoader
-
-    @FXML // fx:id="saveAsMenuItem"
-    private MenuItem saveAsMenuItem; // Value injected by FXMLLoader
-
-    @FXML // fx:id="closeMenuItem"
-    private MenuItem closeMenuItem; // Value injected by FXMLLoader
-
-    @FXML // fx:id="closeAllMenuItem"
-    private MenuItem closeAllMenuItem; // Value injected by FXMLLoader
-
-    @FXML // fx:id="editMenu"
-    private Menu editMenu; // Value injected by FXMLLoader
-
-    @FXML // fx:id="runMenu"
-    private Menu runMenu; // Value injected by FXMLLoader
-
-    @FXML // fx:id="autocompile"
-    private ToggleGroup autocompile; // Value injected by FXMLLoader
-
-    @FXML // fx:id="tabPane"
-    private TabPane tabPane; // Value injected by FXMLLoader
-
-    @FXML // fx:id="statusBar"
-    private ToolBar statusBar; // Value injected by FXMLLoader
+    // ── File menu ─────────────────────────────────────────────────────────────
 
     @FXML
     void onCloseAllClicked(ActionEvent event) {
-        openDocuments.forEach((Tab t, Program proxy) -> {
-            if (!event.isConsumed()) {
-                closeTab(t, event);
-            }
+        new java.util.ArrayList<>(openDocuments.keySet()).forEach(t -> {
+            if (!event.isConsumed()) closeTab(t, event);
         });
     }
 
-    @FXML
-    void onCloseClicked(ActionEvent event) {
-        getCurrentTab().ifPresent((t) -> closeTab(t, event));
+    @FXML void onCloseClicked(ActionEvent event) {
+        getCurrentTab().ifPresent(t -> closeTab(t, event));
     }
 
-    public Optional<Tab> getCurrentTab() {
-        return Optional.ofNullable(tabPane.getSelectionModel().getSelectedItem());
-    }
-
-    public Optional<Program> getCurrentProgram() {
-        return getCurrentTab().map(t -> openDocuments.get(t));
-    }
-
-    @FXML
-    void newApplesoftBasicClicked(ActionEvent event) {
-        // Program tab = 
+    @FXML void newApplesoftBasicClicked(ActionEvent event) {
         createTab(DocumentType.applesoft, null, true);
     }
 
-    @FXML
-    void newApplesoftBasicFromMemoryClicked(ActionEvent event) {
-        Alert warningAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        warningAlert.setTitle("Is Applesoft running?");
-        warningAlert.setContentText("If you proceed and applesoft is not running or there is no active program then the emulator might freeze.  Press Cancel if you are unsure.");
-        Optional<ButtonType> result = warningAlert.showAndWait();
-        if (result.get() == ButtonType.OK) {
-            // Program tab = 
+    @FXML void newApplesoftBasicFromMemoryClicked(ActionEvent event) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Is Applesoft running?");
+        alert.setContentText("If Applesoft is not running or there is no active program the emulator might freeze. Press Cancel if unsure.");
+        if (alert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
             createTab(DocumentType.applesoft, null, false);
         }
     }
 
-    @FXML
-    void newAssemblyListingClicked(ActionEvent event) {
-        createTab(DocumentType.assembly, null, false);
-    }
-
-    @FXML
-    void newHexdataClicked(ActionEvent event) {
-        createTab(DocumentType.hex, null, false);
-    }
-
-    @FXML
-    void newPlainTextClicked(ActionEvent event) {
-        createTab(DocumentType.plain, null, false);
-    }
-
-    Map<Tab, Program> openDocuments = new HashMap<>();
-    Map<Option, Object> globalOptions = new EnumMap<>(Option.class);
-
-    private Program createTab(DocumentType type, File document, boolean isBlank) {
-        WebView editor = new WebView();
-        Program proxy = new Program(type, globalOptions);
-        proxy.initEditor(editor, document, isBlank);
-        Tab t = new Tab(proxy.getName(), editor);
-        tabPane.getTabs().add(t);
-        openDocuments.put(t, proxy);
-        t.setOnCloseRequest(this::handleCloseTabRequest);
-        return proxy;
-    }
-
-    private void handleCloseTabRequest(Event e) {
-        Tab t = (Tab) e.getTarget();
-        closeTab(t, e);
-    }
-
-    private void closeTab(Tab t, Event e) {
-        tabPane.getTabs().remove(t);
-        openDocuments.remove(t);
-    }
+    @FXML void newAssemblyListingClicked(ActionEvent event) { createTab(DocumentType.assembly, null, false); }
+    @FXML void newHexdataClicked(ActionEvent event)         { createTab(DocumentType.hex, null, false); }
+    @FXML void newPlainTextClicked(ActionEvent event)       { createTab(DocumentType.plain, null, false); }
 
     @FXML
     void onOpenClicked(ActionEvent event) {
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Open document");
         for (DocumentType type : Program.DocumentType.values()) {
-            chooser.getExtensionFilters().add(
-                    new FileChooser.ExtensionFilter(type.name(), type.extensions)
-            );
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(type.name(), type.extensions));
         }
-        chooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("All Files", "*.*")
-        );
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("All Files", "*.*"));
         File file = chooser.showOpenDialog(JaceApplication.getApplication().primaryStage);
         if (file != null && file.isFile() && file.exists()) {
-            DocumentType type = DocumentType.fromFile(file);
-            createTab(type, file, true);
+            createTab(DocumentType.fromFile(file), file, true);
         }
     }
 
@@ -192,28 +114,52 @@ public class IdeController {
     void onSaveAsClicked(ActionEvent event) {
         getCurrentProgram().ifPresent(program -> {
             program.save(chooseFileToSave(program.getType()));
-            getCurrentTab().get().setText(program.getName());
+            getCurrentTab().ifPresent(t -> t.setText(program.getName()));
         });
     }
 
     @FXML
     void onSaveClicked(ActionEvent event) {
         getCurrentProgram().ifPresent(program -> {
-            program.save(
-                    program.getFile()
-                    .orElseGet(() -> chooseFileToSave(program.getType())));
-            getCurrentTab().get().setText(program.getName());
+            program.save(program.getFile().orElseGet(() -> chooseFileToSave(program.getType())));
+            getCurrentTab().ifPresent(t -> t.setText(program.getName()));
         });
     }
 
-    private File chooseFileToSave(DocumentType type) {
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("Save " + type.name() + " document");
-        chooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter(type.name(), type.extensions),
-                new FileChooser.ExtensionFilter("All Files", "*.*")
-        );
-        return chooser.showSaveDialog(JaceApplication.getApplication().primaryStage);
+    // ── Edit menu ─────────────────────────────────────────────────────────────
+
+    @FXML void cutClicked(ActionEvent event)         { getCurrentEditor().ifPresent(EditorControl::cut); }
+    @FXML void copyClicked(ActionEvent event)        { getCurrentEditor().ifPresent(EditorControl::copy); }
+    @FXML void pasteClicked(ActionEvent event)       { getCurrentEditor().ifPresent(EditorControl::paste); }
+    @FXML void undoClicked(ActionEvent event)        { getCurrentEditor().ifPresent(EditorControl::undo); }
+    @FXML void redoClicked(ActionEvent event)        { getCurrentEditor().ifPresent(EditorControl::redo); }
+    @FXML void findReplaceClicked(ActionEvent event) { getCurrentEditor().ifPresent(EditorControl::showFindReplace); }
+
+    @FXML
+    void goToLineClicked(ActionEvent event) {
+        getCurrentEditor().ifPresent(editor -> {
+            javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog();
+            dialog.setTitle("Go to Line");
+            dialog.setHeaderText(null);
+            dialog.setContentText("Line number:");
+            dialog.showAndWait().ifPresent(s -> {
+                try { editor.goToLine(Integer.parseInt(s.trim())); } catch (NumberFormatException ignored) {}
+            });
+        });
+    }
+
+    // ── Run menu ──────────────────────────────────────────────────────────────
+
+    @FXML
+    void buildClicked(ActionEvent event) {
+        getCurrentProgram().ifPresent(program -> {
+            try {
+                program.build();
+                updateStatusMessages(program.lastResult);
+            } catch (Exception e) {
+                showError("Build failed", e.getMessage());
+            }
+        });
     }
 
     @FXML
@@ -223,60 +169,164 @@ public class IdeController {
                 program.execute();
                 updateStatusMessages(program.lastResult);
             } catch (Exception e) {
-                e.printStackTrace();
+                showError("Execute failed", e.getMessage());
             }
         });
     }
 
     @FXML
-    void testCompileClicked(ActionEvent event) {
-        getCurrentProgram().ifPresent(program -> {
-            program.test();
-            updateStatusMessages(program.lastResult);
-        });
-    }
-
-    @FXML
     void viewCompilerOutputClicked(ActionEvent event) {
-
+        getCurrentProgram().ifPresent(p -> {
+            if (p.lastResult == null) return;
+            showTextDialog("Compiler Output", String.join("\n", p.lastResult.getRawOutput()));
+        });
     }
 
     @FXML
     void viewSymbolTableClicked(ActionEvent event) {
-
+        getCurrentProgram().ifPresent(p -> {
+            if (p.lastResult instanceof jace.assembly.AcmeCompiler ac) {
+                showTextDialog("Symbol Table", String.join("\n", ac.getSymbolTable()));
+            }
+        });
     }
 
-    @FXML // This method is called by the FXMLLoader when initialization is complete
-    public void initialize() {
-        assert saveMenuItem != null : "fx:id=\"saveMenuItem\" was not injected: check your FXML file 'editor.fxml'.";
-        assert saveAllMenuItem != null : "fx:id=\"saveAllMenuItem\" was not injected: check your FXML file 'editor.fxml'.";
-        assert saveAsMenuItem != null : "fx:id=\"saveAsMenuItem\" was not injected: check your FXML file 'editor.fxml'.";
-        assert closeMenuItem != null : "fx:id=\"closeMenuItem\" was not injected: check your FXML file 'editor.fxml'.";
-        assert closeAllMenuItem != null : "fx:id=\"closeAllMenuItem\" was not injected: check your FXML file 'editor.fxml'.";
-        assert editMenu != null : "fx:id=\"editMenu\" was not injected: check your FXML file 'editor.fxml'.";
-        assert runMenu != null : "fx:id=\"runMenu\" was not injected: check your FXML file 'editor.fxml'.";
-        assert autocompile != null : "fx:id=\"autocompile\" was not injected: check your FXML file 'editor.fxml'.";
-        assert tabPane != null : "fx:id=\"tabPane\" was not injected: check your FXML file 'editor.fxml'.";
-        assert statusBar != null : "fx:id=\"statusBar\" was not injected: check your FXML file 'editor.fxml'.";
+    private void showTextDialog(String title, String content) {
+        javafx.scene.control.TextArea area = new javafx.scene.control.TextArea(content);
+        area.setEditable(false);
+        area.setWrapText(false);
+        area.setStyle("-fx-font-family: 'Monospace'; -fx-font-size: 12px;");
+        javafx.scene.layout.BorderPane pane = new javafx.scene.layout.BorderPane(area);
+        javafx.scene.Scene scene = new javafx.scene.Scene(pane, 700, 500);
+        javafx.stage.Stage stage = new javafx.stage.Stage();
+        stage.setTitle(title);
+        stage.setScene(scene);
+        stage.show();
+    }
 
-        tabPane.getTabs().addListener((ListChangeListener.Change<? extends Tab> c) -> {
-            boolean hasNoItems = c.getList().isEmpty();
-            saveMenuItem.setDisable(hasNoItems);
-            saveAsMenuItem.setDisable(hasNoItems);
-            saveAllMenuItem.setDisable(hasNoItems);
-            closeMenuItem.setDisable(hasNoItems);
-            closeAllMenuItem.setDisable(hasNoItems);
-            editMenu.setDisable(hasNoItems);
-            runMenu.setDisable(hasNoItems);
+    // ── View menu ─────────────────────────────────────────────────────────────
+
+    @FXML void themeDarkClicked(ActionEvent event)  { applyTheme(EditorTheme.DARK); }
+    @FXML void themeLightClicked(ActionEvent event) { applyTheme(EditorTheme.LIGHT); }
+
+    private void updateCompilerMenuItems(Program p) {
+        boolean isAssembly = p != null && p.getType() == Program.DocumentType.assembly;
+        if (viewCompilerOutputMenuItem != null)
+            viewCompilerOutputMenuItem.setDisable(!isAssembly || p.lastResult == null);
+        if (viewSymbolTableMenuItem != null)
+            viewSymbolTableMenuItem.setDisable(!isAssembly || p.lastResult == null
+                || !(p.lastResult instanceof jace.assembly.AcmeCompiler ac)
+                || ac.getSymbolTable().isEmpty());
+    }
+
+    private void applyTheme(EditorTheme theme) {
+        currentTheme = theme;
+        openDocuments.forEach((t, p) -> {
+            if (p.editorControl instanceof NativeEditorControl nec) {
+                nec.setTheme(theme);
+            }
         });
+    }
+
+    // ── Tab management ────────────────────────────────────────────────────────
+
+    private Program createTab(DocumentType type, File document, boolean isBlank) {
+        NativeEditorControl editor = new NativeEditorControl();
+        editor.setTheme(currentTheme);
+        Program proxy = new Program(type);
+        proxy.initEditor(editor, document, isBlank);
+
+        // 1.5s debounce auto-compile
+        PauseTransition debounce = new PauseTransition(Duration.millis(1500));
+        debounce.setOnFinished(e -> {
+            proxy.lastResult = proxy.getHandler().compile(proxy);
+            proxy.manageCompileResult(proxy.lastResult);
+            updateCompilerMenuItems(proxy);
+        });
+        editor.textProperty().addListener((obs, oldVal, newVal) -> debounce.playFromStart());
+
+        Tab t = new Tab(proxy.getName(), editor);
+        tabPane.getTabs().add(t);
+        openDocuments.put(t, proxy);
+        t.setOnCloseRequest(this::handleCloseTabRequest);
+        tabPane.getSelectionModel().select(t);
+        updateCompilerMenuItems(proxy);
+        return proxy;
+    }
+
+    private void handleCloseTabRequest(Event e) {
+        closeTab((Tab) e.getTarget(), e);
+    }
+
+    private void closeTab(Tab t, Event e) {
+        tabPane.getTabs().remove(t);
+        openDocuments.remove(t);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    public Optional<Tab> getCurrentTab() {
+        return Optional.ofNullable(tabPane.getSelectionModel().getSelectedItem());
+    }
+
+    public Optional<Program> getCurrentProgram() {
+        return getCurrentTab().map(openDocuments::get);
+    }
+
+    private Optional<EditorControl> getCurrentEditor() {
+        return getCurrentProgram().map(p -> p.editorControl);
+    }
+
+    private File chooseFileToSave(DocumentType type) {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save " + type.name() + " document");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter(type.name(), type.extensions),
+                new FileChooser.ExtensionFilter("All Files", "*.*"));
+        return chooser.showSaveDialog(JaceApplication.getApplication().primaryStage);
+    }
+
+    private void showError(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     @SuppressWarnings("all")
     private void updateStatusMessages(CompileResult lastResult) {
-        String message = "Compiler was " + (lastResult.isSuccessful() ? " successful" : " NOT SUCCESSFUL");
-        message += " -- ";
-        message += lastResult.getErrors().size() + " error(s) and "+lastResult.getWarnings().size()+" warning(s) reported.";
+        getCurrentProgram().ifPresent(this::updateCompilerMenuItems);
+        String message = "Compiler " + (lastResult.isSuccessful() ? "successful" : "FAILED")
+                + " — " + lastResult.getErrors().size() + " error(s), "
+                + lastResult.getWarnings().size() + " warning(s)";
         statusBar.getItems().clear();
         statusBar.getItems().add(new Label(message));
+    }
+
+    @FXML
+    public void initialize() {
+        assert saveMenuItem != null;
+        assert saveAllMenuItem != null;
+        assert saveAsMenuItem != null;
+        assert closeMenuItem != null;
+        assert closeAllMenuItem != null;
+        assert editMenu != null;
+        assert runMenu != null;
+        assert tabPane != null;
+        assert statusBar != null;
+
+        tabPane.getTabs().addListener((ListChangeListener.Change<? extends Tab> c) -> {
+            boolean empty = c.getList().isEmpty();
+            saveMenuItem.setDisable(empty);
+            saveAsMenuItem.setDisable(empty);
+            saveAllMenuItem.setDisable(empty);
+            closeMenuItem.setDisable(empty);
+            closeAllMenuItem.setDisable(empty);
+            editMenu.setDisable(empty);
+            runMenu.setDisable(empty);
+        });
+
+        tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) ->
+            updateCompilerMenuItems(newTab != null ? openDocuments.get(newTab) : null));
     }
 }

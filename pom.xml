@@ -219,10 +219,9 @@
             <type>jar</type>
         </dependency>
         <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-web</artifactId>
-            <version>21.0.4</version>
-            <type>jar</type>
+            <groupId>org.fxmisc.richtext</groupId>
+            <artifactId>richtextfx</artifactId>
+            <version>0.11.7</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
