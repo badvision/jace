@@ -417,6 +417,11 @@ public class ApplesoftProgram {
                 memory.write(0x0052, (byte) 0x55, false, true);
                 // DSCLEN ($8F) = $03: string descriptor is 3 bytes (length + 2-byte ptr).
                 memory.write(0x008F, (byte) 0x03, false, true);
+                // LOCK ($D6) = $00: clear auto-run lock so BASIC prompt works normally.
+                memory.write(0x00D6, (byte) 0x00, false, true);
+                // Clear input buffer ($0200) so stale content isn't re-parsed as a command
+                // when the program ends and the main loop calls CHRGET on $0200.
+                memory.write(0x0200, (byte) 0x00, false, true);
                 // If CHRGET ($B0..$CC) is uninitialized, copy it from ROM.
                 int b1 = memory.readRaw(0x00B1) & 0xFF;
                 if (b1 == 0x00 || b1 == 0xFF) {
