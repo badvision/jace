@@ -62,7 +62,6 @@ public class NativeEditorControl extends VBox implements EditorControl {
             "-fx-font-family: '" + FONT_FAMILY + "';"
             + "-fx-font-size: " + FONT_SIZE + "px;");
         codeArea.setWrapText(false);
-        codeArea.setParagraphGraphicFactory(LineNumberFactory.get(codeArea));
         VBox.setVgrow(codeArea, Priority.ALWAYS);
 
         getChildren().add(codeArea);
@@ -101,6 +100,10 @@ public class NativeEditorControl extends VBox implements EditorControl {
     @Override
     public void setSyntaxDefinition(SyntaxDefinition def) {
         this.syntaxDef = def != null ? def : new PlainTextSyntax();
+        // Applesoft BASIC has its own line numbers in the source — the editor
+        // gutter numbers would be physical line indices, which are meaningless.
+        boolean showGutter = !(syntaxDef instanceof AppleSoftBasicSyntax);
+        codeArea.setParagraphGraphicFactory(showGutter ? LineNumberFactory.get(codeArea) : null);
         rehighlight();
     }
 
@@ -157,7 +160,11 @@ public class NativeEditorControl extends VBox implements EditorControl {
     }
 
     @Override public void setShowLineNumbers(boolean show) {
-        codeArea.setParagraphGraphicFactory(show ? LineNumberFactory.get(codeArea) : null);
+        // Only meaningful for non-BASIC documents; BASIC suppresses the gutter
+        // in setSyntaxDefinition and this override should respect that.
+        if (!(syntaxDef instanceof AppleSoftBasicSyntax)) {
+            codeArea.setParagraphGraphicFactory(show ? LineNumberFactory.get(codeArea) : null);
+        }
     }
 
     // ── Syntax highlighting ──────────────────────────────────────────────────
@@ -256,31 +263,40 @@ public class NativeEditorControl extends VBox implements EditorControl {
 
     // ── Theme ────────────────────────────────────────────────────────────────
 
+    /** Path of the last temp stylesheet written; removed when theme changes. */
+    private java.io.File lastThemeFile;
+
     private void applyTheme() {
-        // Inline style on the CodeArea for background/text/selection
         codeArea.setStyle(
             "-fx-font-family: '" + FONT_FAMILY + "';"
-            + "-fx-font-size: " + FONT_SIZE + "px;"
-            + "-fx-background-color: " + toHex(theme.background) + ";"
-            + "-fx-text-fill: " + toHex(theme.defaultFg) + ";");
+            + "-fx-font-size: " + FONT_SIZE + "px;");
 
-        // Inject a scene stylesheet that maps token CSS classes to fill colors.
-        // We use a data URI so there's no file I/O and no dependency on scene state.
-        String css = buildThemeCss();
-        // Store on the node's user data so we can remove the old one when theme changes
-        Object old = getUserData();
-        if (old instanceof String oldCss) {
-            codeArea.getStylesheets().remove(oldCss);
+        // Write CSS to a temp file — JavaFX CSS doesn't support data URIs.
+        try {
+            java.io.File f = java.io.File.createTempFile("jace-editor-theme-", ".css");
+            f.deleteOnExit();
+            try (var w = new java.io.FileWriter(f)) {
+                w.write(buildThemeCss());
+            }
+            if (lastThemeFile != null) {
+                codeArea.getStylesheets().remove(lastThemeFile.toURI().toString());
+                lastThemeFile.delete();
+            }
+            lastThemeFile = f;
+            codeArea.getStylesheets().add(f.toURI().toString());
+        } catch (java.io.IOException e) {
+            // fallback: at least set background via inline style
+            codeArea.setStyle(codeArea.getStyle()
+                + "-fx-background-color: " + toHex(theme.background) + ";");
         }
-        String dataUri = "data:text/css," + java.net.URLEncoder.encode(css, java.nio.charset.StandardCharsets.UTF_8);
-        codeArea.getStylesheets().add(dataUri);
-        setUserData(dataUri);
     }
 
     private String buildThemeCss() {
         String bg  = toHex(theme.background);
         String fg  = toHex(theme.defaultFg);
-        String sel = toHex(theme.selection);
+        String sel = toHexWithAlpha(theme.selection);
+        // .text covers all Text nodes inside the CodeArea (both styled and unstyled).
+        // Token classes override this base fill for highlighted spans.
         return ".code-area .text { -fx-fill: " + fg + "; }"
             + ".code-area { -fx-background-color: " + bg + "; }"
             + ".code-area .token-keyword     { -fx-fill: " + toHex(theme.keyword)    + "; }"
@@ -301,6 +317,14 @@ public class NativeEditorControl extends VBox implements EditorControl {
             (int) Math.round(c.getRed()   * 255),
             (int) Math.round(c.getGreen() * 255),
             (int) Math.round(c.getBlue()  * 255));
+    }
+
+    private static String toHexWithAlpha(Color c) {
+        return String.format("rgba(%d,%d,%d,%.2f)",
+            (int) Math.round(c.getRed()   * 255),
+            (int) Math.round(c.getGreen() * 255),
+            (int) Math.round(c.getBlue()  * 255),
+            c.getOpacity());
     }
 
     // ── Find/Replace ─────────────────────────────────────────────────────────
