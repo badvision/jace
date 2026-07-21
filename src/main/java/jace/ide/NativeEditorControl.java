@@ -1,18 +1,18 @@
 package jace.ide;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
+import javafx.animation.PauseTransition;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyStringProperty;
+import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -21,6 +21,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.util.Duration;
 
 /**
  * Native JavaFX editor control built on RichTextFX CodeArea.
@@ -42,6 +43,7 @@ public class NativeEditorControl extends VBox implements EditorControl {
     private final CodeArea codeArea = new CodeArea();
     private final SimpleBooleanProperty dirty = new SimpleBooleanProperty(false);
     private final MarkerRenderer markerRenderer = new MarkerRenderer();
+    private final ReadOnlyStringWrapper textWrapper = new ReadOnlyStringWrapper();
 
     private SyntaxDefinition syntaxDef = new PlainTextSyntax();
     private EditorTheme theme = EditorTheme.DARK;
@@ -66,15 +68,16 @@ public class NativeEditorControl extends VBox implements EditorControl {
         getChildren().add(codeArea);
         getStyleClass().add("native-editor-control");
 
-        // Dirty tracking
+        // Keep the ReadOnlyStringProperty wrapper in sync
+        textWrapper.bind(codeArea.textProperty());
+
+        // Dirty tracking + debounced syntax highlighting
+        PauseTransition debounce = new PauseTransition(Duration.millis(150));
+        debounce.setOnFinished(e -> rehighlight());
         codeArea.textProperty().addListener((obs, oldVal, newVal) -> {
             if (!loadingText) dirty.set(true);
+            debounce.playFromStart();
         });
-
-        // Debounced syntax highlighting: recompute spans 150ms after last keystroke
-        codeArea.multiPlainChanges()
-            .successionEnds(Duration.ofMillis(150))
-            .subscribe(changes -> rehighlight());
 
         applyTheme();
     }
@@ -130,7 +133,7 @@ public class NativeEditorControl extends VBox implements EditorControl {
     @Override public void undo()                     { codeArea.undo(); }
     @Override public void redo()                     { codeArea.redo(); }
     @Override public ReadOnlyBooleanProperty dirtyProperty() { return dirty; }
-    @Override public ReadOnlyStringProperty  textProperty()  { return codeArea.textProperty(); }
+    @Override public ReadOnlyStringProperty  textProperty()  { return textWrapper.getReadOnlyProperty(); }
 
     @Override
     public void showFindReplace() {
@@ -146,7 +149,8 @@ public class NativeEditorControl extends VBox implements EditorControl {
         String text = codeArea.getText();
         if (text == null || text.isEmpty()) return;
         int physicalLine = syntaxDef.resolvePhysicalLine(text, lineNumber);
-        int targetLine = Math.max(0, Math.min(physicalLine - 1, codeArea.getParagraphs().size() - 1));
+        int nParagraphs = codeArea.getText().split("\n", -1).length;
+        int targetLine = Math.max(0, Math.min(physicalLine - 1, nParagraphs - 1));
         codeArea.moveTo(targetLine, 0);
         codeArea.requestFollowCaret();
         codeArea.requestFocus();
@@ -235,7 +239,7 @@ public class NativeEditorControl extends VBox implements EditorControl {
 
     private void applyParagraphStyles() {
         var markers = markerRenderer.getMarkers();
-        int nParagraphs = codeArea.getParagraphs().size();
+        int nParagraphs = codeArea.getText().split("\n", -1).length;
         for (int i = 0; i < nParagraphs; i++) {
             int lineOneBased = i + 1;
             Collection<String> classes;
