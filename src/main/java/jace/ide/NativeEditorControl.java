@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
+import org.fxmisc.richtext.event.MouseOverTextEvent;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
@@ -17,6 +18,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -77,6 +79,25 @@ public class NativeEditorControl extends VBox implements EditorControl {
             if (!loadingText) dirty.set(true);
             debounce.playFromStart();
         });
+
+        // Hover tooltip for error/warning markers
+        Tooltip markerTooltip = new Tooltip();
+        markerTooltip.setWrapText(true);
+        markerTooltip.setMaxWidth(400);
+        codeArea.setMouseOverTextDelay(java.time.Duration.ofMillis(400));
+        codeArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_BEGIN, e -> {
+            int charIdx = e.getCharacterIndex();
+            int line = codeArea.offsetToPosition(charIdx, org.fxmisc.richtext.model.TwoDimensional.Bias.Forward).getMajor() + 1;
+            var lineMarkers = markerRenderer.getMarkers().get(line);
+            if (lineMarkers != null && !lineMarkers.isEmpty()) {
+                String msg = lineMarkers.stream()
+                    .map(m -> m.type() + ": " + m.message())
+                    .reduce((a, b) -> a + "\n" + b).orElse("");
+                markerTooltip.setText(msg);
+                markerTooltip.show(codeArea, e.getScreenPosition().getX(), e.getScreenPosition().getY() + 16);
+            }
+        });
+        codeArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_END, e -> markerTooltip.hide());
 
         applyTheme();
     }
@@ -292,9 +313,13 @@ public class NativeEditorControl extends VBox implements EditorControl {
     }
 
     private String buildThemeCss() {
-        String bg  = toHex(theme.background);
-        String fg  = toHex(theme.defaultFg);
-        String sel = toHexWithAlpha(theme.selection);
+        String bg      = toHex(theme.background);
+        String fg      = toHex(theme.defaultFg);
+        String sel     = toHexWithAlpha(theme.selection);
+        // Gutter: slightly darker than the editor background so it reads as a separate column.
+        Color gutterColor = theme.background.deriveColor(0, 1.0, 0.72, 1.0);
+        String gutterBg   = toHex(gutterColor);
+        String gutterFg   = toHex(theme.comment);  // muted but contrasting
         // .text covers all Text nodes inside the CodeArea (both styled and unstyled).
         // Token classes override this base fill for highlighted spans.
         return ".code-area .text { -fx-fill: " + fg + "; }"
@@ -307,9 +332,16 @@ public class NativeEditorControl extends VBox implements EditorControl {
             + ".code-area .token-number      { -fx-fill: " + toHex(theme.number)     + "; }"
             + ".code-area .token-directive   { -fx-fill: " + toHex(theme.directive)  + "; }"
             + ".code-area .token-default     { -fx-fill: " + fg                      + "; }"
-            + ".code-area .paragraph.marker-error   { -fx-background-color: rgba(255,50,50,0.15); }"
-            + ".code-area .paragraph.marker-warning { -fx-background-color: rgba(255,200,0,0.15); }"
-            + ".code-area .selection { -fx-fill: " + sel + "; }";
+            + ".code-area .paragraph.marker-error   { -fx-background-color: rgba(255,50,50,0.25); }"
+            + ".code-area .paragraph.marker-warning { -fx-background-color: rgba(255,200,0,0.20); }"
+            + ".code-area .selection { -fx-fill: " + sel + "; }"
+            // Line number gutter: darker background, themed foreground
+            + ".code-area .paragraph-graphic-region { -fx-background-color: " + gutterBg + "; }"
+            + ".code-area .lineno { -fx-background-color: " + gutterBg + ";"
+            +   " -fx-text-fill: " + gutterFg + ";"
+            +   " -fx-font-family: '" + FONT_FAMILY + "';"
+            +   " -fx-font-size: " + FONT_SIZE + "px;"
+            +   " -fx-padding: 0 6 0 4; }";
     }
 
     private static String toHex(Color c) {

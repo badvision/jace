@@ -30,6 +30,7 @@ public class AcmeCompiler implements CompileResult<ByteBuffer> {
     Map<Integer, String> warnings = new LinkedHashMap<>();
     List<String> otherWarnings = new ArrayList<>();
     List<String> rawOutput = new ArrayList<>();
+    List<String> symbolTable = new ArrayList<>();
 
     @Override
     public boolean isSuccessful() {
@@ -59,6 +60,10 @@ public class AcmeCompiler implements CompileResult<ByteBuffer> {
     @Override
     public List<String> getRawOutput() {
         return rawOutput;
+    }
+
+    public List<String> getSymbolTable() {
+        return symbolTable;
     }
 
     public void compile(Program proxy) {
@@ -107,21 +112,31 @@ public class AcmeCompiler implements CompileResult<ByteBuffer> {
         try {
             tempFile = File.createTempFile(sourceFile.getName(), "bin", sourceFile.getParentFile());
             tempFile.deleteOnExit();
+            File symbolFile = File.createTempFile(sourceFile.getName(), "sym", sourceFile.getParentFile());
+            symbolFile.deleteOnExit();
             System.setProperty("user.dir", workingDirectory.getAbsolutePath());
             AcmeCrossAssembler acme = new AcmeCrossAssembler();
-            String[] params = {"--outfile", normalizeWindowsPath(tempFile.getAbsolutePath()), "-f", "cbm", "--maxerrors","16",normalizeWindowsPath(sourceFile.getAbsolutePath())};
+            String[] params = {
+                "--outfile", normalizeWindowsPath(tempFile.getAbsolutePath()),
+                "-f", "cbm",
+                "--maxerrors", "16",
+                "--symbollist", normalizeWindowsPath(symbolFile.getAbsolutePath()),
+                normalizeWindowsPath(sourceFile.getAbsolutePath())
+            };
             int status = acme.run("Acme", params);
             successful = status == 0;
             if (successful) {
                 compiledAsset = ByteBuffer.wrap(Files.readAllBytes(tempFile.toPath()));
             }
+            if (symbolFile.exists() && symbolFile.length() > 0) {
+                symbolTable = Files.readAllLines(symbolFile.toPath());
+            }
             tempFile.delete();
+            symbolFile.delete();
         } finally {
             restoreSystemOutput();
             System.setProperty("user.dir", oldPath);
-            if (tempFile != null && tempFile.exists()) {
-                tempFile.delete();
-            }
+            if (tempFile != null && tempFile.exists()) tempFile.delete();
         }
         rawOutput.add("Error output:");
         extractOutput(baosErr.toString());

@@ -97,12 +97,12 @@
                        </accelerator>
                     </MenuItem>
                     <SeparatorMenuItem mnemonicParsing="false" />
-                    <MenuItem mnemonicParsing="false" onAction="#viewCompilerOutputClicked" text="View compiler output">
+                    <MenuItem fx:id="viewCompilerOutputMenuItem" disable="true" mnemonicParsing="false" onAction="#viewCompilerOutputClicked" text="View compiler output">
                        <accelerator>
                           <KeyCodeCombination alt="UP" code="DIGIT1" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
                        </accelerator>
                     </MenuItem>
-                    <MenuItem mnemonicParsing="false" onAction="#viewSymbolTableClicked" text="View symbol table">
+                    <MenuItem fx:id="viewSymbolTableMenuItem" disable="true" mnemonicParsing="false" onAction="#viewSymbolTableClicked" text="View symbol table">
                        <accelerator>
                           <KeyCodeCombination alt="UP" code="DIGIT2" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
                        </accelerator>

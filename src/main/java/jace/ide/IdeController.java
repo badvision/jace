@@ -36,6 +36,8 @@ public class IdeController {
     @FXML private ResourceBundle resources;
     @FXML private URL location;
     @FXML private MenuItem saveMenuItem;
+    @FXML private MenuItem viewCompilerOutputMenuItem;
+    @FXML private MenuItem viewSymbolTableMenuItem;
 
     private EditorTheme currentTheme = EditorTheme.DARK;
     @FXML private MenuItem saveAllMenuItem;
@@ -172,13 +174,50 @@ public class IdeController {
         });
     }
 
-    @FXML void viewCompilerOutputClicked(ActionEvent event) {}
-    @FXML void viewSymbolTableClicked(ActionEvent event) {}
+    @FXML
+    void viewCompilerOutputClicked(ActionEvent event) {
+        getCurrentProgram().ifPresent(p -> {
+            if (p.lastResult == null) return;
+            showTextDialog("Compiler Output", String.join("\n", p.lastResult.getRawOutput()));
+        });
+    }
+
+    @FXML
+    void viewSymbolTableClicked(ActionEvent event) {
+        getCurrentProgram().ifPresent(p -> {
+            if (p.lastResult instanceof jace.assembly.AcmeCompiler ac) {
+                showTextDialog("Symbol Table", String.join("\n", ac.getSymbolTable()));
+            }
+        });
+    }
+
+    private void showTextDialog(String title, String content) {
+        javafx.scene.control.TextArea area = new javafx.scene.control.TextArea(content);
+        area.setEditable(false);
+        area.setWrapText(false);
+        area.setStyle("-fx-font-family: 'Monospace'; -fx-font-size: 12px;");
+        javafx.scene.layout.BorderPane pane = new javafx.scene.layout.BorderPane(area);
+        javafx.scene.Scene scene = new javafx.scene.Scene(pane, 700, 500);
+        javafx.stage.Stage stage = new javafx.stage.Stage();
+        stage.setTitle(title);
+        stage.setScene(scene);
+        stage.show();
+    }
 
     // ── View menu ─────────────────────────────────────────────────────────────
 
     @FXML void themeDarkClicked(ActionEvent event)  { applyTheme(EditorTheme.DARK); }
     @FXML void themeLightClicked(ActionEvent event) { applyTheme(EditorTheme.LIGHT); }
+
+    private void updateCompilerMenuItems(Program p) {
+        boolean isAssembly = p != null && p.getType() == Program.DocumentType.assembly;
+        if (viewCompilerOutputMenuItem != null)
+            viewCompilerOutputMenuItem.setDisable(!isAssembly || p.lastResult == null);
+        if (viewSymbolTableMenuItem != null)
+            viewSymbolTableMenuItem.setDisable(!isAssembly || p.lastResult == null
+                || !(p.lastResult instanceof jace.assembly.AcmeCompiler ac)
+                || ac.getSymbolTable().isEmpty());
+    }
 
     private void applyTheme(EditorTheme theme) {
         currentTheme = theme;
@@ -202,6 +241,7 @@ public class IdeController {
         debounce.setOnFinished(e -> {
             proxy.lastResult = proxy.getHandler().compile(proxy);
             proxy.manageCompileResult(proxy.lastResult);
+            updateCompilerMenuItems(proxy);
         });
         editor.textProperty().addListener((obs, oldVal, newVal) -> debounce.playFromStart());
 
@@ -210,6 +250,7 @@ public class IdeController {
         openDocuments.put(t, proxy);
         t.setOnCloseRequest(this::handleCloseTabRequest);
         tabPane.getSelectionModel().select(t);
+        updateCompilerMenuItems(proxy);
         return proxy;
     }
 
@@ -254,6 +295,7 @@ public class IdeController {
 
     @SuppressWarnings("all")
     private void updateStatusMessages(CompileResult lastResult) {
+        getCurrentProgram().ifPresent(this::updateCompilerMenuItems);
         String message = "Compiler " + (lastResult.isSuccessful() ? "successful" : "FAILED")
                 + " — " + lastResult.getErrors().size() + " error(s), "
                 + lastResult.getWarnings().size() + " warning(s)";
@@ -283,5 +325,8 @@ public class IdeController {
             editMenu.setDisable(empty);
             runMenu.setDisable(empty);
         });
+
+        tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) ->
+            updateCompilerMenuItems(newTab != null ? openDocuments.get(newTab) : null));
     }
 }
