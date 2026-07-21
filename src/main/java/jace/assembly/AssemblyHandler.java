@@ -52,33 +52,39 @@ public class AssemblyHandler implements LanguageHandler<ByteBuffer> {
     }
     
     @Override
-    public void execute(CompileResult<ByteBuffer> lastResult) throws Exception {
-        if (lastResult.isSuccessful()) {
-            Computer c = Emulator.withComputer(c1 -> c1, null);
+    public void writeToMemory(CompileResult<ByteBuffer> lastResult) throws Exception {
+        if (!lastResult.isSuccessful()) {
+            throw new Exception("Compilation failed");
+        }
+        Computer c = Emulator.withComputer(c1 -> c1, null);
+        RAM memory = c.getMemory();
+        ByteBuffer input = lastResult.getCompiledAsset();
+        input.rewind();
+        int startLSB = input.get() & 0x0ff;
+        int startMSB = input.get() & 0x0ff;
+        int start = startLSB + startMSB << 8;
+        c.getCpu().whileSuspended(() -> {
+            int pos = start;
+            while (input.hasRemaining()) {
+                memory.write(pos++, input.get(), false, true);
+            }
+        });
+    }
 
-                RAM memory = c.getMemory();
-                ByteBuffer input = lastResult.getCompiledAsset();
-                input.rewind();
-                int startLSB = input.get() & 0x0ff;
-                int startMSB = input.get() & 0x0ff;
-                int start = startLSB + startMSB << 8;
-                // System.out.printf("Executing code at $%s%n", Integer.toHexString(start));
-                c.getCpu().whileSuspended(() -> {
-                    // System.out.printf("Storing assembled code to $%s%n", Integer.toHexString(start));
-                    int pos = start;
-                    while (input.hasRemaining()) {
-                        memory.write(pos++, input.get(), false, true);
-                    }
-                    // System.out.printf("Issuing JSR to $%s%n", Integer.toHexString(start));
-                    c.getCpu().JSR(start);
-                });
-            // });
-        } else {
+    @Override
+    public void execute(CompileResult<ByteBuffer> lastResult) throws Exception {
+        if (!lastResult.isSuccessful()) {
             System.err.println("Compilation failed");
             lastResult.getErrors().forEach((line, message) -> System.err.printf("Line %d: %s%n", line, message));
             lastResult.getOtherMessages().forEach(System.err::println);
             throw new Exception("Compilation failed");
         }
+        ByteBuffer input = lastResult.getCompiledAsset();
+        input.rewind();
+        int start = (input.get() & 0xff) | ((input.get() & 0xff) << 8);
+        writeToMemory(lastResult);
+        Computer c = Emulator.withComputer(c1 -> c1, null);
+        c.getCpu().whileSuspended(() -> c.getCpu().JSR(start));
         clean(lastResult);
     }
 

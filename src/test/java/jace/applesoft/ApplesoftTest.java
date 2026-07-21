@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import java.util.Collections;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -34,11 +33,11 @@ public class ApplesoftTest {
     }    
 
     @Test
-    public void fromStringTest() {
+    public void fromStringTest() throws Exception {
         String programSource = "10 PRINT \"Hello, World!\"\n\n20 PRINT \"Goodbye!\"\n";
         ApplesoftHandler handler = new ApplesoftHandler();
         // We want to test as much as we can but right now it's heavily integrated with the UI
-        Program program = new Program(DocumentType.applesoft, Collections.emptyMap()) {
+        Program program = new Program(DocumentType.applesoft) {
             String value;
             @Override
             public String getValue() {

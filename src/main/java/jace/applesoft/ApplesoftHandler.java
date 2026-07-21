@@ -63,8 +63,15 @@ public class ApplesoftHandler implements LanguageHandler<ApplesoftProgram> {
     }
 
     @Override
-    public void execute(CompileResult<ApplesoftProgram> lastResult) {
+    public void writeToMemory(CompileResult<ApplesoftProgram> lastResult) {
         lastResult.getCompiledAsset().run();
+    }
+
+    @Override
+    public void execute(CompileResult<ApplesoftProgram> lastResult) throws Exception {
+        ApplesoftProgram program = lastResult.getCompiledAsset();
+        program.forceInjectAndRun();
+        program.executeProgram();
     }
 
     @Override

@@ -24,7 +24,7 @@ import java.util.Collections;
 @SuppressWarnings("all")
 public class HeadlessProgram extends Program {    
     public HeadlessProgram(DocumentType type) {
-        super(type, Collections.emptyMap());
+        super(type);
     }
 
     String program;
@@ -39,7 +39,7 @@ public class HeadlessProgram extends Program {
     }
 
     public HeadlessProgram() {
-        super(null, null);
+        super(DocumentType.plain);
     }
 
     CompileResult lastResult = null;

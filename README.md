@@ -49,6 +49,17 @@ The Gluon documentation provides a compatibility matrix for each OS platform and
 
 All other native dependencies are automatically downloaded as needed by Maven for the various LWJGL libraries.
 
+### Windows-specific build notes:
+
+On Windows, the Visual Studio linker must be in your PATH before Git's linker. The easiest way to build is to use Git Bash with the Visual Studio tools directory prepended to PATH:
+
+```bash
+export PATH="/c/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.41.34120/bin/Hostx64/x64:$PATH"
+mvn clean gluonfx:build
+```
+
+The native executable will be created at `target\gluonfx\x86_64-windows\Jace.exe`. Note: You may need to adjust the MSVC version number (14.41.34120) to match your installed Visual Studio version.
+
 ### First time build note:
 Because Jace provides an annotation processor for compilation, there is a chicken-and-egg problem when building the first time.  Currently, this means the first time you compile, run `mvn install` twice.  You don't have to do this step again as long as Maven is able to find a previously build version of Jace to provide this annotation processor.  I tried to set up the profiles in the pom.xml so that it disables the annotation processor the first time you compile to avoid any issues.  If running in a CICD environment, keep in mind you will likely always need to run the "mvn install" step twice, but only if your goal is to build the entire application including the annotations (should not be needed for just running unit tests.)
 
