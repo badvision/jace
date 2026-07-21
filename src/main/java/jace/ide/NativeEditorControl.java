@@ -328,7 +328,7 @@ public class NativeEditorControl extends VBox implements EditorControl {
             + ".code-area .caret { -fx-stroke: " + cur + "; }"
             + ".code-area .token-keyword     { -fx-fill: " + toHex(theme.keyword)    + "; }"
             + ".code-area .token-string      { -fx-fill: " + toHex(theme.string)     + "; }"
-            + ".code-area .token-comment     { -fx-fill: " + toHex(theme.comment)    + "; }"
+            + ".code-area .token-comment     { -fx-fill: " + toHex(theme.comment) + "; -fx-font-style: italic; }"
             + ".code-area .token-line-number { -fx-fill: " + toHex(theme.lineNumber) + "; }"
             + ".code-area .token-label       { -fx-fill: " + toHex(theme.label)      + "; }"
             + ".code-area .token-number      { -fx-fill: " + toHex(theme.number)     + "; }"

@@ -111,8 +111,11 @@ public class MOS65C02AssemblySyntax implements SyntaxDefinition {
             return spans;
         }
 
-        // Potential label at line start (after optional whitespace)
-        // A label is an identifier followed immediately by ':'
+        // Potential label at line start (after optional whitespace).
+        // Two forms:
+        //   1. identifier ':' — colon may appear anywhere on the line
+        //   2. identifier at column 0 with no colon — ACME treats any non-mnemonic
+        //      identifier starting in column 0 (stripped==0) as a label definition
         pos = stripped;
         int identEnd = pos;
         while (identEnd < len
@@ -120,13 +123,17 @@ public class MOS65C02AssemblySyntax implements SyntaxDefinition {
                     || line.charAt(identEnd) == '_')) {
             identEnd++;
         }
-        if (identEnd > pos && identEnd < len && line.charAt(identEnd) == ':') {
+        boolean hasColon   = identEnd > pos && identEnd < len && line.charAt(identEnd) == ':';
+        boolean col0NoColon = identEnd > pos && stripped == 0
+                && !MNEMONICS.contains(line.substring(pos, identEnd).toUpperCase());
+        if (hasColon || col0NoColon) {
             // Emit leading whitespace as DEFAULT if any
             if (stripped > 0) {
                 spans.add(new StyleSpan(0, stripped, TokenStyle.DEFAULT));
             }
-            spans.add(new StyleSpan(pos, identEnd + 1, TokenStyle.LABEL));
-            pos = identEnd + 1;
+            int labelEnd = hasColon ? identEnd + 1 : identEnd;
+            spans.add(new StyleSpan(pos, labelEnd, TokenStyle.LABEL));
+            pos = labelEnd;
             // Skip whitespace after label
             while (pos < len && Character.isWhitespace(line.charAt(pos))) {
                 pos++;
