@@ -322,8 +322,10 @@ public class NativeEditorControl extends VBox implements EditorControl {
         String gutterFg   = toHex(theme.comment);  // muted but contrasting
         // .text covers all Text nodes inside the CodeArea (both styled and unstyled).
         // Token classes override this base fill for highlighted spans.
+        String cur = toHex(theme.cursor);
         return ".code-area .text { -fx-fill: " + fg + "; }"
             + ".code-area { -fx-background-color: " + bg + "; }"
+            + ".code-area .caret { -fx-stroke: " + cur + "; }"
             + ".code-area .token-keyword     { -fx-fill: " + toHex(theme.keyword)    + "; }"
             + ".code-area .token-string      { -fx-fill: " + toHex(theme.string)     + "; }"
             + ".code-area .token-comment     { -fx-fill: " + toHex(theme.comment)    + "; }"
@@ -332,8 +334,9 @@ public class NativeEditorControl extends VBox implements EditorControl {
             + ".code-area .token-number      { -fx-fill: " + toHex(theme.number)     + "; }"
             + ".code-area .token-directive   { -fx-fill: " + toHex(theme.directive)  + "; }"
             + ".code-area .token-default     { -fx-fill: " + fg                      + "; }"
-            + ".code-area .paragraph.marker-error   { -fx-background-color: rgba(255,50,50,0.25); }"
-            + ".code-area .paragraph.marker-warning { -fx-background-color: rgba(255,200,0,0.20); }"
+            // setParagraphStyle applies Collection<String> to the TextFlow (.paragraph-text)
+            + ".code-area .paragraph-text.marker-error   { -fx-background-color: rgba(255,50,50,0.25); }"
+            + ".code-area .paragraph-text.marker-warning { -fx-background-color: rgba(255,200,0,0.20); }"
             + ".code-area .selection { -fx-fill: " + sel + "; }"
             // Line number gutter: darker background, themed foreground
             + ".code-area .paragraph-graphic-region { -fx-background-color: " + gutterBg + "; }"
