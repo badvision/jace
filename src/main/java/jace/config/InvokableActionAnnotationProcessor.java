@@ -58,6 +58,9 @@ public class InvokableActionAnnotationProcessor extends AbstractProcessor {
             written = true;
             try {
                 writeRegistryClass();
+            } catch (javax.annotation.processing.FilerException ex) {
+                // File already exists from a previous compilation round — that's fine.
+                messager.printMessage(javax.tools.Diagnostic.Kind.NOTE, "InvokableActionRegistryImpl already generated, skipping.");
             } catch (IOException ex) {
                 messager.printMessage(javax.tools.Diagnostic.Kind.ERROR, "Error writing InvokableActionRegistry.java: " + ex.getMessage());
             }
