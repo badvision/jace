@@ -43,50 +43,35 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Step 1: compile just the annotation processor into its own jar.
-                 No external dependencies — only JDK APIs.  The jar is written to
-                 target/processor.jar and referenced via -processorpath in the main compile. -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>build-annotation-processor</id>
-                        <phase>generate-sources</phase>
-                        <goals><goal>run</goal></goals>
-                        <configuration>
-                            <target>
-                                <mkdir dir="${project.build.directory}/processor-classes"/>
-                                <javac srcdir="${project.build.sourceDirectory}/jace/config"
-                                       includes="InvokableAction.java,InvokableActionAnnotationProcessor.java"
-                                       destdir="${project.build.directory}/processor-classes"
-                                       source="17" target="17"
-                                       includeantruntime="false">
-                                    <compilerarg value="-proc:none"/>
-                                </javac>
-                                <jar destfile="${project.build.directory}/processor.jar"
-                                     basedir="${project.build.directory}/processor-classes"/>
-                            </target>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <!-- Step 2: main compile uses processor.jar via -processorpath to generate
-                 InvokableActionRegistryImpl.  The generated source lands in
-                 target/generated-sources which build-helper already added to the source roots. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
+                <executions>
+                    <!-- Pre-compile just the two processor files so they are available
+                         as -processorpath for the main compile below.
+                         Uses src/processor (no module-info.java) to avoid module resolution. -->
+                    <execution>
+                        <id>compile-annotation-processor</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>compile</goal></goals>
+                        <configuration>
+                            <release>17</release>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/processor</compileSourceRoot>
+                            </compileSourceRoots>
+                            <outputDirectory>${project.build.directory}/processor-classes</outputDirectory>
+                            <compilerArgs><arg>-proc:none</arg></compilerArgs>
+                        </configuration>
+                    </execution>
+                </executions>
                 <configuration>
-                    <source>17</source>
-                    <target>17</target>
+                    <release>17</release>
                     <annotationProcessors>jace.config.InvokableActionAnnotationProcessor</annotationProcessors>
                     <generatedSourcesDirectory>${project.build.directory}/generated-sources</generatedSourcesDirectory>
                     <compilerArgs>
                         <arg>-processorpath</arg>
-                        <arg>${project.build.directory}/processor.jar</arg>
+                        <arg>${project.build.directory}/processor-classes</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>
