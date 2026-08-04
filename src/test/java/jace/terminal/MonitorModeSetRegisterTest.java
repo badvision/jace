@@ -13,10 +13,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import jace.TestUtils;
 import jace.apple2e.MOS65C02;
 
 /**
- * Tests for the registers command handling in MonitorMode using proper mocking
+ * Tests for the registers command handling in MonitorMode using proper mocking.
+ *
+ * handleRegisters() runs its body inside Emulator.whileSuspended(...), which forces
+ * a real Apple2e to exist. The CPU it operates on comes from MonitorMode.getCpu(),
+ * which this test overrides, so the assertions below are about the command's own
+ * register->setter wiring and not about emulator state.
  */
 public class MonitorModeSetRegisterTest {
     private ByteArrayOutputStream outputStream;
@@ -35,8 +41,13 @@ public class MonitorModeSetRegisterTest {
     
     @Before
     public void setUp() {
+        // handleRegisters() runs inside Emulator.whileSuspended(), which instantiates a
+        // real Apple2e. Without headless mode that boot reaches Utility.loadIconLabel()
+        // and dies on "Toolkit not initialized".
+        TestUtils.initComputer();
+
         MockitoAnnotations.openMocks(this);
-        
+
         outputStream = new ByteArrayOutputStream();
         printStream = new PrintStream(outputStream);
         

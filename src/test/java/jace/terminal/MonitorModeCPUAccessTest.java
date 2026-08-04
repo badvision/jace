@@ -6,8 +6,7 @@ import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.lang.reflect.Method;
-
+import jace.TestUtils;
 import jace.apple2e.MOS65C02;
 
 /**
@@ -20,6 +19,9 @@ public class MonitorModeCPUAccessTest {
     
     @Before
     public void setUp() {
+        // handleRegisters() runs inside Emulator.whileSuspended(), which instantiates a
+        // real Apple2e; headless mode keeps that boot away from JavaFX graphics.
+        TestUtils.initComputer();
         outputStream = new ByteArrayOutputStream();
         monitorMode = new TestableMonitorMode(outputStream);
     }

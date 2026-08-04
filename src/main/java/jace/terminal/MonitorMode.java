@@ -1836,9 +1836,12 @@ public class MonitorMode implements TerminalMode, WatchCallback {
             String register = args[0].toUpperCase();
             String valueStr = args[1];
 
-            // Wrap all register setting in whileSuspended to ensure changes take effect
+            // Wrap all register setting in whileSuspended to ensure changes take effect.
+            // The CPU is obtained through getCpu(), the same accessor showRegisters() and
+            // the rest of this class use, so the display and set halves of this command
+            // cannot disagree about which CPU they are talking to.
             Emulator.whileSuspended(computer -> {
-                MOS65C02 cpu = (MOS65C02) computer.getCpu();
+                MOS65C02 cpu = getCpu();
                 if (cpu == null) {
                     output.println("CPU not available");
                     return;

@@ -205,7 +205,12 @@ public class Utility {
             System.err.println("Could not load icon: " + filename);
             return Optional.empty();
         }
-        return Optional.of(new Image(stream));
+        try {
+            return Optional.of(new Image(stream));
+        } catch (Throwable t) {
+            reportGraphicsUnavailable("icon " + filename, t);
+            return Optional.empty();
+        }
     }
 
     public static Optional<Label> loadIconLabel(String filename) {
@@ -216,6 +221,23 @@ public class Utility {
         if (img.isEmpty()) {
             return Optional.empty();
         }
+        try {
+            return Optional.of(buildIconLabel(img.get()));
+        } catch (Throwable t) {
+            // Touching javafx.scene.control.Label runs its static initializer, which
+            // calls PlatformImpl.setDefaultPlatformUserAgentStylesheet() and throws
+            // "Toolkit not initialized" (as ExceptionInInitializerError, then
+            // NoClassDefFoundError on every later attempt) when no JavaFX toolkit is
+            // running. An indicator icon is purely cosmetic, so it must never abort
+            // the constructor of the hardware device that asked for it -- otherwise a
+            // headless caller that forgot setHeadlessMode(true) cannot build a
+            // Device at all. Degrade to no icon instead.
+            reportGraphicsUnavailable("icon label " + filename, t);
+            return Optional.empty();
+        }
+    }
+
+    private static Label buildIconLabel(Image img) {
         Label label = new Label() {
             @Override
             public boolean equals(Object obj) {
@@ -231,13 +253,27 @@ public class Utility {
                 return getText().hashCode();
             }
         };
-        label.setGraphic(new ImageView(img.get()));
+        label.setGraphic(new ImageView(img));
         label.setAlignment(Pos.CENTER);
         label.setContentDisplay(ContentDisplay.TOP);
         label.setTextFill(Color.WHITE);
         DropShadow shadow = new DropShadow(5.0, Color.BLACK);
         label.setEffect(shadow);
-        return Optional.of(label);
+        return label;
+    }
+
+    private static boolean graphicsUnavailableReported = false;
+
+    /**
+     * Report, once per JVM, that JavaFX graphics could not be used. Repeating this
+     * for every icon in every card would flood the log with the same root cause.
+     */
+    private static void reportGraphicsUnavailable(String what, Throwable t) {
+        if (!graphicsUnavailableReported) {
+            graphicsUnavailableReported = true;
+            System.err.println("JavaFX graphics unavailable; continuing without " + what
+                    + " (" + t + "). Call Utility.setHeadlessMode(true) to suppress this.");
+        }
     }
 
     public static void confirm(String title, String message, Runnable accept) {
