@@ -76,7 +76,17 @@ public abstract class Computer implements Reconfigurable {
 
     ChangeListener<Boolean> runningPropertyListener = (prop, oldVal, newVal) -> runningProperty.set(newVal);
     final public void setMotherboard(Motherboard m) {
-        if (motherboard != null && motherboard.isRunning()) {
+        // Suspend unconditionally rather than only when isRunning(). Device.isRunning()
+        // reports the `run` flag, which says nothing about whether the worker thread is
+        // alive: IndependentTimedDevice.resume() starts a MAX_PRIORITY worker, and a
+        // device that has been paused (or whose run flag was cleared without a suspend)
+        // can still have a live RUNNABLE worker. Skipping suspend() in that case dropped
+        // the only reference to that thread, orphaning it -- it kept ticking forever,
+        // driving the global soft switches (VBL in particular) with no handle left to
+        // stop it. Nothing reachable could then quiesce the machine, which made any test
+        // reading scanner phase nondeterministic depending on suite order.
+        // suspend() is safe to call on an already-stopped device.
+        if (motherboard != null && motherboard != m) {
             motherboard.suspend();
         }
         motherboard = m;
