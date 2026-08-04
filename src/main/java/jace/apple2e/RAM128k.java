@@ -409,6 +409,20 @@ abstract public class RAM128k extends RAM {
     }
 
     /**
+     * Throw away the memoized page maps AND the state guard.
+     *
+     * Clearing the map alone is not enough: configureActiveMemory() early-returns
+     * when the soft switch state is unchanged, so after a clear it would return
+     * without rebuilding and activeRead/activeWrite would keep pointing at the
+     * discarded maps. Resetting `state` forces the next call to rebuild.
+     */
+    @Override
+    protected void invalidateMemoryConfigurations() {
+        memoryConfigurations.clear();
+        state = "???";
+    }
+
+    /**
      *
      */
     @Override
@@ -483,8 +497,8 @@ abstract public class RAM128k extends RAM {
             LOG.log(Level.SEVERE, "Rom not found: {0}", path);
             return;
         }
-        // Clear cached configurations as we might have outdated references now        
-        memoryConfigurations.clear();
+        // Clear cached configurations as we might have outdated references now
+        invalidateMemoryConfigurations();
         int read = 0;
         int addr = 0;
         byte[] in = new byte[1024];
@@ -558,14 +572,14 @@ abstract public class RAM128k extends RAM {
         cards = currentMemory.cards;
         activeSlot = currentMemory.activeSlot;
         // Clear cached configurations as we might have outdated references now
-        memoryConfigurations.clear();
+        invalidateMemoryConfigurations();
 
         super.copyFrom(otherMemory);
     }
-    
+
     @Override
     public void resetState() {
-        memoryConfigurations.clear();
+        invalidateMemoryConfigurations();
     }
 
     public Set<RAMListener>[] getListenerMap() {

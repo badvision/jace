@@ -93,6 +93,7 @@ public abstract class RAM implements Reconfigurable {
         cards[slot] = Optional.of(c);
         c.setSlot(slot);
         c.attach();
+        invalidateMemoryConfigurations();
         configureActiveMemory();
     }
 
@@ -104,9 +105,28 @@ public abstract class RAM implements Reconfigurable {
         cards[slot].ifPresent(Card::suspend);
         cards[slot].ifPresent(Card::detach);
         cards[slot] = Optional.empty();
+        invalidateMemoryConfigurations();
+        configureActiveMemory();
     }
 
     abstract public void configureActiveMemory();
+
+    /**
+     * Discard any cached/memoized page maps so the next configureActiveMemory()
+     * rebuilds them from scratch.
+     *
+     * Implementations memoize page maps keyed on the soft switch state, which
+     * does not encode which cards are installed. Installing or removing a card
+     * changes how the $C100-$C7FF slot ROM space maps, so a map cached before
+     * the change is stale afterwards even though the switches are identical.
+     *
+     * This only happens at configuration time, never during emulation, so
+     * throwing the whole cache away is the right trade: it costs one rebuild
+     * and removes a whole class of stale-mapping bugs.
+     */
+    protected void invalidateMemoryConfigurations() {
+        // Default: nothing cached.
+    }
     
     /**
      * Dump the current memory map showing which physical banks are mapped to read/write
