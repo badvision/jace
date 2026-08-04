@@ -357,15 +357,29 @@ public class SoundMixer extends Device {
         
         public SoundBuffer(boolean stereo) throws InterruptedException, ExecutionException, SoundError {
             initSound();
+            if (!PLAYBACK_ENABLED) {
+                isAlive = false;
+                return;
+            }
             currentBuffer = BufferUtils.createShortBuffer(BUFFER_SIZE * (stereo ? 2 : 1));
             alternateBuffer = BufferUtils.createShortBuffer(BUFFER_SIZE * (stereo ? 2 : 1));
             try {
-                currentBufferId = performSoundFunction(AL10::alGenBuffers, "Initalize sound buffer: primary");
-                alternateBufferId = performSoundFunction(AL10::alGenBuffers, "Initalize sound buffer: alternate");
+                Integer cbId = performSoundFunction(AL10::alGenBuffers, "Initalize sound buffer: primary");
+                Integer abId = performSoundFunction(AL10::alGenBuffers, "Initalize sound buffer: alternate");
+                if (cbId == null || abId == null) {
+                    throw new SoundError("OpenAL buffer allocation failed (null return)");
+                }
+                currentBufferId = cbId;
+                alternateBufferId = abId;
                 boolean hasSource = false;
                 while (!hasSource) {
-                    sourceId = performSoundFunction(AL10::alGenSources, "Initalize sound buffer: create source");
-                    hasSource = performSoundFunction(()->AL10.alIsSource(sourceId), "Initalize sound buffer: Check if source is valid");
+                    Integer sId = performSoundFunction(AL10::alGenSources, "Initalize sound buffer: create source");
+                    if (sId == null) {
+                        throw new SoundError("OpenAL source allocation failed (null return)");
+                    }
+                    sourceId = sId;
+                    Boolean valid = performSoundFunction(()->AL10.alIsSource(sourceId), "Initalize sound buffer: Check if source is valid");
+                    hasSource = valid != null && valid;
                 }
                 performSoundOperation(()->AL10.alSourcei(sourceId, AL10.AL_LOOPING, AL10.AL_FALSE), "Set looping to false");
             } catch (SoundError e) {
