@@ -1,18 +1,14 @@
 package jace.terminal;
 
 import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 import org.junit.After;
@@ -21,17 +17,12 @@ import org.junit.Test;
 
 import jace.AbstractJaceTest;
 import jace.Emulator;
-import jace.JaceLauncher;
-import jace.apple2e.Apple2e;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.RAM128k;
-import jace.core.Card;
 import jace.core.Computer;
-import jace.core.Device;
 import jace.core.Motherboard;
 import jace.core.RAM;
 import jace.core.RAMEvent;
-import jace.core.TimedDevice;
 import jace.hardware.CardDiskII;
 import jace.hardware.massStorage.CardMassStorage;
 
@@ -44,8 +35,9 @@ public class TerminalFeatureTest extends AbstractJaceTest {
     
     private static final Logger LOG = Logger.getLogger(TerminalFeatureTest.class.getName());
     
-    // Test ProDOS disk image path
-    private static final String PRODOS_DISK_PATH = "/Users/brobert/Downloads/ProDOS_2_4_3.po";
+    // Generated blank 140K ProDOS-ordered image; see TestDiskImages for why this
+    // replaced a hard-coded path under a developer's Downloads folder.
+    private static final String PRODOS_DISK_PATH = TestDiskImages.blankProdos140k();
     
     // Memory locations for testing
     private static final int BOOT_VECTOR_LOCATION = 0x2000;
@@ -215,119 +207,64 @@ public class TerminalFeatureTest extends AbstractJaceTest {
         testFile.delete();
     }
     
+    // NOTE: a former "Test 3: testSaveBinFunctionality" was deleted. It asserted that
+    // savebin prints "not yet implemented" -- savebin has since been implemented, and
+    // RealTerminalFeatureTest.test1_SaveBinActuallyWorks asserts the correct behavior
+    // (a load/save round-trip preserves bytes). Keeping a test that demands the feature
+    // stay unimplemented is worse than having no test.
+
+    // NOTE: a former "Test 5: testDeviceTickingDuringStep" was deleted. Its own comments
+    // conceded it verified nothing: it built a Mockito TimedDevice that was never attached
+    // to the motherboard and never had verify() called on it, then asserted only that some
+    // output was produced -- which the neighbouring test already covers.
+    // RealTerminalFeatureTest.test2_TickSteppingDrivesAllDevices does the real check by
+    // attaching a counting Device and asserting an exact tick count.
+
     /**
-     * Test 3: savebin functionality  
-     * Verifies that savebin command works correctly
+     * Test 4: Motherboard tick stepping does not start the free-running timer.
+     *
+     * The command that advances the whole motherboard cascade is `tick` (it was named
+     * `step` until commit 39881bb, which reassigned `step` to per-instruction CPU
+     * stepping in MonitorMode). This test pins the invariant that matters for
+     * automation: manual stepping must not leave a free-running worker thread behind.
      */
     @Test
-    public void testSaveBinFunctionality() throws Exception {
-        LOG.info("Testing savebin functionality");
-        
-        // Note: savebin is not yet implemented per MainMode.java:612
-        // This test verifies the command is recognized and shows appropriate message
-        
+    public void testTickModeBehavior() {
+        LOG.info("Testing motherboard tick stepping behavior");
+
         terminal.initializeEmulator();
         MainMode mainMode = new MainMode(terminal);
-        
-        // Create test file path
-        File testFile = File.createTempFile("test_savebin", ".bin");
-        testFile.deleteOnExit();
-        
-        // Test savebin command recognition
-        boolean result = mainMode.processCommand("savebin " + testFile.getAbsolutePath() + " $2000 $100");
-        
-        // Command should be recognized (return true)
-        assertTrue("savebin command should be recognized", result);
-        
-        // Check output contains "not yet implemented" message
-        String output = testOutput.toString();
-        assertTrue("Output should indicate savebin not implemented", 
-                  output.contains("not yet implemented") || output.contains("not implemented"));
-        
-        testFile.delete();
-    }
-    
-    /**
-     * Test 4: Step mode behavior
-     * Verifies that step mode steps CPU without activating motherboard timer
-     */
-    @Test
-    public void testStepModeBehavior() {
-        LOG.info("Testing step mode behavior");
-        
-        terminal.initializeEmulator();
-        MainMode mainMode = new MainMode(terminal);
-        
+
         Emulator.withComputer(computer -> {
             Motherboard motherboard = computer.getMotherboard();
-            MOS65C02 cpu = (MOS65C02) computer.getCpu();
-            
+
             // Ensure motherboard is suspended initially
             motherboard.suspend();
             assertFalse("Motherboard should not be running initially", motherboard.isRunning());
-            
-            // Record initial CPU state
-            int initialPC = cpu.getProgramCounter();
-            
-            // Execute step command
-            mainMode.processCommand("step 1");
-            
+
+            // Execute tick command
+            mainMode.processCommand("tick 1");
+
             // Verify motherboard is still suspended (not free-running)
-            assertFalse("Motherboard should remain suspended after step", motherboard.isRunning());
-            
-            // Verify CPU has advanced (this may not always be true depending on instruction)
-            // but we can verify the step command was processed
+            assertFalse("Motherboard should remain suspended after tick", motherboard.isRunning());
+
             String output = testOutput.toString();
-            assertTrue("Output should indicate stepping occurred", 
-                      output.contains("Stepped") || output.contains("CPU State"));
-            
-            // Test multiple steps
+            assertTrue("Output should indicate stepping occurred, got: " + output,
+                      output.contains("Stepped"));
+
+            // Test multiple ticks
             testOutput.reset();
-            mainMode.processCommand("step 5");
-            
-            // Verify motherboard is still suspended after multiple steps
-            assertFalse("Motherboard should remain suspended after multiple steps", motherboard.isRunning());
-            
+            mainMode.processCommand("tick 5");
+
+            // Verify motherboard is still suspended after multiple ticks
+            assertFalse("Motherboard should remain suspended after multiple ticks", motherboard.isRunning());
+
             String multiStepOutput = testOutput.toString();
-            assertTrue("Output should indicate multiple steps", 
+            assertTrue("Output should indicate multiple steps, got: " + multiStepOutput,
                       multiStepOutput.contains("Stepped 5"));
         });
     }
-    
-    /**
-     * Test 5: Device ticking during step mode
-     * Verifies that all devices get their tick methods called during stepping
-     */
-    @Test
-    public void testDeviceTickingDuringStep() {
-        LOG.info("Testing device ticking during step mode");
-        
-        terminal.initializeEmulator();
-        MainMode mainMode = new MainMode(terminal);
-        
-        Emulator.withComputer(computer -> {
-            // Create mock timed device to verify tick is called
-            TimedDevice mockDevice = mock(TimedDevice.class);
-            when(mockDevice.isRunning()).thenReturn(true);
-            
-            // Note: In a real implementation, we would need to verify that
-            // step mode calls tick() on all devices. Since the current 
-            // implementation in MainMode only calls CPU.doTick(), this test
-            // documents the expected behavior that should be implemented.
-            
-            // Execute step command
-            mainMode.processCommand("step 1");
-            
-            // The current implementation only steps the CPU
-            // This test documents that the step feature should be enhanced
-            // to call tick() on all running devices
-            
-            String output = testOutput.toString();
-            assertTrue("Step command should be processed", 
-                      output.contains("Stepped") || output.contains("CPU"));
-        });
-    }
-    
+
     /**
      * Test 6: Startup process with vararg inputs - Mass Storage Boot
      * Tests -s7.d1 disk_image_name.po functionality
@@ -335,63 +272,38 @@ public class TerminalFeatureTest extends AbstractJaceTest {
     @Test
     public void testStartupWithMassStorageDisk() throws Exception {
         LOG.info("Testing startup with mass storage disk assignment");
-        
-        // Verify ProDOS disk exists
-        assertTrue("ProDOS disk should exist at " + PRODOS_DISK_PATH, 
+
+        // The image is generated in a temp dir, so this is an invariant of the
+        // fixture rather than an environment dependency.
+        assertTrue("Test disk image should exist at " + PRODOS_DISK_PATH,
                   Files.exists(Paths.get(PRODOS_DISK_PATH)));
-        
+
         // Test arguments for slot 7 drive 1
         List<String> args = Arrays.asList("--terminal", "-s7.d1", PRODOS_DISK_PATH);
-        
+
         // Reset emulator for clean test
         Emulator.abort();
-        
+
         // Process command line arguments (simulates JaceLauncher)
         Emulator.getInstance(args.subList(1, args.size())); // Skip --terminal
-        
-        // Verify disk was loaded
-        Emulator.withComputer(computer -> {
-            computer.getMemory().getCard(7).ifPresent(slot7Card -> {
-                if (slot7Card instanceof CardMassStorage) {
-                    CardMassStorage massStorage = (CardMassStorage) slot7Card;
-                    
-                    // Check if disk is loaded (getCurrentDisk() method exists)
-                    // Note: We can't easily verify boot sequence without running the emulator
-                    // but we can verify the disk was assigned
-                    assertNotNull("Mass storage card should be present in slot 7", massStorage);
-                }
-            });
-        });
-        
-        // Test boot sequence detection by checking memory at boot vector
-        testBootSequenceMemoryPattern();
+
+        // Verify the -s7.d1 argument actually reached the slot 7 card and mounted
+        // the image. The old version of this test only asserted the card object
+        // was non-null inside an ifPresent, which could never fail.
+        CardMassStorage slot7 = Emulator.withComputer(computer ->
+            computer.getMemory().getCard(7)
+                .filter(CardMassStorage.class::isInstance)
+                .map(CardMassStorage.class::cast)
+                .orElse(null), null);
+
+        assertNotNull("Slot 7 should hold a CardMassStorage", slot7);
+        assertNotNull("-s7.d1 should have mounted a disk in drive 1",
+                      slot7.drive1.getCurrentDisk());
+        assertEquals("Mounted image should report 280 blocks",
+                     TestDiskImages.PRODOS_140K_LENGTH / 512,
+                     slot7.drive1.getCurrentDisk().getSize());
     }
-    
-    /**
-     * Helper method to test boot sequence memory pattern changes
-     */
-    private void testBootSequenceMemoryPattern() {
-        Emulator.withMemory(memory -> {
-            // Check memory pattern at boot vector location ($2000)
-            // Initially should be 00 00 FF FF pattern, after boot attempt should change
-            
-            byte[] initialPattern = new byte[4];
-            for (int i = 0; i < 4; i++) {
-                initialPattern[i] = memory.read(BOOT_VECTOR_LOCATION + i, RAMEvent.TYPE.READ_DATA, false, false);
-            }
-            
-            // After disk boot attempt, memory should not have the initial pattern
-            boolean hasInitialPattern = (initialPattern[0] == 0x00 && initialPattern[1] == 0x00 &&
-                                       initialPattern[2] == (byte)0xFF && initialPattern[3] == (byte)0xFF);
-            
-            if (!hasInitialPattern) {
-                LOG.info("Boot sequence appears to have modified memory at $2000");
-            } else {
-                LOG.info("Memory at $2000 still has initial pattern - boot may not have occurred");
-            }
-        });
-    }
-    
+
     /**
      * Test 7: Case-insensitive argument handling
      * Verifies that argument names and parameter values are case-insensitive

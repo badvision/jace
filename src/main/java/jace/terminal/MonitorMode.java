@@ -673,11 +673,13 @@ public class MonitorMode implements TerminalMode, WatchCallback {
     }
     
     private void stepInstruction(int count) {
+        // Stepping implies pausing. Previously this returned after pausing, so the
+        // first 'step' issued from a running/never-paused state silently executed
+        // zero instructions and the caller had to issue it twice.
         if (!isPaused) {
             pauseEmulation();
-            return;
         }
-        
+
         isStepping.set(true);
         
         try {
@@ -751,15 +753,39 @@ public class MonitorMode implements TerminalMode, WatchCallback {
      */
     private void executeOneSingleInstruction(jace.apple2e.Apple2e computer, MOS65C02 cpu) {
         try {
-            // Keep ticking until the instruction is complete (waitCycles becomes 0)
-            // First tick will execute the instruction and set wait cycles
-            cpu.doTick();
-            
-            // Continue ticking until all wait cycles are consumed
-            while (cpu.getWaitCycles() > 0) {
-                cpu.doTick();
+            // Device.doTick() dispatches through a tick handler that is a no-op unless
+            // the device is in run state and not paused (Device.updateTickHandler).
+            // Suspending the motherboard for stepping can leave the CPU out of run
+            // state, in which case every doTick() below silently did nothing and
+            // `step` reported an instruction it never actually executed. Put the CPU
+            // into run state for the duration of the step, then restore it. This does
+            // not start any thread -- the ticks below are driven from this thread.
+            boolean wasRunning = cpu.isRunning();
+            boolean wasPaused = cpu.isPaused();
+            if (!wasRunning) {
+                cpu.resume();
             }
-            
+            if (wasPaused) {
+                cpu.setPaused(false);
+            }
+            try {
+                // Keep ticking until the instruction is complete (waitCycles becomes 0)
+                // First tick will execute the instruction and set wait cycles
+                cpu.doTick();
+
+                // Continue ticking until all wait cycles are consumed
+                while (cpu.getWaitCycles() > 0) {
+                    cpu.doTick();
+                }
+            } finally {
+                if (wasPaused) {
+                    cpu.setPaused(true);
+                }
+                if (!wasRunning) {
+                    cpu.suspend();
+                }
+            }
+
             // Ensure the computer remains suspended after stepping
             computer.getMotherboard().suspend();
             

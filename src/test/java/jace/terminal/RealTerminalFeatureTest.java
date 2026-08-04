@@ -38,7 +38,9 @@ public class RealTerminalFeatureTest extends AbstractJaceTest {
     private static final Logger LOG = Logger.getLogger(RealTerminalFeatureTest.class.getName());
     
     // Test ProDOS disk image path
-    private static final String PRODOS_DISK_PATH = "/Users/brobert/Downloads/ProDOS_2_4_3.po";
+    // Generated blank 140K ProDOS-ordered image; see TestDiskImages for why this
+    // replaced a hard-coded path under a developer's Downloads folder.
+    private static final String PRODOS_DISK_PATH = TestDiskImages.blankProdos140k();
     
     private ByteArrayOutputStream testOutput;
     private PrintStream originalOut;
@@ -172,12 +174,19 @@ public class RealTerminalFeatureTest extends AbstractJaceTest {
     }
     
     /**
-     * REAL TEST: Verify step mode actually steps ALL devices, not just CPU
+     * REAL TEST: Verify tick stepping drives ALL devices, not just the CPU.
+     *
+     * The command under test is `tick`, not `step`. Commit 39881bb split the two:
+     * `tick` advances the whole motherboard cascade one tick at a time (which is what
+     * an exact-tick-count assertion requires), while `step` executes whole CPU
+     * instructions and therefore consumes a variable number of ticks each.
+     * This test previously said `step 3` and asserted exactly 3 device ticks -- an
+     * assertion `step` can never satisfy.
      */
     @Test(timeout = 30000) // 30 second timeout
-    public void test2_StepModeStepsAllDevices() {
-        LOG.info("Testing that step mode actually steps ALL devices");
-        
+    public void test2_TickSteppingDrivesAllDevices() {
+        LOG.info("Testing that tick stepping actually drives ALL devices");
+
         terminal.initializeEmulator();
         MainMode mainMode = new MainMode(terminal);
         
@@ -241,42 +250,14 @@ public class RealTerminalFeatureTest extends AbstractJaceTest {
         int initialCount = deviceTickCount.get();
         LOG.info("Initial mock device tick count: " + initialCount);
         
-        // Execute step command with debug info
+        // Execute tick command
         testOutput.reset();
-        LOG.info("About to execute step command - will hang here if broken");
-        
-        try {
-            // Add thread dump capability for debugging hangs
-            Thread timeoutThread = new Thread(() -> {
-                try {
-                    Thread.sleep(8000); // 8 seconds
-                    LOG.warning("Step command taking too long - dumping thread stacks:");
-                    Thread.getAllStackTraces().forEach((thread, stack) -> {
-                        LOG.warning("Thread: " + thread.getName() + " State: " + thread.getState());
-                        for (StackTraceElement elem : stack) {
-                            LOG.warning("  " + elem.toString());
-                        }
-                    });
-                } catch (InterruptedException ie) {
-                    // Normal termination
-                }
-            });
-            timeoutThread.setDaemon(true);
-            timeoutThread.start();
-            
-            mainMode.processCommand("step 3");
-            LOG.info("Step command completed successfully");
-            timeoutThread.interrupt(); // Cancel timeout thread
-        } catch (Exception e) {
-            LOG.severe("Step command threw exception: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        
-        // Verify step executed
+        mainMode.processCommand("tick 3");
+
+        // Verify the command executed
         String output = testOutput.toString();
-        assertTrue("Step command should execute", output.contains("Stepped 3"));
-        
+        assertTrue("Tick command should execute, got: " + output, output.contains("Stepped 3"));
+
         // Verify our mock device was actually ticked
         int finalCount = deviceTickCount.get();
         LOG.info("Final mock device tick count: " + finalCount + ", expected: " + (initialCount + 3));
@@ -517,18 +498,42 @@ public class RealTerminalFeatureTest extends AbstractJaceTest {
         
         assertArrayEquals("LoadBin/SaveBin round-trip should preserve data", testData, savedData);
         
-        // Test 3: Test step mode doesn't leave motherboard running
+        // Test 3: `step` executes one instruction, reports it, and does not leave the
+        // motherboard free-running. `step` prints the disassembled instruction plus a
+        // "(1/1)" step counter; "Stepped N" is `tick`'s output, not `step`'s.
+        //
+        // Stage a known 2-byte instruction so the PC delta is deterministic. Without
+        // this the PC after AbstractJaceTest's setup sits at $0000 over zeroed RAM,
+        // where BRK vectors through a zeroed $FFFE back to $0000 and the PC never
+        // appears to move.
+        final int stepAddr = 0x4000;
+        Emulator.withMemory(memory -> {
+            memory.write(stepAddr, (byte) 0xA9, false, false);     // LDA #$42
+            memory.write(stepAddr + 1, (byte) 0x42, false, false);
+            memory.write(stepAddr + 2, (byte) 0xEA, false, false); // NOP
+        });
+        Emulator.withComputer(c -> c.getCpu().setProgramCounter(stepAddr));
+
         testOutput.reset();
         mainMode.processCommand("step 1");
-        
+
         String stepOutput = testOutput.toString();
-        assertTrue("Step should execute successfully", stepOutput.contains("Stepped 1"));
-        
+        assertTrue("Step should report the instruction it executed, got: " + stepOutput,
+                   stepOutput.contains("(1/1)"));
+        assertTrue("Step should report the PC it started from, got: " + stepOutput,
+                   stepOutput.contains(String.format("%04X:", stepAddr)));
+
+        int pcAfter = Emulator.withComputer(c -> c.getCpu().getProgramCounter(), -1);
+        assertEquals("Step should have advanced the PC past the 2-byte LDA #",
+                     stepAddr + 2, pcAfter);
+        assertEquals("Step should have executed LDA #$42", 0x42,
+                     Emulator.withComputer(c -> ((MOS65C02) c.getCpu()).A & 0xFF, -1).intValue());
+
         Emulator.withComputer(computer -> {
-            assertFalse("Motherboard should not be free-running after step", 
+            assertFalse("Motherboard should not be free-running after step",
                        computer.getMotherboard().isRunning());
         });
-        
+
         // Test 4: Test commands work
         testOutput.reset();
         mainMode.processCommand("help");
