@@ -1,0 +1,4 @@
+; Fixture: a label whose name is itself valid hex. Hand-authored (ACME would
+; reject "abcd" as a label only if it looked like a number in its own syntax;
+; the point here is the terminal's tokenizer, not ACME's).
+	abcd	= $1234

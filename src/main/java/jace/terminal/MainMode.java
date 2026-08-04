@@ -96,6 +96,7 @@ public class MainMode implements TerminalMode {
         commands.put("help", this::showHelp);
         commands.put("charlog", this::toggleCharLog);
         commands.put("rdb", this::cyreneCommand);
+        commands.put("symbols", this::symbolsCommand);
 
         // Monitor forwarding commands — invoke MonitorMode capabilities without a mode switch
         commands.put("go", args -> {
@@ -162,6 +163,7 @@ public class MainMode implements TerminalMode {
         addAlias("rt", "runto");
         addAlias("cy", "rdb");
         addAlias("cyrene", "rdb");
+        addAlias("sym", "symbols");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -328,6 +330,22 @@ public class MainMode implements TerminalMode {
                 "  rdb start\n" +
                 "  run 999999999   (keep the emulator cycling while Aristaeus is connected)");
 
+        commandHelp.put("symbols",
+                "Loads an assembler symbol file so commands can take label names instead of hex.\n" +
+                "Usage: symbols <labelfile>   — Load symbols (merges with any already loaded)\n" +
+                "       symbols               — List loaded symbols and their addresses\n" +
+                "       symbols clear         — Forget all loaded symbols\n" +
+                "Alias: sym\n\n" +
+                "Accepts either ACME label format:\n" +
+                "  acme --symbollist FILE   \"name = $XXXX\"\n" +
+                "  acme --vicelabels FILE   \"al C:xxxx .name\"\n\n" +
+                "Once loaded, any command taking an address accepts a name:\n" +
+                "  break mainloop        runto after_draw        go entry\n" +
+                "  mem frame_count frame_count      memaux mainloop mainloop\n\n" +
+                "Hex input is unchanged and always wins: a name that is also valid hex\n" +
+                "(e.g. a label literally called \"abcd\") must be written \":abcd\".\n" +
+                "Unknown or ambiguous names fail with a message — they never resolve to $0000.");
+
         LOG.fine("Commands initialized");
     }
 
@@ -414,6 +432,7 @@ public class MainMode implements TerminalMode {
         output.println("  registers (reg)  - Show or set CPU registers (no mode switch needed)");
         output.println("  break (bp)       - Manage breakpoints (no mode switch needed)");
         output.println("  runto (rt)       - Run until PC reaches address (no mode switch needed)");
+        output.println("  symbols (sym) <labelfile> - Load assembler labels; address args then accept names");
         output.println("  insertdisk (id) d# file [slot] - Insert disk image in drive # (1 or 2)");
         output.println("  ejectdisk (ed) d# [slot] - Eject disk from drive # (1 or 2)");
         output.println("  bootdisk (bd) d# file [slot] - Insert disk and boot until PC >= $2000");
@@ -725,13 +744,13 @@ public class MainMode implements TerminalMode {
             try {
                 // Check if the first argument is a breakpoint indicator
                 if (args[0].startsWith("#")) {
-                    breakpointAddress = Integer.parseInt(args[0].substring(1), 16);
+                    breakpointAddress = parseHexAddress(args[0].substring(1));
                 } else {
                     cycleCount = Integer.parseInt(args[0]);
-                    
+
                     // Check for breakpoint as second argument
                     if (args.length > 1 && args[1].startsWith("#")) {
-                        breakpointAddress = Integer.parseInt(args[1].substring(1), 16);
+                        breakpointAddress = parseHexAddress(args[1].substring(1));
                     }
                 }
 
@@ -2338,25 +2357,56 @@ public class MainMode implements TerminalMode {
     }
 
     /**
-     * Parse a hex address string that may have a $ prefix
-     * @param addrStr The address string (e.g., "$2000", "2000", "0x2000")
+     * Parse an address string: hex with an optional $ / 0x prefix, or a symbol name
+     * from a loaded symbol file (see {@link SymbolTable} and the {@code symbols}
+     * command). Hex is tried first, so all existing hex input behaves exactly as
+     * before; ":name" forces symbol lookup for names that are also valid hex.
+     *
+     * @param addrStr The address string (e.g., "$2000", "2000", "0x2000", "mainloop")
      * @return The parsed address as an integer
-     * @throws NumberFormatException if the address is not valid
+     * @throws NumberFormatException if the string is neither valid hex nor a known symbol
      */
     private int parseHexAddress(String addrStr) throws NumberFormatException {
-        String hexStr = addrStr;
-        
-        // Handle $ prefix (Apple II convention)
-        if (hexStr.startsWith("$")) {
-            hexStr = hexStr.substring(1);
+        return SymbolTable.resolveAddressOrSymbol(addrStr, output::println);
+    }
+
+    /**
+     * symbols — load / inspect the assembler symbol table used for name resolution.
+     */
+    private void symbolsCommand(String[] args) {
+        if (args.length == 0) {
+            if (SymbolTable.size() == 0) {
+                output.println("No symbols loaded. Usage: symbols <labelfile> | symbols clear");
+                return;
+            }
+            output.println("Symbols loaded from " + SymbolTable.getLastLoadedFrom()
+                    + " (" + SymbolTable.size() + "):");
+            SymbolTable.getSymbols().forEach((name, addr) ->
+                    output.printf("  %-24s $%04X%n", name, addr));
+            return;
         }
-        // Handle 0x prefix (C convention)  
-        else if (hexStr.startsWith("0x") || hexStr.startsWith("0X")) {
-            hexStr = hexStr.substring(2);
+        if (args[0].equalsIgnoreCase("clear")) {
+            SymbolTable.clear();
+            output.println("Symbols cleared");
+            return;
         }
-        
-        // Parse as hex and mask to 16-bit address space
-        return Integer.parseInt(hexStr, 16) & 0xFFFF;
+        java.nio.file.Path path = java.nio.file.Paths.get(args[0]);
+        if (!java.nio.file.Files.isReadable(path)) {
+            output.println("Symbol file not found or not readable: " + args[0]);
+            return;
+        }
+        try {
+            int count = SymbolTable.load(path);
+            if (count == 0) {
+                output.println("No symbols found in " + args[0]
+                        + " — expected acme --symbollist (\"name = $XXXX\") "
+                        + "or --vicelabels (\"al C:xxxx .name\") output");
+                return;
+            }
+            output.println("Loaded " + count + " symbols from " + args[0]);
+        } catch (java.io.IOException e) {
+            output.println("Error reading symbol file: " + e.getMessage());
+        }
     }
 
     private MonitorMode getMonitorMode() {

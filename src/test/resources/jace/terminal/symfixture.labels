@@ -1,0 +1,7 @@
+	after_draw	= $4009	; unused
+	harry_x	= $1d
+	mainloop	= $4006
+	frame_count	= $1a
+	entry	= $4000	; unused
+	scene_flags	= $21
+	draw_scene	= $4012	; ?

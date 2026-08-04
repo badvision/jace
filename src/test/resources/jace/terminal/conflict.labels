@@ -1,0 +1,3 @@
+; Fixture: redefines mainloop at a different address than symfixture.labels,
+; so loading both must produce an ambiguity rather than last-one-wins.
+	mainloop	= $5000

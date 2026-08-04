@@ -27,7 +27,17 @@ public class AddressWithMode {
      */
     public static AddressWithMode parse(String addrStr, MemoryMode defaultMode) {
         String modePrefix = null;
-        
+        String original = addrStr;
+
+        // Symbolic name with no bank prefix. Checked before prefix stripping so a
+        // symbol like "mainloop" isn't mangled into "ainloop" by the M-prefix rule.
+        // isHex() is consulted first so hex always wins, matching
+        // SymbolTable.resolveAddressOrSymbol — a symbol named "abcd" needs ":abcd".
+        if (addrStr.startsWith(":") || (!isHex(addrStr) && SymbolTable.isKnown(addrStr))) {
+            return new AddressWithMode(SymbolTable.resolve(addrStr),
+                MonitorMode.determineMemoryMode(null, defaultMode));
+        }
+
         // Check for mode prefix
         if (addrStr.startsWith("M") || addrStr.startsWith("m")) {
             modePrefix = "M";
@@ -37,15 +47,31 @@ public class AddressWithMode {
             addrStr = addrStr.substring(1);
         }
         
-        // Parse the address
-        int address = Integer.parseInt(addrStr, 16);
-        
+        // Parse the address. Hex is attempted first, so "M2000" is unchanged; a
+        // bank-prefixed symbol ("Xmainloop") falls through to symbol resolution.
+        int address;
+        try {
+            address = Integer.parseInt(addrStr, 16);
+        } catch (NumberFormatException notHex) {
+            address = SymbolTable.resolve(original.startsWith(":") ? original : addrStr);
+        }
+
         // Determine the mode
         MemoryMode mode = MonitorMode.determineMemoryMode(modePrefix, defaultMode);
         
         return new AddressWithMode(address, mode);
     }
     
+    /** @return true if the token parses as a plain hex number */
+    private static boolean isHex(String s) {
+        try {
+            Integer.parseInt(s, 16);
+            return true;
+        } catch (NumberFormatException notHex) {
+            return false;
+        }
+    }
+
     /**
      * @return The memory address
      */

@@ -1,0 +1,9 @@
+
+al C:001d .harry_x
+al C:001a .frame_count
+al C:0021 .scene_flags
+
+al C:4009 .after_draw
+al C:4006 .mainloop
+al C:4000 .entry
+al C:4012 .draw_scene
