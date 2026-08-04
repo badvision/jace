@@ -106,12 +106,7 @@ public class MainMode implements TerminalMode {
             try { mon.executeCode(parseHexAddress(args[0])); }
             catch (NumberFormatException e) { output.println("Invalid address: " + e.getMessage()); }
         });
-        commands.put("mem", args -> {
-            MonitorMode mon = getMonitorMode(); if (mon == null) return;
-            if (args.length < 2) { output.println("Usage: mem <start> <end>"); return; }
-            try { mon.examineMemoryRange(parseHexAddress(args[0]), parseHexAddress(args[1]), MemoryMode.ACTIVE); }
-            catch (NumberFormatException e) { output.println("Invalid address: " + e.getMessage()); }
-        });
+        commands.put("mem", args -> dumpBank(args, "mem", MemoryMode.ACTIVE));
         commands.put("memaux", args -> dumpBank(args, "memaux", MemoryMode.AUX));
         commands.put("memmain", args -> dumpBank(args, "memmain", MemoryMode.MAIN));
         commands.put("cpu", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.showCpuState(); });
@@ -192,20 +187,22 @@ public class MainMode implements TerminalMode {
 
         commandHelp.put("mem",
                 "Dumps a range of memory as hex, following the current softswitch configuration.\n" +
-                        "Usage: mem <start> <end>\n" +
-                        "Example: mem 3800 3820");
+                        "Usage: mem <start> <end> [--raw|--csv]\n" +
+                        "Example: mem 3800 3820\n" +
+                        "--raw  Space-separated hex bytes only: no address prefix, no ASCII gutter.\n" +
+                        "--csv  Comma-separated hex bytes. Both are directly diffable.");
 
         commandHelp.put("memaux",
                 "Dumps a range of AUXILIARY bank memory as hex, regardless of softswitch state.\n" +
-                        "Usage: memaux <start> <end> (or mx <start> <end>)\n" +
-                        "Example: memaux 2000 2027\n" +
+                        "Usage: memaux <start> <end> [--raw|--csv] (or mx ...)\n" +
+                        "Example: memaux 2000 2027 --raw\n" +
                         "In 80STORE double-hi-res, aux holds the EVEN pixel columns of $2000-$3FFF.\n" +
                         "Reads the physical bank directly: no softswitches are touched.");
 
         commandHelp.put("memmain",
                 "Dumps a range of MAIN bank memory as hex, regardless of softswitch state.\n" +
-                        "Usage: memmain <start> <end> (or mm <start> <end>)\n" +
-                        "Example: memmain 2000 2027\n" +
+                        "Usage: memmain <start> <end> [--raw|--csv] (or mm ...)\n" +
+                        "Example: memmain 2000 2027 --raw\n" +
                         "In 80STORE double-hi-res, main holds the ODD pixel columns of $2000-$3FFF.");
 
         commandHelp.put("cpu", "Displays the current CPU state (registers and flags).\nUsage: cpu");
@@ -1744,21 +1741,41 @@ public class MainMode implements TerminalMode {
     }
 
     /**
-     * Hex dumps a range from an explicitly selected memory bank. Unlike "mem", the
-     * bank is not inferred from softswitch state, so aux and main can be compared
+     * Hex dumps a range from a memory bank. For memaux/memmain the bank is not
+     * inferred from softswitch state, so aux and main can be compared
      * independently -- needed to verify both halves of a DHGR pixel column.
+     *
+     * An optional trailing --raw or --csv selects a machine-readable rendering.
+     * Absent that flag the format is unchanged, so existing callers and scripts
+     * that parse the human dump keep working.
      */
     private void dumpBank(String[] args, String commandName, MemoryMode mode) {
         MonitorMode mon = getMonitorMode();
         if (mon == null) {
             return;
         }
-        if (args.length < 2) {
-            output.println("Usage: " + commandName + " <start> <end>");
+        // Separate format flags from addresses in one pass so the flag may appear
+        // in any position -- callers building command strings programmatically
+        // should not have to care about argument order.
+        MemoryDump.Format format = MemoryDump.Format.HEX_ASCII;
+        String start = null;
+        String end = null;
+        for (String arg : args) {
+            MemoryDump.Format parsed = MemoryDump.Format.parse(arg);
+            if (parsed != null) {
+                format = parsed;
+            } else if (start == null) {
+                start = arg;
+            } else if (end == null) {
+                end = arg;
+            }
+        }
+        if (start == null || end == null) {
+            output.println("Usage: " + commandName + " <start> <end> [--raw|--csv]");
             return;
         }
         try {
-            mon.examineMemoryRange(parseHexAddress(args[0]), parseHexAddress(args[1]), mode);
+            MemoryDump.dump(output, mon, parseHexAddress(start), parseHexAddress(end), mode, format);
         } catch (NumberFormatException e) {
             output.println("Invalid address: " + e.getMessage());
         }
