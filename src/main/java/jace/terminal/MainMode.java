@@ -96,6 +96,7 @@ public class MainMode implements TerminalMode {
         commands.put("help", this::showHelp);
         commands.put("charlog", this::toggleCharLog);
         commands.put("rdb", this::cyreneCommand);
+        commands.put("symbols", this::symbolsCommand);
 
         // Monitor forwarding commands — invoke MonitorMode capabilities without a mode switch
         commands.put("go", args -> {
@@ -110,7 +111,25 @@ public class MainMode implements TerminalMode {
             try { mon.examineMemoryRange(parseHexAddress(args[0]), parseHexAddress(args[1]), MemoryMode.ACTIVE); }
             catch (NumberFormatException e) { output.println("Invalid address: " + e.getMessage()); }
         });
+        commands.put("memaux", args -> dumpBank(args, "memaux", MemoryMode.AUX));
+        commands.put("memmain", args -> dumpBank(args, "memmain", MemoryMode.MAIN));
         commands.put("cpu", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.showCpuState(); });
+        // poke <addr> <byte> [byte ...] — write raw bytes bypassing write-protection (patches ROM)
+        commands.put("poke", args -> {
+            if (args.length < 2) { output.println("Usage: poke <addr> <byte> [byte ...]"); return; }
+            try {
+                int addr = parseHexAddress(args[0]);
+                Emulator.withMemory(ram -> {
+                    for (int i = 1; i < args.length; i++) {
+                        int val = Integer.parseInt(args[i], 16) & 0xFF;
+                        int a = addr + (i - 1);
+                        byte[] page = ram.activeRead.getMemoryPage(a);
+                        if (page != null) page[a & 0xFF] = (byte) val;
+                        else output.println("No page at " + Integer.toHexString(a));
+                    }
+                });
+            } catch (NumberFormatException e) { output.println("Invalid address/value: " + e.getMessage()); }
+        });
         commands.put("registers", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleRegisters(args); });
         commands.put("break", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleBreakpoint(args); });
         commands.put("runto", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleRunTo(args); });
@@ -129,6 +148,8 @@ public class MainMode implements TerminalMode {
         addAlias("st", "showtext");
         addAlias("lb", "loadbin");
         addAlias("sb", "savebin");
+        addAlias("mx", "memaux");
+        addAlias("mm", "memmain");
         addAlias("sab", "saveauxbin");
         addAlias("sarb", "saveauxrambin");
         addAlias("ss2", "screenshot");
@@ -142,6 +163,7 @@ public class MainMode implements TerminalMode {
         addAlias("rt", "runto");
         addAlias("cy", "rdb");
         addAlias("cyrene", "rdb");
+        addAlias("sym", "symbols");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -167,8 +189,22 @@ public class MainMode implements TerminalMode {
                         "Example: go 4000  (starts execution at $4000)");
 
         commandHelp.put("mem",
-                "Dumps a range of memory as hex.\nUsage: mem <start> <end>\n" +
+                "Dumps a range of memory as hex, following the current softswitch configuration.\n" +
+                        "Usage: mem <start> <end>\n" +
                         "Example: mem 3800 3820");
+
+        commandHelp.put("memaux",
+                "Dumps a range of AUXILIARY bank memory as hex, regardless of softswitch state.\n" +
+                        "Usage: memaux <start> <end> (or mx <start> <end>)\n" +
+                        "Example: memaux 2000 2027\n" +
+                        "In 80STORE double-hi-res, aux holds the EVEN pixel columns of $2000-$3FFF.\n" +
+                        "Reads the physical bank directly: no softswitches are touched.");
+
+        commandHelp.put("memmain",
+                "Dumps a range of MAIN bank memory as hex, regardless of softswitch state.\n" +
+                        "Usage: memmain <start> <end> (or mm <start> <end>)\n" +
+                        "Example: memmain 2000 2027\n" +
+                        "In 80STORE double-hi-res, main holds the ODD pixel columns of $2000-$3FFF.");
 
         commandHelp.put("cpu", "Displays the current CPU state (registers and flags).\nUsage: cpu");
         commandHelp.put("registers", "Shows or sets CPU register values.\nUsage: registers [reg value]\nExample: registers PC 4000");
@@ -294,6 +330,22 @@ public class MainMode implements TerminalMode {
                 "  rdb start\n" +
                 "  run 999999999   (keep the emulator cycling while Aristaeus is connected)");
 
+        commandHelp.put("symbols",
+                "Loads an assembler symbol file so commands can take label names instead of hex.\n" +
+                "Usage: symbols <labelfile>   — Load symbols (merges with any already loaded)\n" +
+                "       symbols               — List loaded symbols and their addresses\n" +
+                "       symbols clear         — Forget all loaded symbols\n" +
+                "Alias: sym\n\n" +
+                "Accepts either ACME label format:\n" +
+                "  acme --symbollist FILE   \"name = $XXXX\"\n" +
+                "  acme --vicelabels FILE   \"al C:xxxx .name\"\n\n" +
+                "Once loaded, any command taking an address accepts a name:\n" +
+                "  break mainloop        runto after_draw        go entry\n" +
+                "  mem frame_count frame_count      memaux mainloop mainloop\n\n" +
+                "Hex input is unchanged and always wins: a name that is also valid hex\n" +
+                "(e.g. a label literally called \"abcd\") must be written \":abcd\".\n" +
+                "Unknown or ambiguous names fail with a message — they never resolve to $0000.");
+
         LOG.fine("Commands initialized");
     }
 
@@ -380,6 +432,7 @@ public class MainMode implements TerminalMode {
         output.println("  registers (reg)  - Show or set CPU registers (no mode switch needed)");
         output.println("  break (bp)       - Manage breakpoints (no mode switch needed)");
         output.println("  runto (rt)       - Run until PC reaches address (no mode switch needed)");
+        output.println("  symbols (sym) <labelfile> - Load assembler labels; address args then accept names");
         output.println("  insertdisk (id) d# file [slot] - Insert disk image in drive # (1 or 2)");
         output.println("  ejectdisk (ed) d# [slot] - Eject disk from drive # (1 or 2)");
         output.println("  bootdisk (bd) d# file [slot] - Insert disk and boot until PC >= $2000");
@@ -390,6 +443,8 @@ public class MainMode implements TerminalMode {
         output.println("  expect <string> [timeout] - Wait for string to appear on screen");
         output.println("  loadbin (lb) file addr - Load binary file at specified address (hex)");
         output.println("  savebin (sb) file addr size - Save binary data from memory to file");
+        output.println("  memaux (mx) start end - Hex dump a range from the AUXILIARY bank");
+        output.println("  memmain (mm) start end - Hex dump a range from the MAIN bank");
         output.println("  saveauxbin (sab) file addr size - Save binary data from AUXILIARY memory to file");
         output.println("  screenshot (ss2) file.png - Capture DHGR page 1 as 1120x384 PNG");
         output.println("  loadbasic (lbas) file - Load plain-text Applesoft BASIC listing into RAM");
@@ -689,13 +744,13 @@ public class MainMode implements TerminalMode {
             try {
                 // Check if the first argument is a breakpoint indicator
                 if (args[0].startsWith("#")) {
-                    breakpointAddress = Integer.parseInt(args[0].substring(1), 16);
+                    breakpointAddress = parseHexAddress(args[0].substring(1));
                 } else {
                     cycleCount = Integer.parseInt(args[0]);
-                    
+
                     // Check for breakpoint as second argument
                     if (args.length > 1 && args[1].startsWith("#")) {
-                        breakpointAddress = Integer.parseInt(args[1].substring(1), 16);
+                        breakpointAddress = parseHexAddress(args[1].substring(1));
                     }
                 }
 
@@ -1658,6 +1713,27 @@ public class MainMode implements TerminalMode {
         }
     }
 
+    /**
+     * Hex dumps a range from an explicitly selected memory bank. Unlike "mem", the
+     * bank is not inferred from softswitch state, so aux and main can be compared
+     * independently -- needed to verify both halves of a DHGR pixel column.
+     */
+    private void dumpBank(String[] args, String commandName, MemoryMode mode) {
+        MonitorMode mon = getMonitorMode();
+        if (mon == null) {
+            return;
+        }
+        if (args.length < 2) {
+            output.println("Usage: " + commandName + " <start> <end>");
+            return;
+        }
+        try {
+            mon.examineMemoryRange(parseHexAddress(args[0]), parseHexAddress(args[1]), mode);
+        } catch (NumberFormatException e) {
+            output.println("Invalid address: " + e.getMessage());
+        }
+    }
+
     private void saveAuxBinary(String[] args) {
         if (args.length < 3) {
             output.println("Usage: saveauxbin <filename> <address> <size>");
@@ -2281,25 +2357,56 @@ public class MainMode implements TerminalMode {
     }
 
     /**
-     * Parse a hex address string that may have a $ prefix
-     * @param addrStr The address string (e.g., "$2000", "2000", "0x2000")
+     * Parse an address string: hex with an optional $ / 0x prefix, or a symbol name
+     * from a loaded symbol file (see {@link SymbolTable} and the {@code symbols}
+     * command). Hex is tried first, so all existing hex input behaves exactly as
+     * before; ":name" forces symbol lookup for names that are also valid hex.
+     *
+     * @param addrStr The address string (e.g., "$2000", "2000", "0x2000", "mainloop")
      * @return The parsed address as an integer
-     * @throws NumberFormatException if the address is not valid
+     * @throws NumberFormatException if the string is neither valid hex nor a known symbol
      */
     private int parseHexAddress(String addrStr) throws NumberFormatException {
-        String hexStr = addrStr;
-        
-        // Handle $ prefix (Apple II convention)
-        if (hexStr.startsWith("$")) {
-            hexStr = hexStr.substring(1);
+        return SymbolTable.resolveAddressOrSymbol(addrStr, output::println);
+    }
+
+    /**
+     * symbols — load / inspect the assembler symbol table used for name resolution.
+     */
+    private void symbolsCommand(String[] args) {
+        if (args.length == 0) {
+            if (SymbolTable.size() == 0) {
+                output.println("No symbols loaded. Usage: symbols <labelfile> | symbols clear");
+                return;
+            }
+            output.println("Symbols loaded from " + SymbolTable.getLastLoadedFrom()
+                    + " (" + SymbolTable.size() + "):");
+            SymbolTable.getSymbols().forEach((name, addr) ->
+                    output.printf("  %-24s $%04X%n", name, addr));
+            return;
         }
-        // Handle 0x prefix (C convention)  
-        else if (hexStr.startsWith("0x") || hexStr.startsWith("0X")) {
-            hexStr = hexStr.substring(2);
+        if (args[0].equalsIgnoreCase("clear")) {
+            SymbolTable.clear();
+            output.println("Symbols cleared");
+            return;
         }
-        
-        // Parse as hex and mask to 16-bit address space
-        return Integer.parseInt(hexStr, 16) & 0xFFFF;
+        java.nio.file.Path path = java.nio.file.Paths.get(args[0]);
+        if (!java.nio.file.Files.isReadable(path)) {
+            output.println("Symbol file not found or not readable: " + args[0]);
+            return;
+        }
+        try {
+            int count = SymbolTable.load(path);
+            if (count == 0) {
+                output.println("No symbols found in " + args[0]
+                        + " — expected acme --symbollist (\"name = $XXXX\") "
+                        + "or --vicelabels (\"al C:xxxx .name\") output");
+                return;
+            }
+            output.println("Loaded " + count + " symbols from " + args[0]);
+        } catch (java.io.IOException e) {
+            output.println("Error reading symbol file: " + e.getMessage());
+        }
     }
 
     private MonitorMode getMonitorMode() {

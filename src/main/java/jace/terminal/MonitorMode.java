@@ -31,7 +31,10 @@ import java.util.regex.Pattern;
 
 import jace.Emulator;
 import jace.apple2e.MOS65C02;
+import jace.apple2e.RAM128k;
 import jace.core.Debugger;
+import jace.core.PagedMemory;
+import jace.core.RAM;
 import jace.core.RAMEvent;
 import jace.core.RAMListener;
 
@@ -1524,16 +1527,18 @@ public class MonitorMode implements TerminalMode, WatchCallback {
      */
     byte readMemory(int address, MemoryMode mode, boolean triggerEvents) {
         return Emulator.withMemory(ram -> {
-            Boolean auxFlag = determineAuxFlag(mode);
-            
-            if (triggerEvents) {
-                // Use read() with proper parameters to trigger memory listeners
-                // Handle null auxFlag by defaulting to false (main memory)
-                return (byte) ram.read(address, RAMEvent.TYPE.READ_DATA, true, auxFlag != null ? auxFlag : false);
-            } else {
-                // Use readRaw for non-event triggering, it still respects memory mode via the memory manager
-                return ram.readRaw(address);
+            // An explicit MAIN/AUX selector must read that physical bank regardless of
+            // the current softswitch configuration. RAM.read/readRaw always go through
+            // the active read configuration, so they cannot distinguish the banks --
+            // an AUX request would silently mirror MAIN.
+            PagedMemory bank = resolveBank(ram, mode, address);
+            if (bank != null) {
+                return bank.readByte(address);
             }
+            if (triggerEvents) {
+                return (byte) ram.read(address, RAMEvent.TYPE.READ_DATA, true, false);
+            }
+            return ram.readRaw(address);
         }, (byte) 0);
     }
     
@@ -1550,19 +1555,21 @@ public class MonitorMode implements TerminalMode, WatchCallback {
     
     private void writeMemory(int address, int[] values, MemoryMode mode) {
         Emulator.withMemory(ram -> {
-            Boolean auxFlag = determineAuxFlag(mode);
-            
             for (int i = 0; i < values.length; i++) {
-                // Use the RAM.write method with the appropriate parameters
-                // Handle null auxFlag by defaulting to false (main memory)
-                ram.write(address + i, (byte) values[i], true, auxFlag != null ? auxFlag : false);
+                int addr = address + i;
+                PagedMemory bank = resolveBank(ram, mode, addr);
+                if (bank != null) {
+                    bank.writeByte(addr, (byte) values[i]);
+                } else {
+                    ram.write(addr, (byte) values[i], true, false);
+                }
             }
         });
     }
-    
+
     /**
-     * Determines auxFlag from memory mode for RAM access
-     * 
+     * Determines auxFlag from memory mode for RAM listener filtering
+     *
      * @param mode The memory mode
      * @return The auxiliary memory flag (null for active, false for main, true for aux)
      */
@@ -1575,7 +1582,32 @@ public class MonitorMode implements TerminalMode, WatchCallback {
             return null;
         }
     }
-    
+
+    /**
+     * Resolves an explicit MAIN or AUX bank selector to the physical PagedMemory
+     * holding that address, bypassing the MMU's active configuration. This lets the
+     * monitor inspect either bank without touching softswitch state -- required for
+     * verifying 80STORE double-hi-res pages, where aux holds the even pixel columns.
+     *
+     * @param ram The system memory
+     * @param mode The memory mode (MAIN, AUX, or ACTIVE)
+     * @param address The address being accessed
+     * @return The physical bank, or null if the active configuration should be used
+     *         (MemoryMode.ACTIVE, non-128k memory, or an address outside main/aux RAM)
+     */
+    private PagedMemory resolveBank(RAM ram, MemoryMode mode, int address) {
+        if (mode != MemoryMode.MAIN && mode != MemoryMode.AUX) {
+            return null;
+        }
+        if (!(ram instanceof RAM128k) || (address & 0xFFFF) >= 0x0C000) {
+            // Above $BFFF the bank is decided by language-card and ROM switches
+            // rather than the main/aux split, so defer to the active configuration.
+            return null;
+        }
+        RAM128k ram128k = (RAM128k) ram;
+        return (mode == MemoryMode.AUX) ? ram128k.getAuxMemory() : ram128k.getMainMemory();
+    }
+
     private void hexDump(int startAddress, int byteCount, MemoryMode mode) {
         lastExaminedAddress = startAddress + byteCount;
         
