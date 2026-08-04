@@ -1513,6 +1513,13 @@ public class MOS65C02 extends CPU {
 
     // FC is typically a NOP instruction, but let's pretend it is our own opcode that we can use for special commands
     HashMap<Integer, Consumer<Byte>> extendedCommandHandlers = new HashMap<>();
+
+    /**
+     * Redirect target for $FC $5E (emit A as hex) output.
+     * Defaults to System.out; set to a file stream via --reglog to capture register dumps.
+     */
+    public static java.io.PrintStream debugOut = System.out;
+
     /**
      * Special commands -- these are usually treated as NOP but can be reused for emulator controls
      * !byte $fc, $65, $00 ; Turn off tracing
@@ -1520,6 +1527,8 @@ public class MOS65C02 extends CPU {
      * !byte $fc, $50, NN ; print number NN to stdout
      * !byte $fc, $5b, NN ; print number NN to stdout with newline
      * !byte $fc, $5c, NN ; print character NN to stdout
+     * !byte $fc, $5e, 00  ; emit cpu.A as 2-digit hex + space to debugOut
+     * !byte $fc, $5f, 00  ; emit newline to debugOut (end of register line)
      * !byte $fc, $44, NN ; dump processor state with identifier NN
      * @param param1
      * @param param2
@@ -1538,6 +1547,15 @@ public class MOS65C02 extends CPU {
             case 0x5c:
                 // System out char
                 System.out.print((char) (param2 & 0x0ff));
+                break;
+            case 0x5e:
+                // Emit cpu.A as 2-digit hex + space to debugOut
+                debugOut.printf("%02X ", A & 0xFF);
+                break;
+            case 0x5f:
+                // Emit newline to debugOut (end of register dump line)
+                debugOut.println();
+                debugOut.flush();
                 break;
             case 0x44:
                 // Dump processor state with identifier
