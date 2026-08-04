@@ -1861,22 +1861,31 @@ public class MainMode implements TerminalMode {
 
         byte[] actual = MemoryDump.read(mon, address, expected.length, mode);
 
+        // Name the bank on every line. AUX holds the even DHGR byte columns and
+        // MAIN the odd, and asking for the wrong one is a routine mistake; a
+        // report that does not say what it read leaves the operator unable to
+        // distinguish a real defect from a mis-aimed query, which is how a false
+        // defect report gets filed. ACTIVE is reported as such rather than
+        // resolved to a name, because which bank it landed on is a function of
+        // softswitch state this command did not verify.
+        String bankName = mode.name();
+
         int mismatches = 0;
         for (int i = 0; i < expected.length; i++) {
             int got = actual[i] & 0xFF;
             if (got != expected[i]) {
                 mismatches++;
-                output.println(String.format("+%d  %04X  expected %02X  got %02X",
-                        i, (address + i) & 0xFFFF, expected[i], got));
+                output.println(String.format("%-6s +%d  %04X  expected %02X  got %02X",
+                        bankName, i, (address + i) & 0xFFFF, expected[i], got));
             }
         }
 
         if (mismatches == 0) {
-            output.println(expected.length + " bytes match at $"
+            output.println(expected.length + " bytes match in " + bankName + " at $"
                     + String.format("%04X", address & 0xFFFF));
         } else {
             output.println(mismatches + " mismatch" + (mismatches == 1 ? "" : "es")
-                    + " in " + expected.length + " bytes");
+                    + " in " + expected.length + " bytes read from " + bankName);
         }
     }
 

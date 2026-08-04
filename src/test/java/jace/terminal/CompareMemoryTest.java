@@ -128,6 +128,45 @@ public class CompareMemoryTest {
         assertTrue("should name the actual byte 12, got: " + output, output.contains("12"));
     }
 
+    // ---- Naming the bank in the report -------------------------------------
+
+    @Test
+    public void everyMismatchLineNamesTheBankItRead() {
+        // AUX holds the even DHGR byte columns and MAIN the odd, and mixing them
+        // up is a routine error. A mismatch line that does not say which bank it
+        // read leaves the operator unable to tell a real defect from having
+        // simply asked the wrong bank -- which is how a false defect report
+        // starts.
+        String aux = run("cmpmem aux 6000 FF");
+        assertTrue("aux mismatch must name AUX, got: " + aux,
+                aux.toUpperCase().contains("AUX"));
+        assertFalse("aux mismatch must not name MAIN, got: " + aux,
+                aux.toUpperCase().contains("MAIN"));
+
+        String main = run("cmpmem main 6000 FF");
+        assertTrue("main mismatch must name MAIN, got: " + main,
+                main.toUpperCase().contains("MAIN"));
+    }
+
+    @Test
+    public void cleanComparisonAlsoNamesTheBank() {
+        // A passing verification is evidence, and evidence that does not say
+        // what it examined is worth much less. "4 bytes match" could be a clean
+        // aux render or a clean read of a bank nobody asked about.
+        String output = run("cmpmem aux 6000 80 81 82 83");
+        assertTrue("clean run must name the bank, got: " + output,
+                output.toUpperCase().contains("AUX"));
+    }
+
+    @Test
+    public void activeBankIsNamedDistinctlyFromAResolvedBank() {
+        // "active" follows the softswitches, so reporting it as AUX or MAIN
+        // would assert something the command did not verify.
+        String output = run("cmpmem active 6000 FF");
+        assertTrue("active should be reported as ACTIVE, got: " + output,
+                output.toUpperCase().contains("ACTIVE"));
+    }
+
     @Test
     public void mismatchReportGivesTheAbsoluteAddressNotJustTheOffset() {
         // Offset 2 from $6000 is $6002; the operator needs the address to go
