@@ -48,13 +48,14 @@ public class EnvelopeGenerator extends TimedGenerator {
         return 16;
     }
 
+    /**
+     * MAME ay8910.cpp:90-91: period = 0 is the same as period = 1 for the tone
+     * and noise generators, but "this does NOT apply to the Envelope period. In
+     * that case, period = 0 is half as period = 1."
+     */
     @Override
-    public void setPeriod(int p) {
-        if (p > 0) {
-            super.setPeriod(p);
-        } else {
-            clocksPerPeriod = stepsPerCycle() / 2;
-        }
+    protected int clocksAtPeriodZero() {
+        return stepsPerCycle() / 2;
     }
 
     int effectiveAmplitude = 0;

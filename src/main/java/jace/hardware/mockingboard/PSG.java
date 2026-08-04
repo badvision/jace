@@ -206,11 +206,10 @@ public class PSG {
             case ACoarse, AFine -> channels.get(0).setPeriod(getReg(Reg.AFine) + (getReg(Reg.ACoarse) << 8));
             case BCoarse, BFine -> channels.get(1).setPeriod(getReg(Reg.BFine) + (getReg(Reg.BCoarse) << 8));
             case CCoarse, CFine -> channels.get(2).setPeriod(getReg(Reg.CFine) + (getReg(Reg.CCoarse) << 8));
-            case NoisePeriod -> {
-                if (value == 0) value = 32;
-                noiseGenerator.setPeriod(value+16);
-                noiseGenerator.counter = 0;
-            }
+            // Datasheet: noise frequency = clock / (16 * NP), and period 0 behaves
+            // as period 1 (handled by TimedGenerator.clocksAtPeriodZero).
+            // NoiseGenerator.stepsPerCycle() supplies the factor of 16.
+            case NoisePeriod -> noiseGenerator.setPeriod(value);
             case Enable -> {
                 channels.get(0).setActive((value & 1) == 0);
                 channels.get(0).setNoiseActive((value & 8) == 0);

@@ -26,16 +26,21 @@ public class NoiseGenerator extends TimedGenerator {
     public NoiseGenerator(int _clock,int _sampleRate) {
         super(_clock, _sampleRate);
     }
+    /**
+     * AY-3-8910 datasheet: noise frequency = clock / (16 * NP). MAME clocks the
+     * noise counter off the same divide-by-8 prescaler as the tone generators and
+     * then halves it again (ay8910.cpp:1086-1104), which is 16 master clocks per
+     * shift per unit of the period register.
+     */
     @Override
     public int stepsPerCycle() {
-        return 4;
+        return 16;
     }
     public void step() {
         int stateChanges = updateCounter();
         for (int i=0; i < stateChanges; i++)
             updateRng();
     }
-    public static final int BIT17 = 0x010000;
     public void updateRng() {
         rng = ((rng & 1) != 0 ? rng ^ 0x24000 : rng) >> 1;
         if ((rng & 1) == 1) {

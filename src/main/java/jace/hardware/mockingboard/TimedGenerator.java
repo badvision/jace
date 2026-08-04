@@ -34,7 +34,7 @@ public class TimedGenerator {
     int clocksPerPeriod;
 
     public TimedGenerator(int _clock, int _sampleRate) {
-        setRate(clock, sampleRate);
+        setRate(_clock, _sampleRate);
         reset();
     }
     // In most cases a cycle is a step.  The AY uses 16-cycle based periods for its oscillators
@@ -47,23 +47,33 @@ public class TimedGenerator {
     public void setRate(int clock, int sample_rate) {
         sampleRate = sample_rate == 0 ? 44100 : sample_rate;
         this.clock = clock;
-        cyclesPerSample = clock / sampleRate;
+        // Must be a floating-point division. The Mockingboard's 1020484 Hz at a
+        // 44100 Hz sample rate is 23.14 clocks per sample; integer division
+        // truncates to 23 and makes every generator run 0.6% slow (~10 cents
+        // flat).
+        cyclesPerSample = (double) clock / sampleRate;
+    }
+
+    /**
+     * Clocks per state change when the period register holds 0.
+     *
+     * Period 0 is not "off": MAME ay8910.cpp:1076 clamps with
+     * {@code std::max<int>(1, tone->period)}, and the comment at ay8910.cpp:90
+     * cites the YM2203 data sheets -- "note that period = 0 is the same as
+     * period = 1". The envelope generator overrides this because the same
+     * comment continues: "However, this does NOT apply to the Envelope period.
+     * In that case, period = 0 is half as period = 1."
+     */
+    protected int clocksAtPeriodZero() {
+        return stepsPerCycle();
     }
 
     public void setPeriod(int _period) {
         period = _period;
-        clocksPerPeriod = (period * stepsPerCycle());
-        // set counter back... necessary?
-//        while (clocksPerPeriod > period) {
-//            counter -= clocksPerPeriod;
-//        }
+        clocksPerPeriod = period > 0 ? period * stepsPerCycle() : clocksAtPeriodZero();
     }
 
     protected int updateCounter() {
-        // Period == 0 means the generator is off
-        if (period <= 1 || clocksPerPeriod <= 1) {
-            return 0;
-        }
         counter += cyclesPerSample;
         int numStateChanges = 0;
         while (counter >= clocksPerPeriod) {
@@ -75,6 +85,6 @@ public class TimedGenerator {
 
     public void reset() {
         counter = 0;
-        period = 0;
+        setPeriod(0);
     }
 }

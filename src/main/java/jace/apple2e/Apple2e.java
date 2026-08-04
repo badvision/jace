@@ -71,7 +71,7 @@ public class Apple2e extends Computer {
     public DeviceSelection<Cards> card3 = new DeviceSelection<>(Cards.class, null);
     @ConfigurableField(name = "Slot 4", shortName = "s4card")
     // public DeviceSelection<Cards> card4 = new DeviceSelection<>(Cards.class, Cards.Mockingboard, true);
-    public DeviceSelection<Cards> card4 = new DeviceSelection<>(Cards.class, Cards.MegaFlash, true);
+    public DeviceSelection<Cards> card4 = new DeviceSelection<>(Cards.class, Cards.Mockingboard, true);
     @ConfigurableField(name = "Slot 5", shortName = "s5card")
     public DeviceSelection<Cards> card5 = new DeviceSelection<>(Cards.class, Cards.RamFactor, true);
     @ConfigurableField(name = "Slot 6", shortName = "s6card")

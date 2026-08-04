@@ -58,7 +58,15 @@ public class SoundGenerator extends TimedGenerator {
         if (((stateChanges & 1) == 1)) inverted = !inverted;
         double amp = stateChanges == 0 ? 1 : 1.0 / Math.max(stateChanges-1, 1);
         int vol = useEnvGen ? envGen.getEffectiveAmplitude() : amplitude;
-        boolean on = noiseActive && noiseGen.isOn() || (active && inverted);
+        // MAME ay8910.cpp:1064-1069 and :1110 -- the tone and noise generators are
+        // mixed BEFORE the DAC, and the formula is
+        //     (ToneOn | ToneDisable) & (NoiseOn | NoiseDisable)
+        // where the "Disable" terms are register 7's bits, which are active low.
+        // Note this means that when both tone and noise are disabled the output is
+        // 1, not 0, so the channel becomes a DC source that software can modulate
+        // by writing the amplitude register alone -- that is how PCM sample
+        // playback on this chip works.
+        boolean on = (inverted || !active) && (noiseGen.isOn() || !noiseActive);
         return on ? (int) (CardMockingboard.VolTable[vol] * amp) : 0;
     }
     

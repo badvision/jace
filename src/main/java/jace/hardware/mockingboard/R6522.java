@@ -25,8 +25,10 @@ import jace.core.Device;
  * @author Brendan Robert (BLuRry) brendan.robert@gmail.com
  */
 public abstract class R6522 extends Device {
-    public static long SPEED = 1020484L; // (NTSC)
-    
+    // NOTE: this class has no clock rate of its own. The 6522 is clocked by the
+    // bus Phi2 the CPU sees, so tick() is driven at the motherboard's CPU rate
+    // and one tick is one timer count. (Contrast CardMockingboard.CLOCK_SPEED,
+    // which is the AY *oscillator* clock and a different number.)
     public R6522() {
         super();
         timer1freerun = true;
@@ -150,9 +152,16 @@ public abstract class R6522 extends Device {
                 if (!timer1freerun) {
                     timer1running = false;
                 }
+                // The flag is set by the interrupt CONDITION, not by the enable.
+                // IER only decides whether the IRQ pin is pulled low. See
+                // MAME 6522via.cpp t1_tick(), which calls set_int(INT_T1)
+                // unconditionally, and output_irq(), which is the only place
+                // m_ier is consulted. Software that polls IFR with interrupts
+                // disabled (a documented Mockingboard-detection idiom) depends
+                // on this.
+                timer1IRQ = true;
                 if (timer1interruptEnabled) {
                     if (debug) System.out.println("Timer 1 generated interrupt");
-                    timer1IRQ = true;
                     Emulator.withComputer(c->c.getCpu().generateInterrupt());
                 }
             }
@@ -164,9 +173,10 @@ public abstract class R6522 extends Device {
             if (timer2counter < 0) {
                 timer2running = false;
                 timer2counter = timer2latch;
+                // Same flag/enable split as timer 1 -- see the comment above.
+                timer2IRQ = true;
                 if (timer2interruptEnabled) {
                     if (debug) System.out.println("Timer 2 generated interrupt");
-                    timer2IRQ = true;
                     Emulator.withComputer(c->c.getCpu().generateInterrupt());
                 }
             }
@@ -257,7 +267,7 @@ public abstract class R6522 extends Device {
         }
         // SHIFT REGISTER NOT IMPLEMENTED
         // TODO: Implement if Votrax (SSI) is to be supported
-        if (timer1running || timer2running) {
+        if ((timer1running || timer2running) && !isRunning()) {
             if (debug) System.out.println("One or more timers active, resuming");
             resume();
         }
@@ -332,7 +342,14 @@ public abstract class R6522 extends Device {
                 if (timer2IRQ) {
                     val |= 32;
                 }
-                if (val != 0) {
+                // Bit 7 is the IRQ-line summary: it reflects (IER & IFR), not
+                // IFR alone, so a flag that is set but masked off must not set
+                // it. MAME 6522via.cpp output_irq():
+                //     if (m_ier & m_ifr & 0x7f) m_ifr |= INT_ANY;
+                //     else                      m_ifr &= ~INT_ANY;
+                int enabled = (timer1interruptEnabled ? 64 : 0)
+                            | (timer2interruptEnabled ? 32 : 0);
+                if ((val & enabled) != 0) {
                     val |= 128;
                 }
                 return val;

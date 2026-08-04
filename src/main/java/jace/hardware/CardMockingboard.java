@@ -31,6 +31,7 @@ import jace.core.RAMListener;
 import jace.core.SoundMixer;
 import jace.core.SoundMixer.SoundBuffer;
 import jace.core.SoundMixer.SoundError;
+import jace.core.TimedDevice;
 import jace.hardware.mockingboard.PSG;
 import jace.hardware.mockingboard.R6522;
 
@@ -57,11 +58,27 @@ public class CardMockingboard extends Card {
             category = "Sound",
             description = "If enabled, card will have 4 sound chips instead of 2")
     public boolean phasorMode = false;
+    /**
+     * Clock supplied to the AY oscillators.
+     *
+     * This is the Apple II bus clock the peripheral slots see: the 14.31818 MHz
+     * NTSC colorburst crystal divided by 14, which is 1022727 Hz.
+     *
+     * It is deliberately NOT {@link jace.core.TimedDevice#NTSC_1MHZ} (1020484).
+     * That lower figure is the 6502's *average* rate, which only differs because
+     * the video logic stretches one cycle per scanline. The stretch describes how
+     * long the CPU waits; it does not slow the oscillator down. A card in a slot
+     * is clocked by the crystal-derived bus clock, so the AY runs at 1022727 Hz.
+     * Using the CPU average here makes every tone about 3.8 cents flat.
+     *
+     * NTSC_1MHZ remains correct for things that count CPU cycles -- this card's
+     * tick pacing and the 6522 timers.
+     */
     @ConfigurableField(name = "Clock Rate (hz)",
             category = "Sound",
-            defaultValue = "1020484",
-            description = "Clock rate of AY oscillators")
-    public int CLOCK_SPEED = 1020484;
+            defaultValue = "1022727",
+            description = "Clock rate of AY oscillators (Apple II slot clock: 14.31818MHz / 14)")
+    public int CLOCK_SPEED = 1022727;
     // The array of configured AY chips
     public PSG[] chips;
     // The 6522 controllr chips (always 2)
@@ -215,7 +232,10 @@ public class CardMockingboard extends Card {
         if (DEBUG) {
             System.out.println("Reconfiguring Mockingboard");
         }
-        ticksBetweenPlayback = (double) CLOCK_SPEED / (double) SoundMixer.RATE;
+        // tick() counts this card's ticks, and the card is paced by the motherboard
+        // at the CPU rate -- so the sample interval comes from NTSC_1MHZ, not from
+        // CLOCK_SPEED (the AY oscillator clock, which is a different number).
+        ticksBetweenPlayback = (double) TimedDevice.NTSC_1MHZ / (double) SoundMixer.RATE;
         initPSG();
 
         super.reconfigure();
@@ -230,6 +250,10 @@ public class CardMockingboard extends Card {
     AtomicInteger left  = new AtomicInteger(0);
     AtomicInteger right = new AtomicInteger(0);
     public boolean playSound() throws InterruptedException, ExecutionException, SoundError {
+        SoundBuffer b = buffer;
+        if (b == null) {
+            return false;
+        }
         if (phasorMode && chips.length != 4) {
             System.err.println("Wrong number of chips for phasor mode, correcting this");
             initPSG();
@@ -240,36 +264,81 @@ public class CardMockingboard extends Card {
             chips[2].update(left, false, left, false, left, false);
             chips[3].update(right, false, right, false, right, false);
         }
-        SoundBuffer b = buffer;
-        if (b == null) {
-            return false;
-        }
         b.playSample((short) left.get());
         b.playSample((short) right.get());
         return (left.get() != 0 || right.get() != 0);
     }
 
+    /**
+     * Relative amplitude of each of the AY's 16 levels, as a fraction of full
+     * scale, derived from measurements of real hardware rather than from a
+     * logarithmic formula.
+     *
+     * <p>A Mockingboard uses the <b>AY-3-8913</b> -- the AY-3-8910's PSG core in a
+     * 24-pin package with the parallel I/O ports omitted. MAME models it as
+     * {@code ay8910_device(..., PSG_TYPE_AY, 3, 0)} (ay8910.cpp:1630-1631), and
+     * because it is {@code PSG_TYPE_AY} the same 16-entry {@code ay8910_param}
+     * serves both the tone and the envelope DAC (ay8910.cpp:1578-1579, with
+     * {@code m_env_step_mask = 0x0f} at :1575). The YM2149's 32-entry envelope
+     * table does not apply here.
+     *
+     * <p>The numbers come from Matthew Westcott's December 2001 measurements of an
+     * AY-3-8910, which MAME cites for its active {@code ay8910_param}
+     * (ay8910.cpp:678-722). He set channel C to a constant voltage (register 6
+     * bits 2 and 5), swept the low 4 bits of register 10, and measured pin 1
+     * against ground:
+     *
+     * <pre>
+     *   level: 0      1      2      3      4      5      6      7
+     *   volts: 1.147  1.162  1.169  1.178  1.192  1.213  1.238  1.299
+     *   level: 8      9      10     11     12     13     14     15
+     *   volts: 1.336  1.457  1.573  1.707  1.882  2.06   2.32   2.58
+     * </pre>
+     *
+     * <p>The values below are those voltages expressed as swing above the level-0
+     * floor, so that level 0 is silence and level 15 is full scale:
+     * {@code (v[i] - v[0]) / (v[15] - v[0])}.
+     *
+     * <p><b>Why the readings and not MAME's table verbatim.</b> MAME does not store
+     * these voltages; it stores a set of equivalent output <em>resistances</em>
+     * which it converts at runtime through {@code build_single_table}, a divider
+     * against {@code r_up = 800000}, {@code r_down = 8000000} and a load
+     * resistance. Those resistances were fitted in SwitcherCAD to reproduce the
+     * readings <em>through the ZX Spectrum's output circuit</em> (see the same
+     * comment block: "The ZX spectrum output circuit was modelled in SwitcherCAD
+     * and the resistor values below create the voltage levels above"). Jace models
+     * no such output network -- it treats level 0 as digital silence and sums
+     * channels directly -- so the divider's DC floor and load-dependence are not
+     * applicable here. Notably, no load value reproduces the raw readings exactly:
+     * the residual bottoms out around 0.0056 of full scale at RL = 1800, and the
+     * annotated RL = 2000 leaves 0.011, diverging by about 4 dB at level 1. The
+     * measurements are the empirical ground truth; the resistor network is a model
+     * of a circuit Jace does not have.
+     *
+     * <p>Do not replace this with a uniform dB-per-step curve. The real chip's
+     * steps range from about 1.74 dB to about 4.46 dB and are not monotonic in
+     * size; the regularity of a synthesized curve is not a feature. Relative to a
+     * 3 dB/step model every intermediate level sits higher -- by up to +4.8 dB
+     * around levels 7-10 -- which compresses the level-1-to-15 span from 42.1 dB
+     * to the measured 39.6 dB.
+     */
+    private static final double[] AY_MEASURED_LEVELS = {
+        0.000000, 0.010468, 0.015352, 0.021633,
+        0.031403, 0.046057, 0.063503, 0.106071,
+        0.131891, 0.216329, 0.297278, 0.390789,
+        0.512910, 0.637125, 0.818562, 1.000000
+    };
+
     public void buildMixerTable() {
-        VolTable = new int[16];
+        VolTable = new int[AY_MEASURED_LEVELS.length];
         int numChips = phasorMode ? 4 : 2;
 
-        /* calculate the volume->voltage conversion table */
-        /* The AY-3-8910 has 16 levels, in a logarithmic scale (3dB per step) */
-        /* The YM2149 still has 16 levels for the tone generators, but 32 for */
-        /* the envelope generator (1.5dB per step). */
         double out = (MAX_AMPLITUDE * volume) / 100.0;
         // Reduce max amplitude to reflect post-mixer values so we don't have to scale volume when mixing channels
         out = out * 2.0 / 3.0 / numChips;
-        // double delta = 1.15;
-        for (int i = 15; i > 0; i--) {
-            VolTable[i] = (int) (out / Math.pow(Math.sqrt(2),(15-i)));
-//            out /= 1.188502227;	/* = 10 ^ (1.5/20) = 1.5dB */
-//            out /= 1.15;	/* = 10 ^ (3/20) = 3dB */
-//            delta += 0.0225;
-//            out /= delta;   // As per applewin's source, the levels don't scale as documented.
+        for (int i = 0; i < AY_MEASURED_LEVELS.length; i++) {
+            VolTable[i] = (int) (out * AY_MEASURED_LEVELS[i]);
         }
-        
-        VolTable[0] = 0;
     }
 
     @Override
@@ -317,13 +386,14 @@ public class CardMockingboard extends Card {
             } catch (InterruptedException | ExecutionException | SoundError e) {
                 System.out.println("Error when trying to shutdown sound buffer for Mockingboard: " + e.getMessage());
                 e.printStackTrace();
-            } finally { 
+            } finally {
                 buffer = null;
             }
         }
-        for (R6522 c : controllers) {
-            c.suspend();
-        }
+        // Do NOT suspend R6522 controllers — their timers must keep running
+        // to generate IRQs regardless of whether audio playback is active.
+        // Stopping the timers here breaks headless/reglog mode where sound
+        // output is unavailable but the player still needs IRQ-driven timing.
         return super.suspend();
     }
     
