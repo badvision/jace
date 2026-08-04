@@ -97,6 +97,7 @@ public class MainMode implements TerminalMode {
         commands.put("charlog", this::toggleCharLog);
         commands.put("rdb", this::cyreneCommand);
         commands.put("symbols", this::symbolsCommand);
+        commands.put("runvbl", this::runToVblank);
 
         // Monitor forwarding commands — invoke MonitorMode capabilities without a mode switch
         commands.put("go", args -> {
@@ -164,6 +165,7 @@ public class MainMode implements TerminalMode {
         addAlias("cy", "rdb");
         addAlias("cyrene", "rdb");
         addAlias("sym", "symbols");
+        addAlias("rv", "runvbl");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -279,11 +281,38 @@ public class MainMode implements TerminalMode {
 
         commandHelp.put("screenshot",
                 "Captures the current screen as a PNG using NTSC color rendering.\n"
-                        + "Usage: screenshot <filename.png> (or ss2 <filename.png>)\n"
+                        + "Usage: screenshot <filename.png> [--vbl] (or ss2 <filename.png> [--vbl])\n"
                         + "Reads the live NTSC framebuffer (560x192) rendered by VideoNTSC,\n"
                         + "scales 2x to 1120x384, and writes a PNG.\n"
                         + "Falls back to monochrome DHGR rendering if NTSC framebuffer is unavailable.\n"
-                        + "Example: screenshot /tmp/frame.png");
+                        + "Example: screenshot /tmp/frame.png\n\n"
+                        + "--vbl  Run to the next vertical blanking edge BEFORE capturing, so the\n"
+                        + "       image is frame-coherent. Without it the capture happens immediately\n"
+                        + "       and can land mid-frame, tearing a page still being drawn -- which\n"
+                        + "       has produced at least one false single-row defect report.\n"
+                        + "       Default (no flag) captures immediately; existing scripts are\n"
+                        + "       unaffected. The flag halts the machine at the VBL edge, exactly\n"
+                        + "       as runvbl does.\n"
+                        + "Example: screenshot /tmp/frame.png --vbl");
+
+        commandHelp.put("runvbl",
+                "Advances emulation to the start of the next vertical blanking interval and halts.\n"
+                        + "Usage: runvbl (or rv)\n\n"
+                        + "A bare frame-synchronization primitive. Use it before memaux/memmain/mem\n"
+                        + "dumps so the bytes you read are not being rewritten mid-frame by the\n"
+                        + "program under test:\n"
+                        + "  runvbl\n"
+                        + "  memaux 2000 2027\n"
+                        + "  memmain 2000 2027\n\n"
+                        + "On return the machine is halted inside blanking with the WHOLE 4,550-cycle\n"
+                        + "interval still ahead, so a long dump cannot be overtaken by the scanner.\n"
+                        + "Note: if the machine is ALREADY in blanking, this deliberately runs out\n"
+                        + "through the rest of blanking and the entire active display to stop at the\n"
+                        + "NEXT leading edge -- it does not return immediately with a nearly-exhausted\n"
+                        + "window. Two runvbl calls in a row therefore cost about a full frame.\n\n"
+                        + "Frame geometry (Apple //e NTSC): 65 x 262 = 17,030 cycles per frame,\n"
+                        + "12,480 active display + 4,550 vertical blanking.\n"
+                        + "Reports the cycles executed, or an error if the edge was not reached.");
 
         commandHelp.put("loadbasic",
                 "Loads a plain-text Applesoft BASIC listing from a file and injects it into emulator RAM.\n"
@@ -446,7 +475,8 @@ public class MainMode implements TerminalMode {
         output.println("  memaux (mx) start end - Hex dump a range from the AUXILIARY bank");
         output.println("  memmain (mm) start end - Hex dump a range from the MAIN bank");
         output.println("  saveauxbin (sab) file addr size - Save binary data from AUXILIARY memory to file");
-        output.println("  screenshot (ss2) file.png - Capture DHGR page 1 as 1120x384 PNG");
+        output.println("  screenshot (ss2) file.png [--vbl] - Capture DHGR page 1 as 1120x384 PNG");
+        output.println("  runvbl (rv)      - Run to the next VBL edge and halt (frame-coherent dumps)");
         output.println("  loadbasic (lbas) file - Load plain-text Applesoft BASIC listing into RAM");
         output.println("  key (k) value  - Simulate keypresses");
         output.println("  rdb (cy) start|stop|status - Start/stop Aristaeus remote debugger (port 57867)");
@@ -2236,13 +2266,55 @@ public class MainMode implements TerminalMode {
         }
     }
     
+    /**
+     * Advances to the next vertical blanking edge and halts, so a following dump
+     * or capture is frame-coherent. See VblankSync for the frame geometry and the
+     * inverted RDVBLBAR polarity this depends on.
+     */
+    private void runToVblank(String[] args) {
+        int cycles = VblankSync.runToVblank(VblankSync.DEFAULT_MAX_CYCLES);
+        if (cycles < 0) {
+            output.println("Could not reach a VBL edge within "
+                    + VblankSync.DEFAULT_MAX_CYCLES + " cycles"
+                    + " -- is the video device running?");
+            return;
+        }
+        output.println("Synced to VBL after " + cycles + " cycles; halted in blanking ("
+                + VblankSync.VBLANK_CYCLES + " cycles of blanking available)");
+    }
+
     private void takeScreenshot(String[] args) {
         if (args.length < 1) {
-            output.println("Usage: screenshot <filename.png>");
+            output.println("Usage: screenshot <filename.png> [--vbl]");
             return;
         }
 
-        String filename = args[0];
+        // Opt-in frame synchronization. Default behavior is unchanged --
+        // capture immediately -- so existing automation is unaffected.
+        String filename = null;
+        boolean syncToVblank = false;
+        for (String arg : args) {
+            if ("--vbl".equalsIgnoreCase(arg)) {
+                syncToVblank = true;
+            } else if (filename == null) {
+                filename = arg;
+            }
+        }
+        if (filename == null) {
+            output.println("Usage: screenshot <filename.png> [--vbl]");
+            return;
+        }
+        if (syncToVblank) {
+            int cycles = VblankSync.runToVblank(VblankSync.DEFAULT_MAX_CYCLES);
+            if (cycles < 0) {
+                // Better to refuse than to hand back an image the caller
+                // believes is frame-coherent when it is not.
+                output.println("Could not reach a VBL edge within "
+                        + VblankSync.DEFAULT_MAX_CYCLES + " cycles; screenshot NOT taken");
+                return;
+            }
+            output.println("Synced to VBL after " + cycles + " cycles");
+        }
 
         final int WIDTH  = 560;
         final int HEIGHT = 192;
