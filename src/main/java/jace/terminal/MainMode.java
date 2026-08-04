@@ -106,14 +106,10 @@ public class MainMode implements TerminalMode {
             try { mon.executeCode(parseHexAddress(args[0])); }
             catch (NumberFormatException e) { output.println("Invalid address: " + e.getMessage()); }
         });
-        commands.put("mem", args -> {
-            MonitorMode mon = getMonitorMode(); if (mon == null) return;
-            if (args.length < 2) { output.println("Usage: mem <start> <end>"); return; }
-            try { mon.examineMemoryRange(parseHexAddress(args[0]), parseHexAddress(args[1]), MemoryMode.ACTIVE); }
-            catch (NumberFormatException e) { output.println("Invalid address: " + e.getMessage()); }
-        });
+        commands.put("mem", args -> dumpBank(args, "mem", MemoryMode.ACTIVE));
         commands.put("memaux", args -> dumpBank(args, "memaux", MemoryMode.AUX));
         commands.put("memmain", args -> dumpBank(args, "memmain", MemoryMode.MAIN));
+        commands.put("cmpmem", this::compareMemory);
         commands.put("cpu", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.showCpuState(); });
         // poke <addr> <byte> [byte ...] — write raw bytes bypassing write-protection (patches ROM)
         commands.put("poke", args -> {
@@ -166,6 +162,7 @@ public class MainMode implements TerminalMode {
         addAlias("cyrene", "rdb");
         addAlias("sym", "symbols");
         addAlias("rv", "runvbl");
+        addAlias("cm", "cmpmem");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -192,20 +189,22 @@ public class MainMode implements TerminalMode {
 
         commandHelp.put("mem",
                 "Dumps a range of memory as hex, following the current softswitch configuration.\n" +
-                        "Usage: mem <start> <end>\n" +
-                        "Example: mem 3800 3820");
+                        "Usage: mem <start> <end> [--raw|--csv]\n" +
+                        "Example: mem 3800 3820\n" +
+                        "--raw  Space-separated hex bytes only: no address prefix, no ASCII gutter.\n" +
+                        "--csv  Comma-separated hex bytes. Both are directly diffable.");
 
         commandHelp.put("memaux",
                 "Dumps a range of AUXILIARY bank memory as hex, regardless of softswitch state.\n" +
-                        "Usage: memaux <start> <end> (or mx <start> <end>)\n" +
-                        "Example: memaux 2000 2027\n" +
+                        "Usage: memaux <start> <end> [--raw|--csv] (or mx ...)\n" +
+                        "Example: memaux 2000 2027 --raw\n" +
                         "In 80STORE double-hi-res, aux holds the EVEN pixel columns of $2000-$3FFF.\n" +
                         "Reads the physical bank directly: no softswitches are touched.");
 
         commandHelp.put("memmain",
                 "Dumps a range of MAIN bank memory as hex, regardless of softswitch state.\n" +
-                        "Usage: memmain <start> <end> (or mm <start> <end>)\n" +
-                        "Example: memmain 2000 2027\n" +
+                        "Usage: memmain <start> <end> [--raw|--csv] (or mm ...)\n" +
+                        "Example: memmain 2000 2027 --raw\n" +
                         "In 80STORE double-hi-res, main holds the ODD pixel columns of $2000-$3FFF.");
 
         commandHelp.put("cpu", "Displays the current CPU state (registers and flags).\nUsage: cpu");
@@ -294,6 +293,16 @@ public class MainMode implements TerminalMode {
                         + "       unaffected. The flag halts the machine at the VBL edge, exactly\n"
                         + "       as runvbl does.\n"
                         + "Example: screenshot /tmp/frame.png --vbl");
+
+        commandHelp.put("cmpmem",
+                "Compares memory against an expected byte list, reporting only the differences.\n"
+                        + "Usage: cmpmem <aux|main|active> <addr> <byte> [byte ...] (or cm ...)\n"
+                        + "Example: cmpmem aux 2000 D5 AA 96 FF\n\n"
+                        + "Bytes are hex, separated by spaces or commas, optionally $-prefixed, so\n"
+                        + "the output of 'memaux <s> <e> --raw' or '--csv' can be pasted straight\n"
+                        + "back in. Each mismatch prints its offset, absolute address, expected and\n"
+                        + "actual byte; a clean run prints a match count. aux/main read the physical\n"
+                        + "bank regardless of softswitch state, active follows the current mapping.");
 
         commandHelp.put("runvbl",
                 "Advances emulation to the start of the next vertical blanking interval and halts.\n"
@@ -1744,23 +1753,159 @@ public class MainMode implements TerminalMode {
     }
 
     /**
-     * Hex dumps a range from an explicitly selected memory bank. Unlike "mem", the
-     * bank is not inferred from softswitch state, so aux and main can be compared
+     * Hex dumps a range from a memory bank. For memaux/memmain the bank is not
+     * inferred from softswitch state, so aux and main can be compared
      * independently -- needed to verify both halves of a DHGR pixel column.
+     *
+     * An optional trailing --raw or --csv selects a machine-readable rendering.
+     * Absent that flag the format is unchanged, so existing callers and scripts
+     * that parse the human dump keep working.
      */
     private void dumpBank(String[] args, String commandName, MemoryMode mode) {
         MonitorMode mon = getMonitorMode();
         if (mon == null) {
             return;
         }
-        if (args.length < 2) {
-            output.println("Usage: " + commandName + " <start> <end>");
+        // Separate format flags from addresses in one pass so the flag may appear
+        // in any position -- callers building command strings programmatically
+        // should not have to care about argument order.
+        MemoryDump.Format format = MemoryDump.Format.HEX_ASCII;
+        String start = null;
+        String end = null;
+        for (String arg : args) {
+            MemoryDump.Format parsed = MemoryDump.Format.parse(arg);
+            if (parsed != null) {
+                format = parsed;
+            } else if (start == null) {
+                start = arg;
+            } else if (end == null) {
+                end = arg;
+            }
+        }
+        if (start == null || end == null) {
+            output.println("Usage: " + commandName + " <start> <end> [--raw|--csv]");
             return;
         }
         try {
-            mon.examineMemoryRange(parseHexAddress(args[0]), parseHexAddress(args[1]), mode);
+            MemoryDump.dump(output, mon, parseHexAddress(start), parseHexAddress(end), mode, format);
         } catch (NumberFormatException e) {
             output.println("Invalid address: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Compares a memory range against an expected byte list and reports only
+     * the bytes that differ.
+     *
+     * Verifying a rendered DHGR row means checking hundreds of bytes, and a dump
+     * of all of them buries the two that are wrong. Reporting offsets turns
+     * "something is off in this row" into an exact byte position.
+     *
+     * Reads go through MemoryDump.read(), the same path --raw renders, rather
+     * than re-parsing a rendered dump. Scraping text would couple this command
+     * to the display format and would lose information wherever that format is
+     * lossy, and a comparison the operator cannot reproduce with a dump is worse
+     * than no comparison.
+     */
+    private void compareMemory(String[] args) {
+        MonitorMode mon = getMonitorMode();
+        if (mon == null) {
+            return;
+        }
+        if (args.length < 3) {
+            output.println("Usage: cmpmem <aux|main|active> <addr> <byte> [byte ...]");
+            return;
+        }
+
+        MemoryMode mode = parseBankSelector(args[0]);
+        if (mode == null) {
+            output.println("Unknown bank '" + args[0] + "': expected aux, main, or active");
+            return;
+        }
+
+        int address;
+        try {
+            address = parseHexAddress(args[1]);
+        } catch (NumberFormatException e) {
+            output.println("Invalid address: " + e.getMessage());
+            return;
+        }
+
+        // Accept both separators so the output of --raw ("10 11 12") and of
+        // --csv ("10,11,12") can be pasted straight back in without reformatting.
+        StringBuilder joined = new StringBuilder();
+        for (int i = 2; i < args.length; i++) {
+            joined.append(args[i]).append(' ');
+        }
+        String[] tokens = joined.toString().trim().split("[,\\s]+");
+
+        int[] expected = new int[tokens.length];
+        for (int i = 0; i < tokens.length; i++) {
+            String token = tokens[i].startsWith("$") ? tokens[i].substring(1) : tokens[i];
+            try {
+                // Hex, consistent with every other byte and address argument in
+                // this monitor. Reading these as decimal would silently compare
+                // the wrong values and could report a spurious match.
+                expected[i] = Integer.parseInt(token, 16) & 0xFF;
+            } catch (NumberFormatException e) {
+                output.println("Invalid byte '" + tokens[i] + "' at offset " + i
+                        + ": expected two hex digits");
+                return;
+            }
+        }
+
+        if (address + expected.length > 0x10000) {
+            output.println("Byte list would run past the end of the address space");
+            return;
+        }
+
+        byte[] actual = MemoryDump.read(mon, address, expected.length, mode);
+
+        // Name the bank on every line. AUX holds the even DHGR byte columns and
+        // MAIN the odd, and asking for the wrong one is a routine mistake; a
+        // report that does not say what it read leaves the operator unable to
+        // distinguish a real defect from a mis-aimed query, which is how a false
+        // defect report gets filed. ACTIVE is reported as such rather than
+        // resolved to a name, because which bank it landed on is a function of
+        // softswitch state this command did not verify.
+        String bankName = mode.name();
+
+        int mismatches = 0;
+        for (int i = 0; i < expected.length; i++) {
+            int got = actual[i] & 0xFF;
+            if (got != expected[i]) {
+                mismatches++;
+                output.println(String.format("%-6s +%d  %04X  expected %02X  got %02X",
+                        bankName, i, (address + i) & 0xFFFF, expected[i], got));
+            }
+        }
+
+        if (mismatches == 0) {
+            output.println(expected.length + " bytes match in " + bankName + " at $"
+                    + String.format("%04X", address & 0xFFFF));
+        } else {
+            output.println(mismatches + " mismatch" + (mismatches == 1 ? "" : "es")
+                    + " in " + expected.length + " bytes read from " + bankName);
+        }
+    }
+
+    /**
+     * Resolves an explicit bank name. Returns null for anything unrecognized so
+     * the caller can reject it rather than comparing against memory the operator
+     * did not ask about and reporting the result as authoritative.
+     */
+    private static MemoryMode parseBankSelector(String name) {
+        switch (name.toLowerCase()) {
+            case "aux":
+            case "a":
+                return MemoryMode.AUX;
+            case "main":
+            case "m":
+                return MemoryMode.MAIN;
+            case "active":
+                return MemoryMode.ACTIVE;
+            default:
+                return null;
         }
     }
 
