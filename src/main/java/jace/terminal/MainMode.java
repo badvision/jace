@@ -110,7 +110,25 @@ public class MainMode implements TerminalMode {
             try { mon.examineMemoryRange(parseHexAddress(args[0]), parseHexAddress(args[1]), MemoryMode.ACTIVE); }
             catch (NumberFormatException e) { output.println("Invalid address: " + e.getMessage()); }
         });
+        commands.put("memaux", args -> dumpBank(args, "memaux", MemoryMode.AUX));
+        commands.put("memmain", args -> dumpBank(args, "memmain", MemoryMode.MAIN));
         commands.put("cpu", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.showCpuState(); });
+        // poke <addr> <byte> [byte ...] — write raw bytes bypassing write-protection (patches ROM)
+        commands.put("poke", args -> {
+            if (args.length < 2) { output.println("Usage: poke <addr> <byte> [byte ...]"); return; }
+            try {
+                int addr = parseHexAddress(args[0]);
+                Emulator.withMemory(ram -> {
+                    for (int i = 1; i < args.length; i++) {
+                        int val = Integer.parseInt(args[i], 16) & 0xFF;
+                        int a = addr + (i - 1);
+                        byte[] page = ram.activeRead.getMemoryPage(a);
+                        if (page != null) page[a & 0xFF] = (byte) val;
+                        else output.println("No page at " + Integer.toHexString(a));
+                    }
+                });
+            } catch (NumberFormatException e) { output.println("Invalid address/value: " + e.getMessage()); }
+        });
         commands.put("registers", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleRegisters(args); });
         commands.put("break", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleBreakpoint(args); });
         commands.put("runto", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleRunTo(args); });
@@ -129,6 +147,8 @@ public class MainMode implements TerminalMode {
         addAlias("st", "showtext");
         addAlias("lb", "loadbin");
         addAlias("sb", "savebin");
+        addAlias("mx", "memaux");
+        addAlias("mm", "memmain");
         addAlias("sab", "saveauxbin");
         addAlias("sarb", "saveauxrambin");
         addAlias("ss2", "screenshot");
@@ -167,8 +187,22 @@ public class MainMode implements TerminalMode {
                         "Example: go 4000  (starts execution at $4000)");
 
         commandHelp.put("mem",
-                "Dumps a range of memory as hex.\nUsage: mem <start> <end>\n" +
+                "Dumps a range of memory as hex, following the current softswitch configuration.\n" +
+                        "Usage: mem <start> <end>\n" +
                         "Example: mem 3800 3820");
+
+        commandHelp.put("memaux",
+                "Dumps a range of AUXILIARY bank memory as hex, regardless of softswitch state.\n" +
+                        "Usage: memaux <start> <end> (or mx <start> <end>)\n" +
+                        "Example: memaux 2000 2027\n" +
+                        "In 80STORE double-hi-res, aux holds the EVEN pixel columns of $2000-$3FFF.\n" +
+                        "Reads the physical bank directly: no softswitches are touched.");
+
+        commandHelp.put("memmain",
+                "Dumps a range of MAIN bank memory as hex, regardless of softswitch state.\n" +
+                        "Usage: memmain <start> <end> (or mm <start> <end>)\n" +
+                        "Example: memmain 2000 2027\n" +
+                        "In 80STORE double-hi-res, main holds the ODD pixel columns of $2000-$3FFF.");
 
         commandHelp.put("cpu", "Displays the current CPU state (registers and flags).\nUsage: cpu");
         commandHelp.put("registers", "Shows or sets CPU register values.\nUsage: registers [reg value]\nExample: registers PC 4000");
@@ -390,6 +424,8 @@ public class MainMode implements TerminalMode {
         output.println("  expect <string> [timeout] - Wait for string to appear on screen");
         output.println("  loadbin (lb) file addr - Load binary file at specified address (hex)");
         output.println("  savebin (sb) file addr size - Save binary data from memory to file");
+        output.println("  memaux (mx) start end - Hex dump a range from the AUXILIARY bank");
+        output.println("  memmain (mm) start end - Hex dump a range from the MAIN bank");
         output.println("  saveauxbin (sab) file addr size - Save binary data from AUXILIARY memory to file");
         output.println("  screenshot (ss2) file.png - Capture DHGR page 1 as 1120x384 PNG");
         output.println("  loadbasic (lbas) file - Load plain-text Applesoft BASIC listing into RAM");
@@ -1655,6 +1691,27 @@ public class MainMode implements TerminalMode {
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Error saving binary: " + filename, e);
             output.println("Error saving binary: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Hex dumps a range from an explicitly selected memory bank. Unlike "mem", the
+     * bank is not inferred from softswitch state, so aux and main can be compared
+     * independently -- needed to verify both halves of a DHGR pixel column.
+     */
+    private void dumpBank(String[] args, String commandName, MemoryMode mode) {
+        MonitorMode mon = getMonitorMode();
+        if (mon == null) {
+            return;
+        }
+        if (args.length < 2) {
+            output.println("Usage: " + commandName + " <start> <end>");
+            return;
+        }
+        try {
+            mon.examineMemoryRange(parseHexAddress(args[0]), parseHexAddress(args[1]), mode);
+        } catch (NumberFormatException e) {
+            output.println("Invalid address: " + e.getMessage());
         }
     }
 
