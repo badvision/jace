@@ -93,6 +93,14 @@ public class CardSSC extends Card {
     public boolean IRQ_TRIGGERED = false;
     // Bitmask for stop bits (FF = 8, 7F = 7, etc)
     private int DATA_BITS = 0x07F;
+    // 6551 command/control registers are read/write latches. A hardware reset
+    // (RES low) clears both to $00; software then programs them. Reads must
+    // return the last value written, since the firmware does read-modify-write
+    // on the command register.
+    private static final int ACIA_COMMAND_RESET = 0x00;
+    private static final int ACIA_CONTROL_RESET = 0x00;
+    private int ACIA_COMMAND_REG = ACIA_COMMAND_RESET;
+    private int ACIA_CONTROL_REG = ACIA_CONTROL_RESET;
 
     public CardSSC() {
         super(false);
@@ -104,6 +112,8 @@ public class CardSSC extends Card {
         RECV_IRQ_ENABLED = false;
         TRANS_IRQ_ENABLED = false;
         IRQ_TRIGGERED = false;
+        ACIA_COMMAND_REG = ACIA_COMMAND_RESET;
+        ACIA_CONTROL_REG = ACIA_CONTROL_RESET;
     }
 
     private void resetConnectionState() {
@@ -295,31 +305,17 @@ public class CardSSC extends Card {
                         IRQ_TRIGGERED = false;
                     }
                     if (register == ACIA_Command) {
-                        // Return firmware-expected ACIA Command Register value: 0x0B = 00001011
-                        newValue = 0x0B;
-                        // Bit 0: DTR Enable = 1 (Data Terminal Ready)
-                        // Bit 1: IRQ Enable = 1 (Allow receiver interrupts) 
-                        // Bits 2-3: Transmit control = 01 (RTS low, transmitter on)
-                        // Bit 4: Normal mode = 0 (not echo mode)
-                        // Bits 5-7: Parity control = 000 (no parity)
-                        
-                        // Allow runtime overrides for specific configurations
-                        if (!DTR) {
-                            newValue &= ~0x01; // Clear DTR bit if disabled
-                        }
-                        if (!RECV_IRQ_ENABLED) {
-                            newValue &= ~0x02; // Clear IRQ enable if disabled
-                        }
+                        // The 6551 command register is a read/write latch: a read returns
+                        // exactly what was last written (or the post-reset value). The SSC
+                        // firmware depends on this -- e.g. SETUPCMD ($CDC1) does
+                        // LDA $C08A,Y / ORA #$0C / STA $C08A,Y, a read-modify-write that
+                        // silently corrupts the configuration if reads don't echo writes.
+                        newValue = ACIA_COMMAND_REG;
                     }
                     if (register == ACIA_Control) {
-                        // Return firmware-compatible ACIA Control Register configuration
-                        // 0x16 = 00010110 for typical communications setup:
-                        newValue = 0x16;
-                        // Bits 0-3: Baud rate = 6 (actual rate irrelevant for TCP/telnet)
-                        // Bit 4: Use internal baud rate generator = 1
-                        // Bits 5-6: 8 data bits = 00  
-                        // Bit 7: 1 stop bit = 0
-                        // This matches typical SSC communications mode configuration
+                        // Like the command register, the 6551 control register is a
+                        // read/write latch that reads back what was last written.
+                        newValue = ACIA_CONTROL_REG;
                     }
                     break;
                 case WRITE:
@@ -331,6 +327,7 @@ public class CardSSC extends Card {
                         }
                     }
                     if (register == ACIA_Command) {
+                        ACIA_COMMAND_REG = value & 0x0FF;
                         // 0 = DTR Enable (1) / Disable (0) receiver and IRQ
                         DTR = ((value & 1) == 0);
                         // 0 = Allow IRQ (0) when status bit 3 is true
@@ -364,6 +361,7 @@ public class CardSSC extends Card {
                         // 5 = Control parity
                     }
                     if (register == ACIA_Control) {
+                        ACIA_CONTROL_REG = value & 0x0FF;
                         // 0-3 = Baud Rate
                         // 4 = Use baud rate generator (1) / Use external clock (0)
                         // 5-6 = Number of data bits (00 = 8, 01 = 7, 10 = 6, 11 = 5)
@@ -500,12 +498,18 @@ public class CardSSC extends Card {
             }
         }
         hangUp();
-        if (listenThread != null && listenThread.isAlive()) {
+        // Copy to a local before use: socketMonitor() can call suspend() from the
+        // listener thread itself (e.g. when the port is already bound), so a
+        // concurrent suspend() can null listenThread between the check and the
+        // dereference, producing an NPE on listenThread.join().
+        Thread listener = listenThread;
+        if (listener != null && listener.isAlive() && listener != Thread.currentThread()) {
             try {
-                listenThread.interrupt();
-                listenThread.join(100);
+                listener.interrupt();
+                listener.join(100);
             } catch (InterruptedException ex) {
                 Logger.getLogger(CardSSC.class.getName()).log(Level.SEVERE, null, ex);
+                Thread.currentThread().interrupt();
             }
         }
         listenThread = null;

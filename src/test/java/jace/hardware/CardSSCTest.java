@@ -11,6 +11,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -29,10 +32,109 @@ import jace.core.PagedMemory;
 public class CardSSCTest extends AbstractFXTest {
 
     private CardSSC cardSSC;
+    private Boolean savedCxrom = null;
+    private Boolean savedIntC8Rom = null;
 
     @Before
     public void setUp() {
         cardSSC = new CardSSC();
+    }
+
+    /**
+     * Undo the static SoftSwitches changes made by setupForFirmwareExecution so
+     * that test execution order cannot influence later tests. Restores the exact
+     * prior state rather than assuming a default, since testPhantomInputFixed
+     * asserts on the CXROM state it observes on entry.
+     */
+    @After
+    public void restoreSoftSwitches() {
+        if (savedCxrom != null) {
+            // Stop the CPU this test resumed. Left running, it keeps executing on
+            // the emulator thread and mutates the static SoftSwitches (the Monitor
+            // ROM writes $C007/SETCXROM), which perturbs later tests.
+            Emulator.withComputer(c -> {
+                c.getCpu().suspend();
+                c.getMotherboard().suspend();
+            });
+            SoftSwitches.CXROM.getSwitch().setState(savedCxrom);
+            SoftSwitches.INTC8ROM.getSwitch().setState(savedIntC8Rom);
+            // Restoring the switch bits is not enough: the active memory map is
+            // computed from them, so it has to be recomputed or the $Cxxx pages
+            // stay pointed at whatever this test mapped them to.
+            Emulator.withMemory(ram -> ram.configureActiveMemory());
+            savedCxrom = null;
+            savedIntC8Rom = null;
+        }
+    }
+
+    /**
+     * Rebuild the $Cxxx memory map after inserting a card, working around a
+     * caching bug in RAM128k.configureActiveMemory().
+     *
+     * That method computes a state string from the soft switches and returns
+     * early if it matches the previous one, and it memoizes the built
+     * PagedMemory per state string. Neither the string nor the cache key
+     * encodes which cards are installed. So when CXROM is already off before
+     * the card is added -- which depends on what ran before this test -- the
+     * configureActiveMemory() call inside RAM.addCard() is a no-op, and pages
+     * $C1-$C7 stay pointed at the card-less map built by reconfigure(). Reads
+     * of $C200 then return $FF.
+     *
+     * Toggling CXROM alone is not enough, because the CXROM-off configuration
+     * was already memoized without the card, so the cache has to be dropped
+     * too. Fixing RAM128k to key on the installed card set is the real fix,
+     * but that is outside the scope of this SSC work.
+     */
+    private void forceMemoryRemap(jace.core.RAM ram) {
+        boolean cxrom = SoftSwitches.CXROM.getState();
+        ram.resetState();
+        SoftSwitches.CXROM.getSwitch().setState(!cxrom);
+        ram.configureActiveMemory();
+        SoftSwitches.CXROM.getSwitch().setState(cxrom);
+        ram.resetState();
+        ram.configureActiveMemory();
+    }
+
+    /**
+     * Install the SSC in slot 2 on the real RAM128k memory implementation and
+     * return the CPU, ready to execute firmware.
+     *
+     * TestUtils.setupForCpuTest()'s FakeRAM cannot be used for firmware
+     * execution: it overrides read()/write() to hit a flat byte[] and never
+     * calls callListener(), so the RAMListeners that Card.registerListeners()
+     * installs over $C200-$C2FF are never consulted. Card ROM is served purely
+     * through those listeners, so under FakeRAM every fetch from $C200 reads
+     * $00 (BRK) and the CPU cannot make progress. Real memory maps the slot ROM
+     * properly.
+     *
+     * SoftSwitches is a static enum, so the switch states this changes outlive
+     * the test. restoreSoftSwitches() (invoked from @After) puts them back so
+     * later tests -- notably testPhantomInputFixed, which asserts on the initial
+     * CXROM state -- are not affected by execution order.
+     */
+    private MOS65C02 setupForFirmwareExecution() {
+        savedCxrom = SoftSwitches.CXROM.getState();
+        savedIntC8Rom = SoftSwitches.INTC8ROM.getState();
+        TestUtils.initComputer();
+        var computer = Emulator.withComputer(c -> c, null);
+        var ram = computer.getMemory();
+
+        cardSSC = new CardSSC();
+        cardSSC.setSlot(2);
+        ram.addCard(cardSSC, 2);
+        cardSSC.attach();
+
+        // Slot ROM at $C200 and expansion ROM at $C800 are only visible when
+        // the IIe's internal ROM is not overriding the slots.
+        SoftSwitches.CXROM.getSwitch().setState(false);
+        SoftSwitches.INTC8ROM.getSwitch().setState(false);
+        ram.configureActiveMemory();
+
+        var cpu = (MOS65C02) computer.getCpu();
+        cpu.clearState();
+        cpu.reset();
+        cpu.resume();
+        return cpu;
     }
 
     @Test
@@ -333,9 +435,30 @@ public class CardSSCTest extends AbstractFXTest {
         try {
             PagedMemory c8Rom = cardSSC.getC8Rom();
             
-            // Check ROM size matches expectation (should be 0x0700 bytes)
+            // The expansion ROM *window* shared by all cards is $C800-$CFFF, a full
+            // 2KB, so the allocated region is 0x0800 bytes. The SSC's ROM chip only
+            // supplies $C800-$CEFF (0x0700 bytes); it deliberately does not decode
+            // $CF00-$CFFF because $CFFF is the common "disable expansion ROM"
+            // address every card must leave alone. So window size and populated
+            // firmware size are two different numbers, and we assert both.
             int c8Size = c8Rom.getMemory().length * 256;
-            assertEquals("C8 ROM should be 0x0700 bytes", 0x0700, c8Size);
+            assertEquals("C8 ROM window should span $C800-$CFFF (0x0800 bytes)", 0x0800, c8Size);
+
+            // Pages 0-6 ($C800-$CEFF) must carry real firmware...
+            boolean firmwarePagesPopulated = false;
+            for (int i = 0; i < 0x0700; i++) {
+                if ((c8Rom.readByte(c8Rom.type.getBaseAddress() + i) & 0xFF) != 0) {
+                    firmwarePagesPopulated = true;
+                    break;
+                }
+            }
+            assertTrue("$C800-$CEFF should contain loaded SSC firmware", firmwarePagesPopulated);
+
+            // ...and page 7 ($CF00-$CFFF) must stay unpopulated by the SSC.
+            for (int i = 0x0700; i < 0x0800; i++) {
+                assertEquals(String.format("$C%03X should not be driven by the SSC", 0x800 + i),
+                             0, c8Rom.readByte(c8Rom.type.getBaseAddress() + i) & 0xFF);
+            }
             
             // The SSC firmware should have recognizable 6502 opcodes
             // Let's check the first few bytes for valid 6502 instructions
@@ -825,14 +948,16 @@ public class CardSSCTest extends AbstractFXTest {
             boolean cxromInitiallyOn = SoftSwitches.CXROM.getState();
             System.out.println("Initial CXROM state: " + (cxromInitiallyOn ? "ON (blocks card ROM)" : "OFF (allows card ROM)"));
             
-            if (cxromInitiallyOn) {
-                // The issue: CXROM is ON, blocking card ROM access
-                // The fix: Turn off CXROM and reconfigure memory properly
-                System.out.println("Applying phantom input fix: disabling CXROM and reconfiguring memory...");
-                SoftSwitches.CXROM.getSwitch().setState(false);
-                ram.configureActiveMemory();
-                System.out.println("CXROM now: " + SoftSwitches.CXROM.getState());
-            }
+            // Card ROM at $C200 requires CXROM off. Drive it off unconditionally and
+            // always rebuild the memory map: SoftSwitches is a static enum shared
+            // across tests, so CXROM may already be off on entry, in which case the
+            // old code skipped configureActiveMemory() entirely and this freshly
+            // constructed Apple2e's $Cxxx pages were left unmapped ($FF). That made
+            // the test pass or fail depending on preceding test order.
+            System.out.println("Applying phantom input fix: disabling CXROM and reconfiguring memory...");
+            SoftSwitches.CXROM.getSwitch().setState(false);
+            forceMemoryRemap(ram);
+            System.out.println("CXROM now: " + SoftSwitches.CXROM.getState());
             
             // Show memory mapping - this is the key diagnostic
             System.out.println("\n=== Memory Map After Fix ===");
@@ -948,29 +1073,10 @@ public class CardSSCTest extends AbstractFXTest {
     public void testSSCFirmwareExecution() throws Exception {
         // Test actual SSC firmware execution using real CPU
         
-        // Set up emulator environment for CPU testing
-        TestUtils.setupForCpuTest();
-        var computer = Emulator.withComputer(c->c, null);
-        var cpu = (MOS65C02) computer.getCpu();
-        var ram = (TestUtils.FakeRAM) computer.getMemory();
-        
-        // Install and configure SSC card
-        cardSSC = new CardSSC();
-        cardSSC.setSlot(2);
-        computer.getMemory().addCard(cardSSC, 2);
-        cardSSC.attach();
-        cardSSC.resume();
-        
+        // Execute against real memory so the slot ROM is actually mapped.
+        var cpu = setupForFirmwareExecution();
+
         try {
-            // Clear CPU and RAM to known state
-            cpu.clearState();
-            cpu.reset();
-            TestUtils.clearFakeRam(ram);
-            
-            // Set up system ROM value at $FF58 (what BIT instruction reads)
-            // This is critical - the SSC firmware depends on this value
-            ram.write(0xFF58, (byte) 0x40, false, false); // Bit 6 set = V flag will be set
-            
             // Set PC to start of SSC CX ROM (where IN#2 would jump)
             cpu.setProgramCounter(0xC200);
             
@@ -1023,42 +1129,32 @@ public class CardSSCTest extends AbstractFXTest {
     public void testInputDelegationMechanism() throws Exception {
         // Test the complete IN#2 → RDKEY → SSC delegation chain
         
-        TestUtils.setupForCpuTest();
-        var computer = Emulator.withComputer(c->c, null);
-        var cpu = (MOS65C02) computer.getCpu();
-        var ram = (TestUtils.FakeRAM) computer.getMemory();
-        
-        cardSSC = new CardSSC();
-        cardSSC.setSlot(2);
-        computer.getMemory().addCard(cardSSC, 2);
-        cardSSC.attach();
-        cardSSC.resume();
-        
+        var cpu = setupForFirmwareExecution();
+        var ram = Emulator.withComputer(c -> c.getMemory(), null);
+
         try {
-            cpu.clearState();
-            cpu.reset();
-            TestUtils.clearFakeRam(ram);
-            
             // Set up system vectors for input redirection (what IN#2 does)
             // KSWL ($38) = low byte of input vector
-            // KSWH ($39) = high byte of input vector  
+            // KSWH ($39) = high byte of input vector
             ram.write(0x38, (byte) 0x00, false, false); // Point to $C200 (SSC CX ROM)
             ram.write(0x39, (byte) 0xC2, false, false);
-            
-            // Set up proper system ROM
-            ram.write(0xFF58, (byte) 0x40, false, false);
-            
-            // Simulate RDKEY call - jump indirect through KSWL
-            cpu.setProgramCounter(0x0038); // Start at KSWL vector location
-            
-            // Put JMP ($0038) instruction to simulate RDKEY behavior
-            ram.write(0x0038, (byte) 0x6C, false, false); // JMP indirect opcode
-            ram.write(0x0039, (byte) 0x38, false, false); // Address low
-            ram.write(0x003A, (byte) 0x00, false, false); // Address high
-            
-            // This should jump to C200 (SSC firmware)
-            cpu.doTick(); // Execute JMP ($0038)
-            
+
+            // Place the JMP ($0038) that emulates RDKEY somewhere harmless. It must
+            // NOT be written over $38-$3A: that is the KSW vector it dereferences,
+            // and the previous version of this test clobbered the vector with its
+            // own opcode bytes, so the indirect jump landed on a bogus address
+            // instead of $C200.
+            ram.write(0x0300, (byte) 0x6C, false, false); // JMP indirect opcode
+            ram.write(0x0301, (byte) 0x38, false, false); // vector address low
+            ram.write(0x0302, (byte) 0x00, false, false); // vector address high
+            cpu.setProgramCounter(0x0300);
+
+            // This should jump to C200 (SSC firmware). JMP (abs) is a multi-cycle
+            // instruction, so tick until the fetch completes.
+            for (int i = 0; i < 8 && cpu.getProgramCounter() != 0xC200; i++) {
+                cpu.doTick();
+            }
+
             int newPC = cpu.getProgramCounter();
             assertEquals("RDKEY should delegate to SSC firmware at $C200", 0xC200, newPC);
             
@@ -1281,68 +1377,48 @@ public class CardSSCTest extends AbstractFXTest {
     public void testCompleteSSCInitialization() throws Exception {
         // Test the complete SSC initialization sequence
         
-        TestUtils.setupForCpuTest();
-        var computer = Emulator.withComputer(c->c, null);
-        var cpu = (MOS65C02) computer.getCpu();
-        var ram = (TestUtils.FakeRAM) computer.getMemory();
-        
-        cardSSC = new CardSSC();
-        cardSSC.setSlot(2);
-        computer.getMemory().addCard(cardSSC, 2);
-        cardSSC.attach();
-        cardSSC.resume();
-        
+        var cpu = setupForFirmwareExecution();
+        var ram = Emulator.withComputer(c -> c.getMemory(), null);
+
         try {
-            cpu.clearState();
-            cpu.reset();
-            TestUtils.clearFakeRam(ram);
-            
-            // Set up proper system ROM value that will make BVS branch
-            ram.write(0xFF58, (byte) 0x40, false, false); // Bit 6 set = V flag will be set
-            
+            // Observe real bus traffic to the slot-2 ACIA registers ($C0A8-$C0AB).
+            // The firmware touches the ACIA with LDA/STA absolute-indexed; it never
+            // *executes* there, so watching the program counter for that address
+            // range (as this test previously did) could never have detected
+            // initialization. Watch the memory accesses instead.
+            AtomicBoolean aciaAccessed = new AtomicBoolean(false);
+            ram.observe("ACIA access probe", RAMEvent.TYPE.ANY, 0xC0A8, 0xC0AB,
+                        e -> aciaAccessed.set(true));
+
             // Start at SSC firmware entry point
             cpu.setProgramCounter(0xC200);
-            
+
             // Execute firmware step by step with detailed logging
             System.out.println("=== SSC Firmware Initialization Sequence ===");
-            
-            int maxSteps = 1000; // Much higher limit
+
+            int maxSteps = 20000;
             boolean aciaInitialized = false;
-            
+
             for (int step = 0; step < maxSteps; step++) {
-                int pc = cpu.getProgramCounter();
-                
-                // Check if we're in ACIA register access range
-                if (pc >= 0xC0A0 && pc <= 0xC0AF) {
-                    System.out.println("Step " + step + ": Accessing ACIA registers at PC=0x" + 
-                        String.format("%04X", pc));
-                    aciaInitialized = true;
-                }
-                
-                // Check if we've reached C8 ROM (PASCALINIT)
-                if (pc >= 0xC800 && pc <= 0xCFFF) {
-                    System.out.println("Step " + step + ": Entered C8 ROM (PASCALINIT) at PC=0x" + 
-                        String.format("%04X", pc));
-                }
-                
-                int prevPC = pc;
+                int prevPC = cpu.getProgramCounter();
                 cpu.doTick();
                 int newPC = cpu.getProgramCounter();
-                
+
                 // Log significant PC changes
                 if (Math.abs(newPC - prevPC) > 3) {
-                    System.out.println("Step " + step + ": Jump/Branch from 0x" + 
+                    System.out.println("Step " + step + ": Jump/Branch from 0x" +
                         String.format("%04X", prevPC) + " to 0x" + String.format("%04X", newPC));
                 }
-                
+
                 // Check for infinite loop
                 if (step > 20 && newPC == 0xC200 && prevPC == 0xC200) {
                     System.out.println("❌ Still stuck in infinite loop at C200 after " + step + " steps");
                     break;
                 }
-                
+
                 // Success condition: ACIA registers have been accessed
-                if (aciaInitialized) {
+                if (aciaAccessed.get()) {
+                    aciaInitialized = true;
                     System.out.println("✅ ACIA initialization detected after " + step + " steps");
                     break;
                 }
