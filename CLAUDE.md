@@ -648,14 +648,43 @@ All emulator interactions use:
 ### Memory Operations
 
 ```java
-// Read from main memory
+// Read via the ACTIVE memory configuration (whatever softswitches currently map in)
 byte value = memory.read(addr, RAMEvent.TYPE.READ_DATA, true, false);
-
-// Read from auxiliary memory (80-column mode)
-byte auxValue = memory.read(addr, RAMEvent.TYPE.READ_DATA, true, true);
 ```
 
-The last boolean parameter controls auxiliary vs main memory access.
+**The last boolean of `RAM.read` is `requireSynchronization`, NOT an aux flag.**
+`RAM.read` and `RAM.readRaw` both go through `activeRead`, so neither can select a
+bank. To read a specific physical bank, go to the `PagedMemory` directly:
+
+```java
+RAM128k ram128k = (RAM128k) memory;
+byte mainValue = ram128k.getMainMemory().readByte(addr);   // odd DHGR columns
+byte auxValue  = ram128k.getAuxMemory().readByte(addr);    // even DHGR columns
+```
+
+This is what `MonitorMode.resolveBank()` does for the `M`/`X` prefixes and the
+`memmain`/`memaux` commands. It touches no softswitches.
+
+### `memaux` / `memmain` - Dump a Specific Bank (No Mode Switch)
+
+```
+memaux  <start> <end>    # AUX bank only  (alias: mx)
+memmain <start> <end>    # MAIN bank only (alias: mm)
+```
+
+Hex dumps a range from an explicitly named bank, independent of softswitch state.
+Use these instead of `mem` whenever the bank matters — `mem` follows the active
+configuration and cannot distinguish the two banks.
+
+In 80STORE+HIRES double-hi-res, `$2000-$3FFF` is interleaved: **aux holds the even
+pixel columns, main the odd**. Verifying rendered output requires both:
+
+```
+memaux  2000 2027
+memmain 2000 2027
+```
+
+The monitor-mode equivalents are the `X` and `M` address prefixes (`X2000.2027`).
 
 ## Testing Workflow
 
@@ -999,6 +1028,173 @@ To confirm whether a failure is pre-existing vs. caused by your change, isolate 
 with `git stash push -- <your-file>`, re-run `mvn clean test -Dtest=<TheFailingClass>`
 against the unmodified baseline, then `git stash pop` to restore your work.
 
+## Mockingboard / AY-3-8910 Sound Emulation
+
+`jace.hardware.CardMockingboard` plus `jace.hardware.mockingboard.*` implement a
+Mockingboard-C: two 6522 VIAs, each driving one AY PSG.
+
+### The AY clock is 1022727 — read this before changing it
+
+**This constant has been changed three times by three different people during one
+effort. If you are about to change it again, you are almost certainly making the
+same mistake they did.** The two numbers below are different *quantities*, not rival
+estimates of one quantity.
+
+| Constant | Value | What it is | What it clocks |
+|---|---|---|---|
+| `CardMockingboard.CLOCK_SPEED` | **1022727** | `14318181.8 / 14` — the slot bus clock | The AY oscillators (pitch) |
+| `TimedDevice.NTSC_1MHZ` | **1020484** | `14318181.8 * 65 / 912` — CPU stretched-cycle average | CPU cycles, card tick pacing, 6522 timers |
+
+**1022727 = crystal / 14.** The Apple II master oscillator is the NTSC colorburst
+&times;4, 14318181.8 Hz. The bus clock wired to the peripheral slots is that divided
+by 14. This is the clock a real Mockingboard's AY-3-8913 receives. It is the
+canonical hardware number.
+
+**1020484 = crystal &times; 65 / 912.** The 6502's *average* throughput once the
+video logic's stretched cycle (one long cycle per 65-cycle scanline) is amortized
+in. Same derivation as AppleWin's
+`CLK_6502_NTSC = (_14M_NTSC * 65.0) / (65.0*14.0+2.0)`.
+
+**Jace runs the entire machine at the average, including this card.** That is
+technically incorrect for a slot card — the card's oscillator does not slow down
+just because the CPU waits — and it means Jace's whole timebase is **~0.22% slow
+(~3.8 cents flat)**. That inaccuracy is **known and deliberately accepted**; fixing
+it properly would mean giving slot devices their own timebase, which is out of
+proportion to a 3.8-cent error.
+
+**The rule that follows: pretend the card runs at 1.0227 MHz and scale everything
+against that number.** Do not "correct" `CLOCK_SPEED` down to `NTSC_1MHZ` on the
+grounds that Jace runs everything at the average. Doing so applies the 0.22% error a
+*second* time — once in the timebase, once in the oscillator — leaving tones a
+further 3.8 cents flat. That was a real bug, fixed 2026-07.
+
+`MockingboardClockTest` pins both numbers, records each one's derivation, and
+asserts their difference is 2243, specifically to stop someone collapsing them into
+one constant.
+
+`R6522` has no clock constant of its own on purpose — it is ticked at the
+motherboard's CPU rate, so one `tick()` is one timer count. Timers correctly follow
+the stretched average, because the 6522 genuinely does see the same bus &Phi;2 the
+CPU does.
+
+### 6522: IER gates the IRQ *pin*, never the IFR *flag*
+
+On real hardware — and in MAME's `6522via.cpp` — a timer expiry sets its IFR flag
+unconditionally. `IER` is consulted in exactly one place, deciding whether the IRQ
+line is asserted and whether IFR bit 7 (the summary bit) is set. Concretely:
+
+- Flag bits 6/5 (T1/T2): set by the interrupt condition, regardless of IER.
+- Bit 7: set from `IER & IFR`, so a masked-off flag must not claim the line.
+
+Software that polls IFR with interrupts disabled is a standard card-detection
+idiom (see the Skyfox comment in `handleFirmwareAccess`). Gating the flag on the
+enable makes such a poll spin forever. Guarded by `R6522InterruptFlagTest`.
+
+### AY reset writes $FF to register 7, not 0
+
+MAME's `ay8910_reset_ym()` writes 0 to every register. Jace deliberately writes
+`$FF` to register 7 because the mixer's six enable bits are **active-low** — a
+literal 0 enables all six generators, making reset audible. `$FF` is the
+all-disabled encoding. Do not "correct" this to match MAME literally.
+
+### Mixer combines tone and noise with AND, not OR
+
+Per MAME `ay8910.cpp:1110` the pre-DAC formula is
+`(ToneOn | ToneDisable) & (NoiseOn | NoiseDisable)`. When both tone and noise are
+disabled the channel output is **1**, not 0 — it becomes a DC source driven by the
+amplitude register, which is how PCM sample playback works on this chip. An OR
+here silences that path.
+
+### Period 0 behaves as period 1 — except for the envelope
+
+Tone and noise: period 0 is the same as period 1 (`TimedGenerator.setPeriod` via
+`clocksAtPeriodZero()`). Envelope: period 0 is **half** of period 1
+(`EnvelopeGenerator.clocksAtPeriodZero()` returns `stepsPerCycle() / 2`). MAME
+ay8910.cpp:90-91 states this asymmetry explicitly. Neither case may be silenced.
+
+Prescalers: tone `clock/(16*TP)`, noise `clock/(16*NP)`, envelope `clock/(256*EP)`.
+
+### Verified-correct areas — do not "fix" these
+
+Exhaustively measured against MAME and left unchanged:
+
+- **All 16 envelope shapes.** Jace's formulation (`hold = ((shape ^ 8) & 9) != 0`,
+  `start1high`/`start2high`/`oddEven`) is structurally unlike MAME's but produces
+  an identical 33-sample level sequence for every one of the 16 shapes.
+- **Register 13 restarts the envelope; 11/12 do not.** Matches hardware.
+- **The noise LFSR.** Jace uses a Galois formulation; MAME uses Fibonacci
+  (`bit0 ^ bit3`, tap position verified on real chips per ay8910.h:265-267). The
+  output streams are the same maximal-length m-sequence — period 131071, 50% duty,
+  identical run-length statistics — differing only in phase and polarity, which is
+  inaudible. Rewriting it to match MAME byte-for-byte would be churn.
+- **Register 7 polarity.** Already correctly active-low.
+
+### The chip is an AY-3-8913 — 16 shared amplitude levels
+
+Previously undocumented, now settled, because it determines the size and shape of
+the amplitude table. A Mockingboard uses the **AY-3-8913**: the AY-3-8910's PSG core
+in a 24-pin package with the parallel I/O ports omitted. Two independent citations:
+
+- AppleWin's `Mockingboard.cpp` names the part throughout — `class AY8913`,
+  `AY8913_Write`, `AY8913_Reset`, `NUM_AY8913_PER_SUBUNIT` — with the comment "AY1 is
+  the primary AY-3-8913 connected to 6522" (GH#1192).
+- MAME defines `ay8913_device` as `ay8910_device(..., PSG_TYPE_AY, 3, 0)`
+  (`ay8910.cpp:1630-1631`): identical core, 3 sound streams, **0** I/O ports.
+
+Because it is `PSG_TYPE_AY`, `ay8910.cpp:1578-1579` selects the same 16-entry
+`ay8910_param` for **both** the tone and the envelope DAC, and `:1575` sets
+`m_env_step_mask = 0x0f`. So: **16 levels, shared by tone and envelope.** The
+YM2149's 32-entry `ym2149_param_env` does *not* apply here.
+
+Jace's structure already matches — `EnvelopeGenerator` counts 0..15 and
+`SoundGenerator.step` indexes the same 16-entry `VolTable` for both paths — so no
+restructuring was needed. If you ever port this to a YM2149, the envelope path needs
+32 levels and this is where to start.
+
+### The volume table is measured hardware data — do not synthesize it
+
+`buildMixerTable()` scales a fixed 16-entry `AY_MEASURED_LEVELS` table taken from
+Matthew Westcott's December 2001 voltage measurements of a real AY-3-8910 (the
+readings MAME cites for its active `ay8910_param`, `ay8910.cpp:678-722`), expressed
+as swing above the level-0 floor so that level 0 is true silence.
+
+It previously synthesized a uniform 3 dB/step curve. That is not what the chip does:
+the measured steps range from **1.74 dB to 4.46 dB** and their size is not even
+monotonic in the level. Every intermediate level sits *above* the uniform curve — by
+up to +4.8 dB around levels 7-10 — which compresses the level-1-to-15 span from
+42.1 dB to **39.6 dB**. Audibly, quiet passages and envelope decay tails are less
+recessed than the synthesized curve made them. This was a human decision about
+audible character, since it is not a correctness fix in the register-accuracy sense.
+
+Note the table is the **measurements**, not MAME's table verbatim. MAME stores
+equivalent output *resistances* and converts them through `build_single_table`, a
+divider fitted in SwitcherCAD against the **ZX Spectrum's** output circuit — which
+Jace does not model. No load resistance reproduces the raw readings exactly (best
+residual 0.0056 of full scale at RL=1800; MAME's annotated RL=2000 leaves 0.011, a
+4.0 dB error at level 1). Where the model and the measurement disagree, the
+measurement wins. `VolumeTableTest` pins every level to within 0.001 of full scale,
+which rejects both the old uniform curve and MAME's reconstruction.
+
+### Writing tests for this subsystem
+
+Two setup gotchas, both of which produce confusing failures:
+
+1. **`Utility.setHeadlessMode(true)` first.** Anything reaching `R6522.tick()` or
+   `Emulator.withComputer` will otherwise boot `Apple2e`, hit JavaFX in
+   `Utility.loadIconLabel`, and throw `ExceptionInInitializerError`. Likewise,
+   avoid `CardMockingboard.reconfigure()` in a unit test — construct
+   `new PSG(base, clock, rate, name, mask)` directly.
+2. **`CardMockingboard.VolTable` is a lazily-built static.** Tests touching
+   `SoundGenerator.step` need `new CardMockingboard().buildMixerTable()` in a
+   `@BeforeClass`, or they NPE — and they may pass by accident when run in a suite
+   where another test built it first.
+
+Note that `Pt3PlayerRegisterTest`, which compares AY register frames against
+`vt3-cli`, is **blind to almost all of the above**: identical register values can
+still produce wrong audio if the PSG core misinterprets them. On the reference
+song, noise period, envelope period and envelope shape are always 0 and no
+amplitude uses envelope mode. Cover the PSG with focused unit tests instead.
+
 ## Known Limitations
 
 1. **Graphics modes not supported**: Only text mode can be captured via `showtext`
@@ -1047,6 +1243,45 @@ Potential improvements:
 - Native binary finding: `headless` parameter is NOT supported, runs with display window, throws harmless `MacAccessible` error but boots normally
 - Noted native binary does not support terminal/scripting mode; Maven required for automation
 - Added "Tokenizing Applesoft BASIC Programs" section documenting the built-in `ApplesoftProgram.fromString()` Java API; clarified there is no terminal command for tokenizing, and described the inject-then-`savebin` workflow to produce a raw binary file
+
+### 2026-07-27
+- Added "Mockingboard / AY-3-8910 Sound Emulation" section: the 1022727 vs 1020484 clock
+  distinction, the 6522 IER/IFR flag-vs-pin rule, why AY reset writes $FF to register 7,
+  the AND (not OR) tone/noise mix, period-0 semantics, and the verified-correct areas
+  (all 16 envelope shapes, the noise LFSR, register 7 polarity) that must not be churned
+- Documented two test-setup gotchas: `Utility.setHeadlessMode(true)` before anything that
+  reaches `R6522.tick()`/`Emulator.withComputer`, and `CardMockingboard.VolTable` being a
+  lazily-built static that needs `buildMixerTable()` in a `@BeforeClass`
+- Noted that `Pt3PlayerRegisterTest` register-frame comparison cannot detect PSG core
+  defects — identical register values can still produce wrong audio
+- Fixed the AY oscillator clock: `CardMockingboard.CLOCK_SPEED` was `TimedDevice.NTSC_1MHZ`
+  (1020484, the CPU's stretched-cycle average), making every tone ~3.8 cents flat on top of
+  the ~0.22% Jace already loses by running the whole machine at that average. Now 1022727 =
+  `14318181.8 / 14`, the slot bus clock a real Mockingboard's AY receives. The global
+  stretched-average inaccuracy is documented as knowingly accepted. Covered by
+  `MockingboardClockTest` (7 tests), which pins *both* numbers and records each one's
+  derivation so they cannot be mistaken for rival estimates of the same quantity — this
+  constant had been changed three times by three people
+- Fixed 6522 IFR semantics: `R6522.tick()` only set the T1/T2 interrupt flags when the
+  corresponding IER enable was set, so software polling IFR with interrupts disabled (a
+  documented card-detection idiom) would spin forever. Flags are now set by the interrupt
+  condition unconditionally, per MAME `6522via.cpp t1_tick()`, and IER is consulted only
+  where it belongs: asserting the IRQ pin and computing IFR bit 7 (`m_ier & m_ifr & 0x7f`,
+  per `output_irq()`). Also removed a dead `R6522.SPEED` constant that was never read.
+  Covered by new `R6522InterruptFlagTest` (7 tests, 5 of which fail against the old code)
+- Added characterization coverage for previously untested areas, all of which passed
+  unmodified — reported as verified-correct rather than fixed: `R6522TimerModeTest`
+  (10 tests: T1CH start+load vs T1LH, one-shot vs free-run, period = latch+1, counter and
+  latch readback, T2 always one-shot) and `DualAyAddressingTest` (8 tests: $00/$80 base
+  registers, per-chip latching, no cross-talk, independent reset, shared clock)
+- Replaced the synthesized uniform 3 dB/step amplitude curve with Westcott's measured
+  AY-3-8910 levels, and documented that the chip is an AY-3-8913 with 16 levels shared by
+  tone and envelope (previously undocumented, and load-bearing for the table's size).
+  Covered by new `VolumeTableTest` (9 tests)
+- Verified against MAME and left unchanged: all 16 envelope shapes (33-sample level
+  sequence identical despite a structurally different formulation), register 13 restarting
+  the envelope while 11/12 do not, the noise LFSR (Galois vs MAME's Fibonacci — same
+  m-sequence, differing only in phase and polarity), and register 7's active-low polarity
 
 ### 2026-03-01
 - Added "Reaching Applesoft BASIC Without a Disk Image" — `E000G` cold-start, `FF69G` warm-start
