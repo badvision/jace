@@ -109,6 +109,7 @@ public class MainMode implements TerminalMode {
         commands.put("mem", args -> dumpBank(args, "mem", MemoryMode.ACTIVE));
         commands.put("memaux", args -> dumpBank(args, "memaux", MemoryMode.AUX));
         commands.put("memmain", args -> dumpBank(args, "memmain", MemoryMode.MAIN));
+        commands.put("cmpmem", this::compareMemory);
         commands.put("cpu", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.showCpuState(); });
         // poke <addr> <byte> [byte ...] — write raw bytes bypassing write-protection (patches ROM)
         commands.put("poke", args -> {
@@ -161,6 +162,7 @@ public class MainMode implements TerminalMode {
         addAlias("cyrene", "rdb");
         addAlias("sym", "symbols");
         addAlias("rv", "runvbl");
+        addAlias("cm", "cmpmem");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -291,6 +293,16 @@ public class MainMode implements TerminalMode {
                         + "       unaffected. The flag halts the machine at the VBL edge, exactly\n"
                         + "       as runvbl does.\n"
                         + "Example: screenshot /tmp/frame.png --vbl");
+
+        commandHelp.put("cmpmem",
+                "Compares memory against an expected byte list, reporting only the differences.\n"
+                        + "Usage: cmpmem <aux|main|active> <addr> <byte> [byte ...] (or cm ...)\n"
+                        + "Example: cmpmem aux 2000 D5 AA 96 FF\n\n"
+                        + "Bytes are hex, separated by spaces or commas, optionally $-prefixed, so\n"
+                        + "the output of 'memaux <s> <e> --raw' or '--csv' can be pasted straight\n"
+                        + "back in. Each mismatch prints its offset, absolute address, expected and\n"
+                        + "actual byte; a clean run prints a match count. aux/main read the physical\n"
+                        + "bank regardless of softswitch state, active follows the current mapping.");
 
         commandHelp.put("runvbl",
                 "Advances emulation to the start of the next vertical blanking interval and halts.\n"
@@ -1778,6 +1790,113 @@ public class MainMode implements TerminalMode {
             MemoryDump.dump(output, mon, parseHexAddress(start), parseHexAddress(end), mode, format);
         } catch (NumberFormatException e) {
             output.println("Invalid address: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Compares a memory range against an expected byte list and reports only
+     * the bytes that differ.
+     *
+     * Verifying a rendered DHGR row means checking hundreds of bytes, and a dump
+     * of all of them buries the two that are wrong. Reporting offsets turns
+     * "something is off in this row" into an exact byte position.
+     *
+     * Reads go through MemoryDump.read(), the same path --raw renders, rather
+     * than re-parsing a rendered dump. Scraping text would couple this command
+     * to the display format and would lose information wherever that format is
+     * lossy, and a comparison the operator cannot reproduce with a dump is worse
+     * than no comparison.
+     */
+    private void compareMemory(String[] args) {
+        MonitorMode mon = getMonitorMode();
+        if (mon == null) {
+            return;
+        }
+        if (args.length < 3) {
+            output.println("Usage: cmpmem <aux|main|active> <addr> <byte> [byte ...]");
+            return;
+        }
+
+        MemoryMode mode = parseBankSelector(args[0]);
+        if (mode == null) {
+            output.println("Unknown bank '" + args[0] + "': expected aux, main, or active");
+            return;
+        }
+
+        int address;
+        try {
+            address = parseHexAddress(args[1]);
+        } catch (NumberFormatException e) {
+            output.println("Invalid address: " + e.getMessage());
+            return;
+        }
+
+        // Accept both separators so the output of --raw ("10 11 12") and of
+        // --csv ("10,11,12") can be pasted straight back in without reformatting.
+        StringBuilder joined = new StringBuilder();
+        for (int i = 2; i < args.length; i++) {
+            joined.append(args[i]).append(' ');
+        }
+        String[] tokens = joined.toString().trim().split("[,\\s]+");
+
+        int[] expected = new int[tokens.length];
+        for (int i = 0; i < tokens.length; i++) {
+            String token = tokens[i].startsWith("$") ? tokens[i].substring(1) : tokens[i];
+            try {
+                // Hex, consistent with every other byte and address argument in
+                // this monitor. Reading these as decimal would silently compare
+                // the wrong values and could report a spurious match.
+                expected[i] = Integer.parseInt(token, 16) & 0xFF;
+            } catch (NumberFormatException e) {
+                output.println("Invalid byte '" + tokens[i] + "' at offset " + i
+                        + ": expected two hex digits");
+                return;
+            }
+        }
+
+        if (address + expected.length > 0x10000) {
+            output.println("Byte list would run past the end of the address space");
+            return;
+        }
+
+        byte[] actual = MemoryDump.read(mon, address, expected.length, mode);
+
+        int mismatches = 0;
+        for (int i = 0; i < expected.length; i++) {
+            int got = actual[i] & 0xFF;
+            if (got != expected[i]) {
+                mismatches++;
+                output.println(String.format("+%d  %04X  expected %02X  got %02X",
+                        i, (address + i) & 0xFFFF, expected[i], got));
+            }
+        }
+
+        if (mismatches == 0) {
+            output.println(expected.length + " bytes match at $"
+                    + String.format("%04X", address & 0xFFFF));
+        } else {
+            output.println(mismatches + " mismatch" + (mismatches == 1 ? "" : "es")
+                    + " in " + expected.length + " bytes");
+        }
+    }
+
+    /**
+     * Resolves an explicit bank name. Returns null for anything unrecognized so
+     * the caller can reject it rather than comparing against memory the operator
+     * did not ask about and reporting the result as authoritative.
+     */
+    private static MemoryMode parseBankSelector(String name) {
+        switch (name.toLowerCase()) {
+            case "aux":
+            case "a":
+                return MemoryMode.AUX;
+            case "main":
+            case "m":
+                return MemoryMode.MAIN;
+            case "active":
+                return MemoryMode.ACTIVE;
+            default:
+                return null;
         }
     }
 
