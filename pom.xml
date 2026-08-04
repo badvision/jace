@@ -240,8 +240,13 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
-                    <!-- Set a global timeout for all tests -->
-                    <forkedProcessTimeoutInSeconds>30</forkedProcessTimeoutInSeconds>
+                    <!-- Wall-clock budget for the WHOLE forked JVM, not per test.
+                         The suite measures ~46s of test time on its own, so the
+                         previous 30s killed the fork partway through and silently
+                         dropped every class that had not run yet, including the
+                         entire jace.terminal package. Keep this comfortably above
+                         the full suite's runtime. -->
+                    <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
                     <rerunFailingTestsCount>0</rerunFailingTestsCount>
                     <!-- Configure Mockito as a Java agent to prevent "self-attaching" warnings -->
                     <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
