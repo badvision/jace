@@ -11,6 +11,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import jace.Emulator;
+import jace.TestUtils;
 import jace.apple2e.RAM128k;
 import jace.apple2e.SoftSwitches;
 import jace.core.Computer;
@@ -52,6 +53,10 @@ public class MonitorModeAuxMemoryTest {
 
     @Before
     public void setup() {
+        // These tests set softswitches and bank patterns and then assert on them, so
+        // nothing may be executing emulated code concurrently. A previous test class
+        // can leave the motherboard's worker thread running.
+        TestUtils.quiesceEmulator();
         outputStream = new ByteArrayOutputStream();
         monitorMode = new TestableMonitorMode(outputStream);
 

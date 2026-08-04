@@ -54,6 +54,32 @@ public class TestUtils {
     public static void initComputer() {
         Utility.setHeadlessMode(true);
         Emulator.withComputer(Computer::reconfigure);
+        // reconfigure() can leave the motherboard's free-running worker thread alive
+        // (and any earlier test class may have resumed it, e.g. via the terminal's
+        // "go" command). A live worker executes the Apple //e ROM concurrently with
+        // the test, asynchronously flipping softswitches (CXROM, RAMRD, PAGE2,
+        // 80STORE) and overwriting RAM. Every test class must start from a stopped
+        // machine, so quiesce it here.
+        quiesceEmulator();
+    }
+
+    /**
+     * Stops the emulator's free-running worker thread and the CPU, so no emulated
+     * code executes concurrently with the test. Motherboard.suspend() interrupts and
+     * joins its worker thread, so after this call nothing is mutating softswitches or
+     * memory behind the test's back.
+     *
+     * Any test that resumes the machine (directly, or indirectly through a command
+     * like "go"/"run") must call this again before asserting on softswitch or memory
+     * state, and should call it in teardown so it does not leak into the next class.
+     */
+    public static void quiesceEmulator() {
+        Emulator.withComputer(c -> {
+            c.getMotherboard().suspend();
+            if (c.getCpu() != null) {
+                c.getCpu().suspend();
+            }
+        });
     }
 
     public static class FakeRAM extends RAM128k {
@@ -423,15 +449,21 @@ public class TestUtils {
 
             // Configure and set the video in the computer
             Emulator.withComputer(computer -> {
-                // Suspend the computer during setup
+                // Suspend the computer during setup, and restore whatever run state it
+                // had afterwards. Unconditionally resuming here used to start the
+                // motherboard's worker thread even for tests that had deliberately
+                // stopped the machine -- the emulated ROM then ran concurrently with
+                // the test, flipping softswitches (e.g. 80STORE/PAGE2) underneath it.
+                boolean wasRunning = computer.getMotherboard().isRunning();
                 computer.getMotherboard().suspend();
                 try {
                     // Attach the video
                     computer.setVideo(videoInstance);
                     videoInstance.attach();
                 } finally {
-                    // Resume the computer
-                    computer.getMotherboard().resume();
+                    if (wasRunning) {
+                        computer.getMotherboard().resume();
+                    }
                 }
             });
 

@@ -1,6 +1,7 @@
 package jace.terminal;
 
 import static jace.TestUtils.initComputer;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -17,6 +18,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import jace.Emulator;
+import jace.TestUtils;
 import jace.apple2e.RAM128k;
 import jace.core.Computer;
 import jace.core.SoundMixer;
@@ -64,6 +66,12 @@ public class SymbolResolutionTest {
 
     @Before
     public void setup() {
+        // goCommandAcceptsSymbolicName runs a real "go", which resumes the motherboard's
+        // worker thread. Left running, the emulated ROM executes concurrently with the
+        // remaining tests -- flipping softswitches and overwriting the memory patterns
+        // they write. Stop the machine before every test, and again afterwards so it
+        // cannot leak into another test class.
+        TestUtils.quiesceEmulator();
         SymbolTable.clear();
         out = new ByteArrayOutputStream();
         mainMode = new TestableMainMode(out);
@@ -71,6 +79,7 @@ public class SymbolResolutionTest {
 
     @After
     public void tearDown() {
+        TestUtils.quiesceEmulator();
         SymbolTable.clear();
     }
 

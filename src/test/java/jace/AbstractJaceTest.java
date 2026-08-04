@@ -129,9 +129,15 @@ public abstract class AbstractJaceTest {
             // Suspend computer operations during setup
             Emulator.withComputer(c -> c.getMotherboard().suspend());
             
-            // Reset the computer to a clean state
+            // Reset the computer to a clean state. warmStart() ends in resume(), which
+            // restarts the motherboard's free-running worker thread -- that thread then
+            // executes the //e ROM concurrently with the rest of this setup (softswitch
+            // resets, the 64K memory wipe below) and with the test itself. This method
+            // already ends by suspending the motherboard, so stopping it immediately is
+            // the state the setup was always trying to reach.
             computer.warmStart();
-            
+            TestUtils.quiesceEmulator();
+
             // Ensure we have valid references
             cpu = (MOS65C02) computer.getCpu();
             ram = (RAM128k) computer.getMemory();

@@ -18,6 +18,12 @@ public class VideoDHGRTest extends AbstractFXTest {
 
     @Before
     public void setUp() {
+        // These tests set video softswitches by hand and then assert on the resulting
+        // Y offset, so no emulated code may be executing concurrently -- a live
+        // motherboard worker thread runs the //e ROM, which flips TEXT/PAGE2/HIRES
+        // underneath the assertion.
+        TestUtils.quiesceEmulator();
+
         // Ensure we have a properly configured mock DHGR video
         TestUtils.setupMockVideoDHGR();
         
