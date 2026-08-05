@@ -2,7 +2,24 @@
 
 # JACE Change Log
 
-### 2026-08-05
+### 2026-08-05 (b) — Progressive-disclosure restructure
+
+- **Split `CLAUDE.md` from 1768 lines to ~108.** It is auto-loaded into every agent's context
+  in this repo, so its length was a standing, unavoidable context cost on every session. It is
+  now a thin index: the four non-negotiables, the standard invocation, the ~15 commands
+  actually used, and a table saying which `docs/jace/*.md` file to read for what.
+- Detail moved to `docs/jace/`: `commands.md` (full command reference, with a contents map and
+  an alias-collision table), `setup-and-disks.md`, `debugging-guide.md`,
+  `automation-recipes.md`, `applesoft.md`, `unit-tests.md`, `mockingboard.md`, `changelog.md`.
+- Two caveats are **restated** in the index rather than only linked, because they cause errors
+  when unread: `run`'s 100 ms floor, and the DHGR aux/main pixel-column split.
+- Dropped as stale: "Graphics modes not supported / only text mode can be captured" (contradicted
+  by `screenshot`/`ss2`), and the "capture command" and "graphics screen capture" future-work
+  entries (both implemented). Replaced with a `Not Yet Implemented` section listing what is
+  genuinely absent (`waitpc`, `script`, async I/O).
+- Reconciled two contradictory suite-runtime claims: measured 45 s, not "5+ minutes".
+
+## 2026-08-05
 - **Corrected the `run` documentation, which was wrong.** `run N` does not execute N cycles:
   `MainMode.runCPU` converts N to milliseconds (`N/1000`) with a **100 ms floor** and
   free-runs the emulator for that wall-clock duration. Every `run N` for N < 100,000 therefore
