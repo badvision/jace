@@ -53,7 +53,20 @@ public class CardRamworks extends RAM128k {
     public int maxBank = memorySize / 64;
     private Map<BankType, PagedMemory> generateBank() {
             Map<BankType, PagedMemory> memoryBank = new EnumMap<>(BankType.class);
-            memoryBank.put(BankType.MAIN_MEMORY, new PagedMemory(0xc000, PagedMemory.Type.RAM));
+            PagedMemory auxMain = new PagedMemory(0xc000, PagedMemory.Type.RAM);
+            // Uninitialized RAM must read back as the FF FF 00 00 pattern, exactly as
+            // RAM128k does for mainMemory and for CardExt80Col's single aux bank.
+            //
+            // RAM128k.zeroAllRam() cannot do this for us: it reaches only
+            // getAuxMemory(), i.e. whichever bank happens to be selected when it runs,
+            // and during RAM128k's own constructor getAuxMemory() is still null here
+            // (this subclass's fields, including `memory` and `maxBank`, are not
+            // initialized until after super() returns). So banks created here would
+            // otherwise stay all-zero for their whole life, making an aux dump of any
+            // never-written address report 00 instead of the pattern -- indistinguishable
+            // from real program data that happens to be zero.
+            initMemoryPattern(auxMain);
+            memoryBank.put(BankType.MAIN_MEMORY, auxMain);
             memoryBank.put(BankType.LANGUAGE_CARD_1, new PagedMemory(0x3000, PagedMemory.Type.LANGUAGE_CARD));
             memoryBank.put(BankType.LANGUAGE_CARD_2, new PagedMemory(0x1000, PagedMemory.Type.LANGUAGE_CARD));
             return memoryBank;
