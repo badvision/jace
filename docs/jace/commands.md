@@ -4,8 +4,14 @@ Loaded on demand from `CLAUDE.md`. Complete syntax and semantics for every termi
 command in `MainMode.java` and `MonitorMode.java`.
 
 **Built-in `help <cmd>` is wrong in places.** Verified discrepancies are called out inline:
-`run` (claims cycles, is wall-clock), `move`/`compare` (claim hex count, parse decimal).
+`run` (claims cycles, is wall-clock), `move`/`compare` (help text was outdated).
 Where this file and `help` disagree, this file was checked against the implementation.
+
+**Numeric argument parsing:** Terminal commands uniformly accept `$` prefix to mark a number
+as hexadecimal (e.g., `$800` = 2048 decimal). Monitor mode commands default to hex for all
+memory-related values (addresses, bytes, counts), consistent with Wozniak monitor conventions.
+Main mode commands typically default to decimal for counts and timeouts. The prefixes `x` or
+`0x` are NOT accepted (use `$` instead for clarity and Apple II convention).
 
 ## Contents
 
@@ -717,20 +723,19 @@ compare <src> <dest> <count>    # Compare memory blocks (alias: cmp)
 find <start> <end> <byte> ...   # Search for byte pattern
 ```
 
-**Argument radix — the built-in help is wrong about `count`.** Verified against the
-implementations in `MonitorMode.java`:
+**Argument radix and $ prefix support:** All monitor mode numeric arguments default to
+hexadecimal, consistent with Wozniak monitor conventions. You may optionally prefix any
+numeric argument with `$` to explicitly mark it as hex (e.g., `$800`).
 
-| Command | Addresses | Count / value |
-|---|---|---|
-| `fill <start> <end> <value>` | hex | `<value>` is **hex** |
-| `move <src> <dest> <count>` | hex | `<count>` is **DECIMAL** (`Integer.parseInt(args[2])`) |
-| `compare <src> <dest> <count>` | hex | `<count>` is **DECIMAL** |
-| `find <start> <end> <byte>...` | hex | bytes are hex |
+| Command | Addresses | Count / value | Example |
+|---|---|---|---|
+| `fill <start> <end> <value>` | hex | hex (supports `$` prefix) | `fill 2000 2100 $FF` |
+| `move <src> <dest> <count>` | hex | hex (supports `$` prefix) | `move 2000 4000 800` copies 2048 bytes |
+| `compare <src> <dest> <count>` | hex | hex (supports `$` prefix) | `compare 2000 3000 $100` compares 256 bytes |
+| `find <start> <end> <byte>...` | hex | hex (supports `$` prefix) | `find 2000 3000 $DE $AD` |
 
-`help move` and `help compare` both claim "Number of bytes ... in hex" and give the example
-`move 2000 4000 800 - Copy 2048 bytes`. That is **incorrect** — `800` is parsed as decimal
-800, not `$800`/2048. Write `move 2000 4000 2048` to copy `$800` bytes. `fill`'s value
-genuinely is hex, so the two commands disagree with each other; this asymmetry is real.
+Note: `move 2000 4000 800` treats `800` as hex ($800 = 2048 bytes). To copy exactly 800
+decimal bytes, write `move 2000 4000 $320` (since 0x320 = 800 decimal).
 
 Other behaviour worth knowing:
 - All four honour the current bank mode and accept `M`/`X`-prefixed addresses.

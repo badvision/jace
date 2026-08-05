@@ -118,7 +118,7 @@ public class MainMode implements TerminalMode {
                 int addr = parseHexAddress(args[0]);
                 Emulator.withMemory(ram -> {
                     for (int i = 1; i < args.length; i++) {
-                        int val = Integer.parseInt(args[i], 16) & 0xFF;
+                        int val = NumberParser.parseNumber(args[i], 16) & 0xFF;
                         int a = addr + (i - 1);
                         byte[] page = ram.activeRead.getMemoryPage(a);
                         if (page != null) page[a & 0xFF] = (byte) val;
@@ -681,7 +681,7 @@ public class MainMode implements TerminalMode {
         int stepCount = 1;
         if (args.length > 0) {
             try {
-                stepCount = Integer.parseInt(args[0]);
+                stepCount = NumberParser.parseNumber(args[0], 10);
                 if (stepCount <= 0) {
                     output.println("Step count must be positive");
                     return;
@@ -792,7 +792,7 @@ public class MainMode implements TerminalMode {
                 if (args[0].startsWith("#")) {
                     breakpointAddress = parseHexAddress(args[0].substring(1));
                 } else {
-                    cycleCount = Integer.parseInt(args[0]);
+                    cycleCount = NumberParser.parseNumber(args[0], 10);
 
                     // Check for breakpoint as second argument
                     if (args.length > 1 && args[1].startsWith("#")) {
@@ -878,14 +878,14 @@ public class MainMode implements TerminalMode {
 
         String driveSpec = args[0];
         String filename = args[1];
-        int slot = args.length > 2 ? Integer.parseInt(args[2]) : 6; // Default to slot 6
+        int slot = args.length > 2 ? NumberParser.parseNumber(args[2], 10) : 6; // Default to slot 6
 
         if (!driveSpec.matches("d[12]")) {
             output.println("Invalid drive specification: " + driveSpec + " (must be d1 or d2)");
             return;
         }
 
-        int driveNumber = Integer.parseInt(driveSpec.substring(1));
+        int driveNumber = NumberParser.parseNumber(driveSpec.substring(1), 10);
 
         LOG.info("Disk insertion requested for slot " + slot + " drive " + driveNumber + ": " + filename);
 
@@ -956,14 +956,14 @@ public class MainMode implements TerminalMode {
         }
 
         String driveSpec = args[0];
-        int slot = args.length > 1 ? Integer.parseInt(args[1]) : 6; // Default to slot 6
+        int slot = args.length > 1 ? NumberParser.parseNumber(args[1], 10) : 6; // Default to slot 6
 
         if (!driveSpec.matches("d[12]")) {
             output.println("Invalid drive specification: " + driveSpec + " (must be d1 or d2)");
             return;
         }
 
-        int driveNumber = Integer.parseInt(driveSpec.substring(1));
+        int driveNumber = NumberParser.parseNumber(driveSpec.substring(1), 10);
 
         LOG.info("Disk ejection requested for slot " + slot + " drive " + driveNumber);
 
@@ -1165,7 +1165,7 @@ public class MainMode implements TerminalMode {
     }
 
     private void waitForKeypress(String[] args) {
-        int maxWaitMs = args.length > 0 ? Integer.parseInt(args[0]) : 30000; // Default 30 seconds
+        int maxWaitMs = args.length > 0 ? NumberParser.parseNumber(args[0], 10) : 30000; // Default 30 seconds
         waitForKeyRead(maxWaitMs, true);
     }
 
@@ -1250,7 +1250,7 @@ public class MainMode implements TerminalMode {
         // Check if last arg is a number (timeout)
         try {
             if (args.length > 1) {
-                int lastArgTimeout = Integer.parseInt(args[args.length - 1]);
+                int lastArgTimeout = NumberParser.parseNumber(args[args.length - 1], 10);
                 timeoutSeconds = lastArgTimeout;
                 // Rebuild search string without the timeout
                 searchString = String.join(" ", java.util.Arrays.copyOf(args, args.length - 1));
@@ -1323,7 +1323,7 @@ public class MainMode implements TerminalMode {
         int timeoutSeconds = 0; // 0 = no timeout (original per-char behavior)
         java.util.regex.Matcher m = java.util.regex.Pattern.compile(",\\s*(\\d{1,2})\\s*$").matcher(text);
         if (m.find()) {
-            timeoutSeconds = Integer.parseInt(m.group(1));
+            timeoutSeconds = NumberParser.parseNumber(m.group(1), 10);
             text = text.substring(0, m.start());
         }
 
@@ -1861,7 +1861,7 @@ public class MainMode implements TerminalMode {
                 // Hex, consistent with every other byte and address argument in
                 // this monitor. Reading these as decimal would silently compare
                 // the wrong values and could report a spurious match.
-                expected[i] = Integer.parseInt(token, 16) & 0xFF;
+                expected[i] = NumberParser.parseNumber(token, 16) & 0xFF;
             } catch (NumberFormatException e) {
                 output.println("Invalid byte '" + tokens[i] + "' at offset " + i
                         + ": expected two hex digits");
@@ -2129,7 +2129,7 @@ public class MainMode implements TerminalMode {
             
             // Check if it's a hex value with $ prefix
             if (input.startsWith("$")) {
-                keyCode = (byte)(Integer.parseInt(input.substring(1), 16) & 0xFF);
+                keyCode = (byte)(NumberParser.parseNumber(input, 16) & 0xFF);
             }
             // Check if it's a quoted character (handles 'a' or "a")
             else if ((input.startsWith("'") && input.endsWith("'") && input.length() == 3) || 
@@ -2157,7 +2157,7 @@ public class MainMode implements TerminalMode {
             }
             // Otherwise try parsing as a decimal number
             else {
-                keyCode = (byte)(Integer.parseInt(input) & 0xFF);
+                keyCode = (byte)(NumberParser.parseNumber(input, 10) & 0xFF);
             }
 
             simulateKeypressInternal(keyCode);

@@ -662,7 +662,7 @@ public class MonitorMode implements TerminalMode, WatchCallback {
         int count = 1;
         if (args.length > 0) {
             try {
-                count = Integer.parseInt(args[0]);
+                count = NumberParser.parseNumber(args[0], 10);
                 if (count <= 0) count = 1;
             } catch (NumberFormatException e) {
                 output.println("Invalid step count: " + args[0]);
@@ -934,7 +934,7 @@ public class MonitorMode implements TerminalMode, WatchCallback {
                 try {
                     // Parse address with mode using our new helper class
                     AddressWithMode addrWithMode = parseAddressWithMode(args[0]);
-                    int value = Integer.parseInt(args[1], 16) & 0xFF;
+                    int value = NumberParser.parseNumber(args[1], 16) & 0xFF;
                     
                     addCheat(addrWithMode.getAddress(), value, addrWithMode.getMode());
                 } catch (NumberFormatException e) {
@@ -1336,7 +1336,7 @@ public class MonitorMode implements TerminalMode, WatchCallback {
         String[] valueStrs = valuesStr.trim().split("\\s+");
         int[] values = new int[valueStrs.length];
         for (int i = 0; i < valueStrs.length; i++) {
-            values[i] = Integer.parseInt(valueStrs[i], 16);
+            values[i] = NumberParser.parseNumber(valueStrs[i], 16);
         }
         
         writeMemory(addrWithMode.getAddress(), values, addrWithMode.getMode());
@@ -1386,11 +1386,11 @@ public class MonitorMode implements TerminalMode, WatchCallback {
             output.println("Usage: fill start end value");
             return;
         }
-        
+
         try {
             int start = parseAddress(args[0]);
             int end = parseAddress(args[1]);
-            int value = Integer.parseInt(args[2], 16) & 0xFF;
+            int value = NumberParser.parseNumber(args[2], 16) & 0xFF;
             
             if (start > end) {
                 output.println("Start address must be less than or equal to end address");
@@ -1418,11 +1418,11 @@ public class MonitorMode implements TerminalMode, WatchCallback {
             output.println("Usage: move src dest count");
             return;
         }
-        
+
         try {
             int src = parseAddress(args[0]);
             int dest = parseAddress(args[1]);
-            int count = Integer.parseInt(args[2]);
+            int count = NumberParser.parseNumber(args[2], 16);
             
             // Read source bytes without triggering memory listeners
             byte[] buffer = new byte[count];
@@ -1452,11 +1452,11 @@ public class MonitorMode implements TerminalMode, WatchCallback {
             output.println("Usage: compare src dest count");
             return;
         }
-        
+
         try {
             int src = parseAddress(args[0]);
             int dest = parseAddress(args[1]);
-            int count = Integer.parseInt(args[2]);
+            int count = NumberParser.parseNumber(args[2], 16);
             
             int diffCount = 0;
             
@@ -1504,7 +1504,7 @@ public class MonitorMode implements TerminalMode, WatchCallback {
             // Convert search values to byte array
             int[] pattern = new int[args.length - 2];
             for (int i = 0; i < pattern.length; i++) {
-                pattern[i] = Integer.parseInt(args[i + 2], 16) & 0xFF;
+                pattern[i] = NumberParser.parseNumber(args[i + 2], 16) & 0xFF;
             }
             
             output.println("Searching for pattern from $" + 
@@ -1926,23 +1926,11 @@ public class MonitorMode implements TerminalMode, WatchCallback {
     }
 
     private int parseByteValue(String value) {
-        if (value.startsWith("$")) {
-            return Integer.parseInt(value.substring(1), 16) & 0xFF;
-        } else if (value.startsWith("0x")) {
-            return Integer.parseInt(value.substring(2), 16) & 0xFF;
-        } else {
-            return Integer.parseInt(value) & 0xFF;
-        }
+        return NumberParser.parseByteValue(value);
     }
 
     private int parseWordValue(String value) {
-        if (value.startsWith("$")) {
-            return Integer.parseInt(value.substring(1), 16) & 0xFFFF;
-        } else if (value.startsWith("0x")) {
-            return Integer.parseInt(value.substring(2), 16) & 0xFFFF;
-        } else {
-            return Integer.parseInt(value) & 0xFFFF;
-        }
+        return NumberParser.parseWordValue(value);
     }
 
     private boolean parseBooleanValue(String value) {
