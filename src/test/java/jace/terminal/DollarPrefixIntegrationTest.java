@@ -84,7 +84,7 @@ public class DollarPrefixIntegrationTest {
     /**
      * Test that move command accepts $ prefix for count argument.
      * Command: move 2000 3000 $800
-     * Should copy 2048 bytes (with or without $ since monitor defaults to hex).
+     * Count defaults to decimal, but $ prefix forces hex interpretation (2048 bytes).
      */
     @Test
     public void testMoveCommand_DollarPrefixCount() throws Exception {
@@ -94,7 +94,7 @@ public class DollarPrefixIntegrationTest {
                 ram.write(0x2000 + i, (byte)(i & 0xFF), false, true);
             }
 
-            // Move command: move 2000 3000 $800
+            // Move command: move 2000 3000 $800 ($ prefix forces hex = 2048 bytes)
             monitorMode.processCommand("move 2000 3000 $800");
 
             // Verify that 2048 bytes were copied (0x800 in hex)
@@ -107,43 +107,70 @@ public class DollarPrefixIntegrationTest {
                     break;
                 }
             }
-            assertTrue("move should interpret $800 as hex 2048 bytes", allMatch);
+            assertTrue("move $800 should interpret $800 as hex 2048 bytes", allMatch);
 
-            // Verify 801st byte (decimal) was NOT copied
-            ram.write(0x2321, (byte)0xAA, false, true); // 0x2000 + 801 decimal
-            byte original = ram.readRaw(0x2321);
-            byte dest = ram.readRaw(0x3321);
-            assertNotEquals("move $800 should copy 2048 bytes, not 801", original, dest);
+            // Verify that without $ prefix, 800 means decimal 800 bytes
+            for (int i = 0; i < 1000; i++) {
+                ram.write(0x4000 + i, (byte)(i & 0xFF), false, true);
+            }
+            monitorMode.processCommand("move 4000 5000 800");
+
+            // Verify exactly 800 bytes were copied
+            allMatch = true;
+            for (int i = 0; i < 800; i++) {
+                byte src = ram.readRaw(0x4000 + i);
+                byte dst = ram.readRaw(0x5000 + i);
+                if (src != dst) {
+                    allMatch = false;
+                    break;
+                }
+            }
+            assertTrue("move 800 (no prefix) should copy 800 decimal bytes", allMatch);
+
+            // Verify byte 800 (index 800, the 801st byte) was NOT copied
+            ram.write(0x4320, (byte)0xBB, false, true); // 0x4000 + 800 decimal
+            byte original = ram.readRaw(0x4320);
+            byte dest = ram.readRaw(0x5320);
+            assertNotEquals("move 800 should copy 800 bytes, not 801", original, dest);
         });
     }
 
     /**
      * Test that compare command accepts $ prefix for count argument.
      * Command: compare 2000 3000 $100
-     * Should compare 256 bytes, not 100.
+     * Count defaults to decimal, but $ prefix forces hex interpretation (256 bytes).
      */
     @Test
     public void testCompareCommand_DollarPrefixCount() throws Exception {
         Emulator.withMemory(ram -> {
             // Fill both regions with the same pattern
-            for (int i = 0; i < 256; i++) {
+            for (int i = 0; i < 300; i++) {
                 byte val = (byte)(i & 0xFF);
                 ram.write(0x2000 + i, val, false, true);
                 ram.write(0x3000 + i, val, false, true);
             }
 
-            // Make byte 101 (decimal) different - should NOT be reported
-            ram.write(0x2065, (byte)0xFF, false, true); // 0x2000 + 101 decimal
-            ram.write(0x3065, (byte)0x00, false, true);
+            // Make byte 150 (decimal) different - beyond normal 100 byte compare
+            ram.write(0x2096, (byte)0xFF, false, true); // 0x2000 + 150 decimal
+            ram.write(0x3096, (byte)0x00, false, true);
 
-            // Compare command: compare 2000 3000 $100 (256 bytes)
+            // Compare command: compare 2000 3000 $100 ($ prefix = hex 256 bytes)
             outContent.reset();
             monitorMode.processCommand("compare 2000 3000 $100");
 
             String output = outContent.toString();
-            // Should report difference at byte 101 because $100 = 256 > 101
-            assertTrue("compare $100 should check 256 bytes, finding difference at 101",
-                    output.contains("$2065") || output.contains("2065"));
+            // Should report difference at byte 150 because $100 = 256 > 150
+            assertTrue("compare $100 should check 256 bytes, finding difference at 150",
+                    output.contains("$2096") || output.contains("2096"));
+
+            // Verify that without $ prefix, 100 means decimal 100 bytes
+            outContent.reset();
+            monitorMode.processCommand("compare 2000 3000 100");
+
+            output = outContent.toString();
+            // Should NOT report difference at byte 150 because 100 decimal < 150
+            assertFalse("compare 100 (no prefix) should check only 100 bytes",
+                    output.contains("$2096") || output.contains("2096"));
         });
     }
 

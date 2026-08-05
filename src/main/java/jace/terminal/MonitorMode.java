@@ -1422,7 +1422,7 @@ public class MonitorMode implements TerminalMode, WatchCallback {
         try {
             int src = parseAddress(args[0]);
             int dest = parseAddress(args[1]);
-            int count = NumberParser.parseNumber(args[2], 16);
+            int count = NumberParser.parseNumber(args[2], 10);
             
             // Read source bytes without triggering memory listeners
             byte[] buffer = new byte[count];
@@ -1456,7 +1456,7 @@ public class MonitorMode implements TerminalMode, WatchCallback {
         try {
             int src = parseAddress(args[0]);
             int dest = parseAddress(args[1]);
-            int count = NumberParser.parseNumber(args[2], 16);
+            int count = NumberParser.parseNumber(args[2], 10);
             
             int diffCount = 0;
             

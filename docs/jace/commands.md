@@ -723,19 +723,19 @@ compare <src> <dest> <count>    # Compare memory blocks (alias: cmp)
 find <start> <end> <byte> ...   # Search for byte pattern
 ```
 
-**Argument radix and $ prefix support:** All monitor mode numeric arguments default to
-hexadecimal, consistent with Wozniak monitor conventions. You may optionally prefix any
-numeric argument with `$` to explicitly mark it as hex (e.g., `$800`).
+**Argument radix and $ prefix support:** Addresses and memory values default to hexadecimal
+(Wozniak monitor convention). Iteration counts (e.g., move/compare count, step count) default
+to decimal. You may prefix any numeric argument with `$` to explicitly mark it as hex.
 
 | Command | Addresses | Count / value | Example |
 |---|---|---|---|
 | `fill <start> <end> <value>` | hex | hex (supports `$` prefix) | `fill 2000 2100 $FF` |
-| `move <src> <dest> <count>` | hex | hex (supports `$` prefix) | `move 2000 4000 800` copies 2048 bytes |
-| `compare <src> <dest> <count>` | hex | hex (supports `$` prefix) | `compare 2000 3000 $100` compares 256 bytes |
-| `find <start> <end> <byte>...` | hex | hex (supports `$` prefix) | `find 2000 3000 $DE $AD` |
+| `move <src> <dest> <count>` | hex | **decimal** count (supports `$` prefix) | `move 2000 4000 2048` copies 2048 bytes |
+| `compare <src> <dest> <count>` | hex | **decimal** count (supports `$` prefix) | `compare 2000 3000 256` compares 256 bytes |
+| `find <start> <end> <byte>...` | hex | hex bytes (supports `$` prefix) | `find 2000 3000 $DE $AD` |
 
-Note: `move 2000 4000 800` treats `800` as hex ($800 = 2048 bytes). To copy exactly 800
-decimal bytes, write `move 2000 4000 $320` (since 0x320 = 800 decimal).
+Note: `move 2000 4000 800` copies 800 decimal bytes. To copy 0x800 (2048 decimal) bytes,
+write `move 2000 4000 $800`.
 
 Other behaviour worth knowing:
 - All four honour the current bank mode and accept `M`/`X`-prefixed addresses.
