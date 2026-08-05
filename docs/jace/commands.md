@@ -4,14 +4,21 @@ Loaded on demand from `CLAUDE.md`. Complete syntax and semantics for every termi
 command in `MainMode.java` and `MonitorMode.java`.
 
 **Built-in `help <cmd>` is wrong in places.** Verified discrepancies are called out inline:
-`run` (claims cycles, is wall-clock), `move`/`compare` (help text was outdated).
-Where this file and `help` disagree, this file was checked against the implementation.
+`run` (claims cycles, is wall-clock), `move`/`compare` (help claims the count is hex; the code
+parses it as decimal). Where this file and `help` disagree, this file was checked against the
+implementation.
 
-**Numeric argument parsing:** Terminal commands uniformly accept `$` prefix to mark a number
-as hexadecimal (e.g., `$800` = 2048 decimal). Monitor mode commands default to hex for all
-memory-related values (addresses, bytes, counts), consistent with Wozniak monitor conventions.
-Main mode commands typically default to decimal for counts and timeouts. The prefixes `x` or
-`0x` are NOT accepted (use `$` instead for clarity and Apple II convention).
+**Numeric argument parsing:** Terminal commands uniformly accept a `$` prefix to mark a number
+as hexadecimal (e.g. `$800` = 2048 decimal) — always unambiguous, so prefer it. Without a
+prefix, the default radix is **per argument, not per mode**: addresses and memory values
+(`fill` value, `poke` bytes, `find` pattern, `cheat` value, Wozniak writes) default to hex,
+while iteration counts, timeouts, and slot numbers (`step`, `move`/`compare` count, `run`,
+`expect`) default to decimal. See the per-command tables below.
+
+`x` is NOT accepted as a hex prefix, deliberately: `X` already means "auxiliary bank" in
+monitor addresses (`X2000.2027`), and one prefix must not mean two things by context. `0x` is
+accepted only by the register-write commands (`A=`, `X=`, `Y=`, `PC=`, `SP=`), which predate
+this convention; do not rely on it elsewhere.
 
 ## Contents
 
