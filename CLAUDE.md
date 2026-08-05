@@ -8,6 +8,7 @@ mode (`--terminal`) used to automate Apple II software testing.
 | Read this | When you are |
 |---|---|
 | `docs/jace/commands.md` | Looking up any terminal command's syntax or semantics (the full reference) |
+| `docs/jace/setup-and-disks.md` | Launching JACE, choosing a slot, or hitting a disk-image problem (incl. the cadius 146,432-byte patch) |
 | `docs/jace/debugging-guide.md` | Debugging 65C02 code: `$FC` debug opcodes, breadcrumbs, breakpoints, failure diagnosis, Language Card switches |
 | `docs/jace/automation-recipes.md` | Writing a full automation script; or need implementation/architecture internals |
 | `docs/jace/applesoft.md` | Working with Applesoft BASIC (cold-start without a disk, tokenizing, variable table layout) |

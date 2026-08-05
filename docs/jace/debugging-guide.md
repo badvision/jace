@@ -1,8 +1,8 @@
 <!-- Loaded on demand from CLAUDE.md. -->
 
-## Debugging Guide for Agents
+# Debugging 65C02 Code on JACE
 
-This section documents proven debugging techniques learned from real-world use of JACE terminal mode for testing compiled 65C02 code.
+Proven techniques from real-world use of JACE terminal mode to test compiled 65C02 code.
 
 ### Always Use a Timeout Wrapper
 

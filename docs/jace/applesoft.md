@@ -2,7 +2,7 @@
 
 Loaded on demand from `CLAUDE.md`.
 
-### Reaching Applesoft BASIC Without a Disk Image
+## Reaching Applesoft BASIC Without a Disk Image
 
 When Jace starts without a disk image, or after `reset` with no disk mounted,
 the system is in the Disk ][ boot ROM at $C600, waiting for a floppy. To start
@@ -25,7 +25,7 @@ with the program text, causing garbled screen output and BASIC failures.
 To reach the warm-start (re-enter BASIC without reinitializing), use `FF69G`
 followed by `run 500000`.
 
-### Complete Applesoft BASIC Test Workflow (No Disk)
+## Complete Applesoft BASIC Test Workflow (No Disk)
 
 **Proven working sequence** for loading and running a BASIC program from a file:
 
@@ -50,7 +50,7 @@ Notes:
 - `waitkey` and `type` (synchronized keyboard) do NOT work after `E000G`
   because the emulator is paused; use `key` + `run N` or `key` + `expect` instead
 
-### BASIC Variable Table Layout (Applesoft Internals)
+## BASIC Variable Table Layout (Applesoft Internals)
 
 Applesoft stores float variables as 7 bytes in the variable table (VARTAB):
 - Bytes 0-1: variable name (ASCII)

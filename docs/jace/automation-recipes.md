@@ -132,26 +132,7 @@ byte auxValue  = ram128k.getAuxMemory().readByte(addr);    // even DHGR columns
 This is what `MonitorMode.resolveBank()` does for the `M`/`X` prefixes and the
 `memmain`/`memaux` commands. It touches no softswitches.
 
-### `memaux` / `memmain` - Dump a Specific Bank (No Mode Switch)
-
-```
-memaux  <start> <end>    # AUX bank only  (alias: mx)
-memmain <start> <end>    # MAIN bank only (alias: mm)
-```
-
-Hex dumps a range from an explicitly named bank, independent of softswitch state.
-Use these instead of `mem` whenever the bank matters — `mem` follows the active
-configuration and cannot distinguish the two banks.
-
-In 80STORE+HIRES double-hi-res, `$2000-$3FFF` is interleaved: **aux holds the even
-pixel columns, main the odd**. Verifying rendered output requires both:
-
-```
-memaux  2000 2027
-memmain 2000 2027
-```
-
-The monitor-mode equivalents are the `X` and `M` address prefixes (`X2000.2027`).
+The corresponding terminal commands are `memaux`/`memmain`; see `commands.md`.
 
 ## Testing Workflow
 
@@ -164,3 +145,15 @@ Typical automated test workflow:
 5. **Capture screen** to verify results
 6. **Parse output** for pass/fail indicators
 
+## Not Yet Implemented
+
+Gaps an agent may reasonably expect to exist but which do not:
+
+1. **`waitpc`** — a generalized version of `bootdisk`'s "run until PC >= addr" wait. Today
+   only `bootdisk` (hardcoded `$2000`) and `runto`/`break` (exact address) exist.
+2. **`script`** — executing commands from a file. Pipe them on stdin instead (see above).
+3. **No asynchronous I/O** — every command blocks; you cannot inspect the screen or memory
+   while emulation is running. Interleave `run`/`runvbl` with inspection commands.
+
+Note that graphics capture and screen-to-file *are* implemented (`screenshot`/`ss2`), despite
+older notes listing them as future work.

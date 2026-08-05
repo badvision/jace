@@ -1,6 +1,6 @@
 <!-- Loaded on demand from CLAUDE.md. -->
 
-## Mockingboard / AY-3-8910 Sound Emulation
+# Mockingboard / AY-3-8910 Sound Emulation
 
 `jace.hardware.CardMockingboard` plus `jace.hardware.mockingboard.*` implement a
 Mockingboard-C: two 6522 VIAs, each driving one AY PSG.

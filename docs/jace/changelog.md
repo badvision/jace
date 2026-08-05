@@ -1,6 +1,6 @@
 <!-- Loaded on demand from CLAUDE.md. -->
 
-## Change Log
+# JACE Change Log
 
 ### 2026-08-05
 - **Corrected the `run` documentation, which was wrong.** `run N` does not execute N cycles:

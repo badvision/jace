@@ -1,8 +1,50 @@
 # JACE Terminal Command Reference
 
-Loaded on demand from `CLAUDE.md`. Complete syntax and semantics for every terminal-mode command in `MainMode.java` and `MonitorMode.java`.
+Loaded on demand from `CLAUDE.md`. Complete syntax and semantics for every terminal-mode
+command in `MainMode.java` and `MonitorMode.java`.
 
-## New Automation Commands
+**Built-in `help <cmd>` is wrong in places.** Verified discrepancies are called out inline:
+`run` (claims cycles, is wall-clock), `move`/`compare` (claim hex count, parse decimal).
+Where this file and `help` disagree, this file was checked against the implementation.
+
+## Contents
+
+- **Booting and loading** — `bootdisk`, `insertdisk`/`ejectdisk`, `loadbin`/`savebin`,
+  `saveauxbin`/`saveauxrambin`, `loadbasic`, `reset`
+- **Running and stepping** — `run` (**read this: not cycle-accurate**), `step`, `tick`,
+  `runto`, `runvbl`, `go`, `<addr>G`, `speed`
+- **Observing** — `showtext`, `screenshot`, `mem`, `memaux`/`memmain`, `cmpmem`, `cpu`,
+  `registers`, `swstate`, `swlog`, `cycles`
+- **Input** — `key`, `type`, `waitkey`, `expect`
+- **Debugging** — `break`/`breaklist`, `watch`/`watchlist`, `cheat`/`cheatlist`, `symbols`,
+  `poke`, `rdb`, `charlog`
+- **Monitor mode** — Wozniak pattern syntax, `M`/`X` bank prefixes, `fill`, `move`,
+  `compare`, `find`
+
+### Alias collisions that bite
+
+| Alias | Main mode | Monitor mode |
+|---|---|---|
+| `ss` | `swstate` — screenshot is **`ss2`** | — |
+| `cl` | `charlog` | `cheatlist` |
+| `b` | — | `break`, **not** `back` (use `q` to leave) |
+| `m` | `monitor` | `move` |
+| `d` | `debugger` (→ monitor mode) | — |
+| `g` | `run` | — |
+
+## Terminal Modes
+
+The terminal is a REPL with three modes:
+
+- **Main mode** (default, prompt `JACE>`) — system control, disks, automation
+- **Monitor mode** (`monitor`/`m`; leave with `q`, `quit`, or `back`) — memory and debugging
+- **Assembler mode** (`assembler`/`a`) — assembly language input
+
+Type `?` or `help` for the command list, `help <cmd>` for one command. Most monitor commands
+and all Wozniak pattern syntax also work directly from the main prompt, so a mode switch is
+rarely needed. `qq` exits the terminal; `qqq` (or `exit!`) terminates the JVM.
+
+## Core Automation Commands
 
 Three key commands were added to enable automated testing:
 
@@ -377,6 +419,27 @@ registers [reg value]   # Show or set registers (alias: reg)
 break <addr>            # Set/remove/list breakpoints (alias: bp)
 runto <addr>            # Run until PC reaches address (alias: rt)
 ```
+
+### `memaux` / `memmain` - Dump a Specific Bank (No Mode Switch)
+
+```
+memaux  <start> <end>    # AUX bank only  (alias: mx)
+memmain <start> <end>    # MAIN bank only (alias: mm)
+```
+
+Hex dumps a range from an explicitly named bank, independent of softswitch state.
+Use these instead of `mem` whenever the bank matters — `mem` follows the active
+configuration and cannot distinguish the two banks.
+
+In 80STORE+HIRES double-hi-res, `$2000-$3FFF` is interleaved: **aux holds the even
+pixel columns, main the odd**. Verifying rendered output requires both:
+
+```
+memaux  2000 2027
+memmain 2000 2027
+```
+
+The monitor-mode equivalents are the `X` and `M` address prefixes (`X2000.2027`).
 
 ### `symbols` / `sym` - Load Assembler Labels So Commands Accept Names
 
