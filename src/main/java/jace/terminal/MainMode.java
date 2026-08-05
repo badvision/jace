@@ -212,10 +212,17 @@ public class MainMode implements TerminalMode {
         commandHelp.put("break", "Manages execution breakpoints.\nUsage: break           - List all active breakpoints\n       break <addr>   - Add a breakpoint\n       break -<addr>  - Remove a breakpoint\n       break clear    - Remove all breakpoints");
         commandHelp.put("runto", "Runs the CPU until it reaches the specified address.\nUsage: runto <addr> (or rt <addr>)");
 
-        commandHelp.put("run", "Runs the CPU for a specified number of cycles or until a breakpoint is hit.\n" +
+        commandHelp.put("run", "Free-runs the emulator for a WALL-CLOCK duration derived from count. NOT cycle-accurate.\n" +
                 "Usage: run [count] [#breakpoint] (or g [count] [#breakpoint])\n" +
-                "If count is omitted, runs for 1,000,000 cycles.\n" +
-                "If breakpoint is specified with # prefix, stops when that address is reached.");
+                "count is converted to milliseconds as count/1000, with a MINIMUM of 100 ms.\n" +
+                "WARNING: any count below 100,000 therefore runs for ~100 ms of real time --\n" +
+                "  'run 1000' does NOT execute 1000 cycles, it executes roughly 100,000+ of them.\n" +
+                "  Actual cycles executed also depend on host load and on 'speed max|normal'.\n" +
+                "If count is omitted, the default is 1,000,000 (~1000 ms).\n" +
+                "If breakpoint is specified with # prefix, stops when that address is reached\n" +
+                "  (polled every 50 ms, so it can be missed if PC passes through between polls).\n" +
+                "For cycle-accurate stepping use 'step' (instructions) or 'tick' (device ticks).\n" +
+                "For frame stepping use 'runvbl'/'rv'. Use 'run' only to 'let it run a while'.");
 
         commandHelp.put("insertdisk",
                 "Inserts a disk image into a specified drive.\nUsage: insertdisk d<drive_number> <filepath> [slot] (or id d<drive_number> <filepath> [slot])\n"
@@ -817,6 +824,14 @@ public class MainMode implements TerminalMode {
 
                 // Calculate run time in milliseconds (Apple II runs at ~1MHz)
                 // cycles / 1000 = milliseconds
+                //
+                // KNOWN WART: this makes 'run' a wall-clock timer, not a cycle counter.
+                // The 100 ms floor below means any count under 100,000 free-runs for
+                // ~100 ms — at ~1 MHz that is 100,000+ cycles, so 'run 1000' overshoots
+                // by ~100x. Callers needing precision must use 'step'/'tick' (exact) or
+                // 'runvbl' (frame edges). Documented in CLAUDE.md and in 'help run'.
+                // Changing the semantics here would affect existing tests and callers;
+                // it is a deliberate open decision, not an oversight.
                 long runTimeMs = finalCycleCount / 1000;
                 if (runTimeMs < 100) runTimeMs = 100; // Minimum 100ms
 

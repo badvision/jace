@@ -404,19 +404,63 @@ This is the correct way to do visual validation — do NOT try to screencapture 
 
 ---
 
-### `run` - Execute CPU Cycles
+### `run` - Free-Run the Emulator (NOT cycle-accurate)
 
 ```
 run [count] [#breakpoint]
 ```
 
-Runs the CPU for a specified number of cycles (default: 1,000,000).
+Alias: `g`. Default `count` is 1,000,000.
+
+**`run N` does NOT execute N cycles.** Despite the name and the argument, `count` is
+converted to a **wall-clock duration** and the emulator is simply left free-running for
+that long (`MainMode.runCPU`):
+
+```java
+long runTimeMs = finalCycleCount / 1000;      // cycles -> milliseconds at a notional 1 MHz
+if (runTimeMs < 100) runTimeMs = 100;         // *** 100 ms FLOOR ***
+...
+while (System.currentTimeMillis() - startTime < runTimeMs) { ... Thread.sleep(50); }
+```
+
+Consequences, all of which have cost real debugging time:
+
+- **Any `count` below 100,000 runs for ~100 ms of real time.** `run 1000`, `run 100`,
+  `run 5` are all identical: ~100 ms of free-running emulation, which at ~1 MHz is
+  **100,000+ cycles — on the order of 100x more than a small `count` asks for.**
+  An agent debugging the Pitfall! port hit exactly this and reported that "the emulator
+  capped each run at ~120k cycles regardless of the argument"; it could not land screen
+  captures at chosen sprite positions.
+- Even for large `count`, the cycle total is only approximate. It is wall-clock bounded,
+  so **host load affects it**, and if `speed max` is in effect (see `speed`/`sp`) the
+  machine is unthrottled and will execute far more cycles than `count` implies.
+- The `#breakpoint` form is polled every 50 ms, so PC can pass through the target
+  between polls and the "breakpoint" is missed. Use `runto`/`rt` (or `break` + `resume`)
+  when you actually need to stop at an address.
+
+**Use the right tool instead:**
+
+| Need | Use | Accuracy |
+|---|---|---|
+| Exact instruction stepping | `step [count]` | Exact — N instructions |
+| Exact device/motherboard ticks | `tick [count]` (`tc`) | Exact — N ticks |
+| Stop at an address | `runto <addr>` (`rt`), or `break` + `resume` | Exact |
+| Advance one frame / get frame-coherent memory | `runvbl` (`rv`), `screenshot ... --vbl` | Exact — VBL edge |
+| "Let it run a while" (boot, BASIC cold-start, waiting on output) | `run N` | Approximate only |
+| Wait for known text output | `expect <string> [timeout]` | Event-driven |
+
+`run` is fine for its real purpose — letting the machine churn for a while, e.g.
+`run 2000000` after `E000G` to let BASIC cold-start. It is **not** a stepping primitive.
 
 Examples:
 ```
-run 1000000          # Run for 1 million cycles
-run 500000 #$2000    # Run until PC reaches $2000
+run 2000000          # ~2 seconds of free-running emulation (approximate)
+run 1000             # NOT 1000 cycles — ~100 ms, i.e. ~100,000+ cycles. Use `step`/`tick`.
 ```
+
+The misleading behaviour is documented in `help run` and flagged in a comment in
+`MainMode.java` next to the floor. **Do not "fix" the timing logic casually** — existing
+tests and scripts depend on the current semantics; changing them is a repo-owner decision.
 
 ### `key` - Simulate Keypresses
 
