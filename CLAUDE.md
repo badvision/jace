@@ -530,6 +530,175 @@ break <addr>            # Set/remove/list breakpoints (alias: bp)
 runto <addr>            # Run until PC reaches address (alias: rt)
 ```
 
+### `symbols` / `sym` - Load Assembler Labels So Commands Accept Names
+
+```
+symbols <labelfile>     # Load symbols (merges with anything already loaded)
+symbols                 # List loaded symbols and their addresses
+symbols clear           # Forget all loaded symbols
+```
+
+**This is the highest-leverage command for debugging an assembled project.** Once a label
+file is loaded, *any* command that takes an address accepts a label name instead of hex:
+
+```
+symbols /path/to/build/labels.txt
+break mainloop
+runto after_draw
+go entry
+mem frame_count frame_count
+memaux sprite_buffer sprite_buffer
+```
+
+Two input formats are accepted, matching ACME's two emitters:
+
+| ACME flag | Line format |
+|---|---|
+| `acme --symbollist FILE` | `name = $XXXX` |
+| `acme --vicelabels FILE` | `al C:xxxx .name` |
+
+Hex input is unchanged and always wins. A label whose name is *also* valid hex (e.g. a
+label literally called `abcd`) must be written with a leading colon: `:abcd`. Unknown or
+ambiguous names fail with a message — they never silently resolve to `$0000`.
+
+### `speed` / `sp` - Throttle Control
+
+```
+speed max       # Remove the throttle; run as fast as the host CPU allows
+speed normal    # Restore the ~1 MHz throttle
+```
+
+Calls `Motherboard.setMaxSpeed()`. Relevant to any wall-clock-based command: under
+`speed max` a `run N` covers far more emulated cycles in the same real time, and `expect`
+reaches its output sooner. Use `speed max` to shorten long boots, then `speed normal`
+before anything timing-sensitive.
+
+### `swstate` / `ss` - Show Softswitch State
+
+```
+swstate                 # Dump every softswitch and its ON/OFF state
+swstate <SWITCH_NAME>   # Show just one, e.g. swstate HIRES
+```
+
+The name is a `jace.apple2e.SoftSwitches` enum constant (`TEXT`, `MIXED`, `PAGE2`,
+`HIRES`, `_80COL`, `_80STORE`, `DHIRES`, `ALTCHARSET`, `AUXREAD`, `AUXWRITE`, ...) and is
+upper-cased for you. Unknown names print `Unknown softswitch: <name>`. This is the
+reliable way to confirm the display configuration — more direct than reading `$C01A`
+and friends, and it does not touch the switches.
+
+**Alias caution:** `ss` is `swstate`. The screenshot command is `ss2`, not `ss`.
+
+### `swlog` / `sl` - Log Softswitch Changes
+
+```
+swlog       # toggle
+```
+
+Installs a `RAMListener` over `$C000-$C0FF` and prints softswitch state *transitions* as
+they happen. Call again to disable. Useful for catching an unexpected mode change (e.g.
+something clearing `HIRES` mid-frame); very chatty, so bracket it narrowly.
+
+### `poke` - Write Bytes Bypassing Write Protection
+
+```
+poke <addr> <byte> [byte ...]
+```
+
+All values hex. Unlike the monitor's `<addr>:<val>` syntax, `poke` writes **directly into
+the backing page array** obtained from `activeRead.getMemoryPage(addr)`, so it bypasses
+write-protection entirely — **it can patch ROM and a write-protected Language Card bank.**
+Because it goes to the `activeRead` page, it patches whatever is currently *readable* at
+that address, which is exactly what you want for ROM patching.
+
+It fires no RAM listeners, so watches and cheats will not see the write. Prints
+`No page at <hex>` for an unmapped address.
+
+```
+poke FB39 60        # patch the non-returning ROM routine at $FB39 to an RTS
+```
+
+### `cmpmem` / `cm` - Compare Memory Against an Expected Byte List
+
+```
+cmpmem <aux|main|active> <addr> <byte> [byte ...]
+```
+
+Reports **only the differences**, which makes it far more usable than eyeballing two hex
+dumps. Each mismatch prints its offset, absolute address, expected byte and actual byte;
+a clean run prints a match count.
+
+Bytes are hex, separated by spaces *or commas*, optionally `$`-prefixed — so the output of
+`memaux <s> <e> --raw` or `--csv` can be pasted straight back in as the expected list.
+`aux`/`main` read the physical bank regardless of softswitch state; `active` follows the
+current mapping.
+
+```
+cmpmem aux 2000 D5 AA 96 FF
+```
+
+### `saveauxbin` / `sab` and `saveauxrambin` / `sarb` - Save AUX Memory
+
+```
+saveauxbin    <filename> <address> <size>    # AUX *video* memory
+saveauxrambin <filename> <address> <size>    # full AUX RAM bank
+```
+
+Both are the AUX counterparts of `savebin`. Address and size may be decimal, or hex with a
+`$` or `0x` prefix.
+
+- `saveauxbin` reads auxiliary **video** memory — use it for the aux DHGR page at `$2000`.
+- `saveauxrambin` reads the full AUX RAM bank (`getAuxMemory()`), covering **all**
+  addresses including `$6000+`. Use this one when the data you want is outside the video
+  pages.
+
+For DHGR verification you generally want both halves:
+
+```
+runvbl
+savebin    /tmp/dhgr_main.bin 2000 2000
+saveauxbin /tmp/dhgr_aux.bin  2000 2000
+```
+
+### `nohints` - Disable the Apple //e Helpful-Hints Overlay
+
+```
+nohints
+```
+
+Sets `Apple2e.enableHints = false` and reconfigures. Apple //e only; prints
+`This command is only supported on Apple //e` otherwise. Use it when hint overlays would
+contaminate a screenshot or `showtext` capture.
+
+### `charlog` / `cl` - Log Z-Machine Character Output
+
+```
+charlog       # toggle
+```
+
+Special-purpose: installs an execute listener at `$5DA3` (a Z-machine character writer) and
+a write listener over `$0280-$02FF`, printing `CHAR: 0xNN 'C'` and `WRITE $XXXX = 0xNN`.
+Only meaningful when running that specific Z-machine interpreter. Call again to disable.
+
+### `rdb` / `cy` / `cyrene` - Aristaeus Remote Debugger
+
+```
+rdb start | rdb stop | rdb status
+```
+
+Starts a TCP debug server on **port 57867** for the
+[Aristaeus](https://github.com/badvision/aristaeus) GUI debugger — registers, memory, soft
+switches, breakpoints, stepping. Interactive human debugging, not agent automation. Keep
+the machine cycling while connected (`run 999999999`).
+
+### `assembler` / `a` and `debugger` / `d` - Mode Switches
+
+```
+assembler       # enter assembler mode (assembly language input)
+debugger        # legacy alias — enters MONITOR mode, not a separate debugger
+```
+
+`debugger` exists only for backward compatibility; all debugging lives in monitor mode.
+
 ### `reset` - System Reset
 
 ```
@@ -546,10 +715,51 @@ Enter monitor mode with `monitor` (or `m`). Return to main mode with `back`, `qu
 
 **Tip:** Wozniak monitor syntax (`4000G`, `3800.3820`, `E000G`, etc.) and named commands (`cpu`, `registers`, `break`, `runto`) work directly from the main `JACE>` prompt — no mode switch needed.
 
+### Wozniak Monitor Pattern Syntax
+
+Monitor mode recognises these argument-free patterns *in addition* to the named commands.
+All addresses are 1-4 hex digits. Each pattern accepts an optional leading **bank prefix**
+(see below). These also work directly from the main `JACE>` prompt.
+
+| Pattern | Example | Effect |
+|---|---|---|
+| `<addr>` | `3800` | Examine a single byte: prints `3800: A9` |
+| `<addr>.<addr>` | `3800.3820` | Hex-dump an inclusive range |
+| `<addr>:<val> [<val>...]` | `3800:A9 FF 8D` | Write hex bytes starting at `<addr>` |
+| `<addr>G` | `4000G` | Set PC to `<addr>` and start executing (**returns immediately**) |
+| `<addr>L` | `4000L` | Disassemble 20 instructions starting at `<addr>` |
+| `L` | `L` | Disassemble the next 20 instructions, continuing from the last `L` |
+
+Notes:
+- `<addr>:<val>` writes through the normal write path, so write-protection applies and RAM
+  listeners fire. To patch ROM, use `poke` instead.
+- `<addr>G` is **asynchronous** — it starts execution and returns to the prompt at once. You
+  must follow it with `run N`, `expect`, `runvbl`, or `step` to actually advance the machine.
+- A bare single-byte examine advances an internal "last examined" pointer.
+
+#### `M` / `X` Bank Prefixes
+
+Prefix any of the above patterns with `M` (MAIN bank) or `X` (AUX bank), case-insensitive,
+to force the physical bank regardless of softswitch state:
+
+```
+X2000.2027      # dump AUX  $2000-$2027 (even DHGR pixel columns)
+M2000.2027      # dump MAIN $2000-$2027 (odd DHGR pixel columns)
+X4000:00 00     # write two zero bytes into AUX at $4000
+X2000           # examine one byte of AUX
+X4000G          # (prefix is parsed for G too)
+```
+
+With no prefix, the mode is monitor mode's current default (`ACTIVE` — follows the
+softswitches). The prefixes are the monitor-mode equivalents of the `memaux`/`memmain`
+main-mode commands. `<addr>L` and bare `L` (disassembly) do **not** take a bank prefix.
+
 ### Memory Examination
 ```
 <addr>.<addr>           # Dump memory range (e.g., 3800.3820)
 <addr>: <byte> ...      # Write bytes to memory
+<addr>                  # Examine a single byte
+<addr>L / L             # Disassemble 20 instructions / continue disassembly
 ```
 
 ### CPU Control
@@ -557,27 +767,88 @@ Enter monitor mode with `monitor` (or `m`). Return to main mode with `back`, `qu
 <addr>G                 # Execute from address (e.g., 4000G)
 cpu                     # Show CPU state (PC, A, X, Y, SP, flags)
 registers [reg value]   # Show or set registers (e.g., reg PC $4000)
-step [count]            # Single-step instructions
-runto <addr>            # Run until PC reaches address
-pause / resume          # Pause/resume emulation
+step [count]            # Single-step instructions (alias: s) - EXACT, unlike `run`
+runto <addr>            # Run until PC reaches address (alias: rt)
+pause / resume          # Pause/resume emulation (aliases: p / r)
+cycles                  # Show the CPU's pending wait-cycle count
 ```
+
+`cycles` prints `CPU Wait Cycles: N` — how many cycles the CPU will stall before the next
+instruction executes (nonzero mid-instruction or during a stretched cycle). It is a
+read-only probe with no arguments; use it to confirm the CPU is at an instruction boundary
+before a `step`.
 
 ### Breakpoints and Watches
 ```
-break <addr>            # Set breakpoint
+break <addr>            # Set breakpoint (alias: b)
 break -<addr>           # Remove breakpoint
 break clear             # Remove all breakpoints
-watch <addr> [name]     # Watch memory address for changes
+break                   # List all breakpoints (bare form)
+breaklist               # List all breakpoints (alias: bl)
+watch <addr> [name]     # Watch memory address for changes (alias: w)
+watch -<addr>           # Remove watch by address
+watch -<name>           # Remove watch by name
 watch clear             # Remove all watches
+watchlist               # List all watches (alias: wl)
 ```
+
+`breaklist`/`watchlist` are just explicit spellings of the bare `break`/`watch` listing
+forms; either works.
+
+**Alias caution:** in monitor mode `b` is `break`, not `back`. Use `q` (or `quit`/`back`) to
+leave monitor mode.
 
 ### Memory Operations
 ```
-fill <start> <end> <value>      # Fill memory range
-move <src> <dest> <count>       # Copy memory block
-compare <src> <dest> <count>    # Compare memory blocks
+fill <start> <end> <value>      # Fill memory range (alias: f)
+move <src> <dest> <count>       # Copy memory block (alias: m)
+compare <src> <dest> <count>    # Compare memory blocks (alias: cmp)
 find <start> <end> <byte> ...   # Search for byte pattern
 ```
+
+**Argument radix — the built-in help is wrong about `count`.** Verified against the
+implementations in `MonitorMode.java`:
+
+| Command | Addresses | Count / value |
+|---|---|---|
+| `fill <start> <end> <value>` | hex | `<value>` is **hex** |
+| `move <src> <dest> <count>` | hex | `<count>` is **DECIMAL** (`Integer.parseInt(args[2])`) |
+| `compare <src> <dest> <count>` | hex | `<count>` is **DECIMAL** |
+| `find <start> <end> <byte>...` | hex | bytes are hex |
+
+`help move` and `help compare` both claim "Number of bytes ... in hex" and give the example
+`move 2000 4000 800 - Copy 2048 bytes`. That is **incorrect** — `800` is parsed as decimal
+800, not `$800`/2048. Write `move 2000 4000 2048` to copy `$800` bytes. `fill`'s value
+genuinely is hex, so the two commands disagree with each other; this asymmetry is real.
+
+Other behaviour worth knowing:
+- All four honour the current bank mode and accept `M`/`X`-prefixed addresses.
+- `fill` requires `start <= end` and is inclusive of both ends.
+- `move` reads the whole source into a buffer *before* writing, so overlapping ranges
+  copy correctly in either direction.
+- `move` reads without firing RAM listeners but **writes through the normal path**, so
+  write-protection applies and watches fire on the destination.
+
+### Cheats (Forced Memory Values)
+```
+cheat <addr> <value>    # Force reads of <addr> to always return <value> (alias: ch)
+cheat -<addr>           # Remove the cheat at <addr>
+cheat clear             # Remove all cheats
+cheatlist               # List active cheats (alias: cl)
+```
+
+Implemented with a `RAMListener` that overrides the value on every read, so it survives the
+program rewriting the location — unlike a one-shot `<addr>:<val>` poke. Address may carry an
+`M`/`X` prefix; `<value>` is hex. Cheats are also recorded in a persistent collection, so
+they can outlive a reconfigure. Occasionally useful for forcing a game state (lives, level)
+to reach a screen quickly for capture.
+
+**Alias caution:** `cl` is `cheatlist` **in monitor mode** but `charlog` **in main mode**.
+
+### `debug` / `dbg` (Monitor Mode)
+
+A stub. Prints "Debugger functionality is now integrated into monitor mode." and nothing
+else. Kept for backward compatibility.
 
 ## Complete Automation Example
 
@@ -1138,26 +1409,35 @@ re-launch a second `mvn clean test` while one is still running — check for a r
 `surefire` java process first (`ps aux | grep surefire`), since Maven's own build lock will
 just queue/serialize a second invocation and waste time.
 
-### Known pre-existing test failures (not caused by your change)
+### Baseline: the suite is GREEN — treat any failure as yours
 
-As of 2026-07, the following tests fail on a clean baseline checkout, unrelated to sound,
-video, CPU, or terminal-automation work — do not treat these as regressions introduced by
-your change. If you see *new* failures beyond this list, investigate; if you see exactly
-this list, it's the known baseline:
+**Verified 2026-08-05 by a full `mvn test` run on this branch: `Tests run: 702, Failures: 0,
+Errors: 0, Skipped: 7`, BUILD SUCCESS, 45 s.** The previously documented list of
+"known pre-existing failures" (`CardSSCTest` methods, `CardSSCRegisterTest.
+testACIARegisterInitialValues`, four `TerminalFeatureTest` methods) has been **fixed and is
+no longer accurate** — do not use it to excuse a failure.
 
-- `CardSSCTest` (multiple methods) — Super Serial Card, e.g. `testExpectedFirmwareContent`,
-  `testInputDelegationMechanism`, `testPhantomInputFixed`, `testSSCFirmwareExecution`,
-  `testCompleteSSCInitialization`
-- `CardSSCRegisterTest.testACIARegisterInitialValues`
-- `TerminalFeatureTest.testDeviceTickingDuringStep`
-- `TerminalFeatureTest.testSaveBinFunctionality`
-- `TerminalFeatureTest.testStartupWithMassStorageDisk` (depends on a local file,
-  `/Users/brobert/Downloads/ProDOS_2_4_3.po`, not present in this environment)
-- `TerminalFeatureTest.testStepModeBehavior`
+**There is no failing baseline. If a test fails, assume your change caused it.**
+
+The one known environment-dependent case:
+
+- `TerminalFeatureTest.testStartupWithMassStorageDisk` depends on a local file
+  `/Users/brobert/Downloads/ProDOS_2_4_3.po`. It passes where that file exists. It has also
+  shown **order dependence** — it can behave differently in isolation vs. in a full-suite
+  run. If it is the *only* failure and your change is unrelated to mass storage, re-run it
+  alone before investigating.
+
+The 7 skipped tests are skipped by design, not failing.
 
 To confirm whether a failure is pre-existing vs. caused by your change, isolate your edit
 with `git stash push -- <your-file>`, re-run `mvn clean test -Dtest=<TheFailingClass>`
-against the unmodified baseline, then `git stash pop` to restore your work.
+against the unmodified baseline, then `git stash pop` to restore your work. (Note: this repo
+often carries substantial uncommitted work — prefer `git stash push -- <specific-file>` over
+a bare `git stash`, and never `git stash` a tree you did not create.)
+
+Note the run above took **45 seconds**, not the "5+ minutes" recorded in the previous
+section; that figure predates the current state of the suite. Still launch it as a
+background task, but do not assume a hang at the two-minute mark.
 
 ## Mockingboard / AY-3-8910 Sound Emulation
 
@@ -1349,6 +1629,51 @@ Potential improvements:
 - Disk ][ controller: https://www.doc.ic.ac.uk/~ih/doc/stepper/others/example3/diskii_specs.html
 
 ## Change Log
+
+### 2026-08-05
+- **Corrected the `run` documentation, which was wrong.** `run N` does not execute N cycles:
+  `MainMode.runCPU` converts N to milliseconds (`N/1000`) with a **100 ms floor** and
+  free-runs the emulator for that wall-clock duration. Every `run N` for N < 100,000 therefore
+  runs ~100 ms — 100,000+ cycles at ~1 MHz, roughly 100x an agent's small request. This had
+  already cost real debugging time on the Pitfall! port. Added the correct cycle-accurate
+  alternatives table (`step`/`tick`/`runto`/`runvbl`/`expect`), fixed the built-in `help run`
+  text, and left a known-wart comment at the floor. **Timing logic itself unchanged** —
+  altering the semantics would affect existing tests and callers.
+- Documented `$FC $5E` and `$5F`, previously undocumented and the most useful pair in the
+  set: `$5E` prints the **runtime accumulator** as hex, so it is the only $FC subcommand that
+  can observe a *computed* value (`$50`/`$5B`/`$5C` can only print a compile-time constant
+  baked into the operand). `$5F` ends the line and flushes. Both write to
+  `MOS65C02.debugOut`, which a Java harness can retarget. Added `debug_a` / `debug_eol` /
+  `debug_byte` ACME macros.
+- Documented `$FC $64 NN` (delegates to `RAM.performExtendedCommand`) and its one
+  implemented subcommand in `RAM128k`: `$DA`, dump active read/write bank mapping for all 256
+  pages — noting the per-page lines go to `java.util.logging` at INFO, not stdout.
+- Recorded the $FC operand byte order explicitly: absolute-addressing operand, so
+  `param1 = address & 0xFF` is the **first** byte after the opcode (the command selector) and
+  `param2 = address >> 8` is the second (the argument). The existing tables' byte order was
+  already correct; it just wasn't stated.
+- Documented 20 commands that existed in code but not here: main-mode `symbols`/`sym`,
+  `cmpmem`/`cm`, `poke`, `saveauxbin`/`sab`, `saveauxrambin`/`sarb`, `swstate`/`ss`,
+  `swlog`/`sl`, `speed`/`sp`, `nohints`, `charlog`/`cl`, `rdb`/`cy`/`cyrene`, `assembler`/`a`,
+  `debugger`/`d`; monitor-mode `fill`/`f`, `move`/`m`, `cycles`, `breaklist`/`bl`,
+  `watchlist`/`wl`, `cheat`/`ch`, `cheatlist`/`cl`, `debug`/`dbg`.
+- Documented the Wozniak monitor pattern syntax that was entirely absent: `<addr>`,
+  `<addr>.<addr>`, `<addr>:<val>...`, `<addr>G`, `<addr>L`, bare `L`, and the `M`/`X` bank
+  prefixes that force MAIN/AUX regardless of softswitch state.
+- **Found a second lie in the built-in help**: `help move` and `help compare` state the
+  `count` argument is hex and give `move 2000 4000 800 - Copy 2048 bytes`. The
+  implementation uses `Integer.parseInt(args[2])` — `count` is **DECIMAL** for both, while
+  `fill`'s `value` genuinely is hex. Documented the true radix per command; help text left
+  as-is pending a repo-owner decision.
+- Noted the alias collisions that bite: `ss` is `swstate` (screenshot is `ss2`), monitor `b`
+  is `break` not `back`, and `cl` is `charlog` in main mode but `cheatlist` in monitor mode.
+- **Replaced the stale "known pre-existing test failures" list.** A full `mvn test` on this
+  branch reports **702 tests, 0 failures, 0 errors, 7 skipped, BUILD SUCCESS in 45 s**. The
+  named `CardSSCTest`/`CardSSCRegisterTest`/`TerminalFeatureTest` failures are fixed. There
+  is no failing baseline — a failure is now presumed to be your own. Only
+  `TerminalFeatureTest.testStartupWithMassStorageDisk` remains environment/order dependent
+  (needs `/Users/brobert/Downloads/ProDOS_2_4_3.po`). Also corrected the recorded suite
+  runtime from "5+ minutes" to the observed 45 s.
 
 ### 2026-07-09
 - Fixed vaporlock/beam-racing hang: `Video.java`'s scanner address lookup tables (`textOffset`/`hiresOffset`) were sized to 192 entries (visible screen lines only); extended to the full 262-line `TOTAL_LINES` so vertical blanking now generates real hardware "screen hole" addresses instead of recycling visible-row addresses. Previously this caused vaporlock-style floating-bus timing probes (e.g. Lancaster/Elliott techniques) to hang forever waiting for byte patterns that never appeared during blanking. New `calculateBlankingScannerOffset()` ported from MAME PR #15247 (mamedev/mame, "apple2video: emulate softswitch-specific delays; improve read_floatingbus()"), specifically its `a2_video_device::scanner_address()` formula. Known limitation: the formula is only valid as a per-scanline-start constant for horizontal offsets 0-7 within a blanking line (real hardware's address formula wraps mod-16 at offset 8) — sufficient for the vaporlock probes tested against, not full per-pixel floating-bus accuracy throughout all of blanking.
