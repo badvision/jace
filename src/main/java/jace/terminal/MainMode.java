@@ -127,6 +127,8 @@ public class MainMode implements TerminalMode {
                 });
             } catch (NumberFormatException e) { output.println("Invalid address/value: " + e.getMessage()); }
         });
+        // button <n> <0|1|on|off> — press/release pushbutton PB0/PB1/PB2 (read at $C061-$C063)
+        commands.put("button", this::setPushbutton);
         commands.put("registers", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleRegisters(args); });
         commands.put("break", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleBreakpoint(args); });
         commands.put("runto", args -> { MonitorMode mon = getMonitorMode(); if (mon != null) mon.handleRunTo(args); });
@@ -163,6 +165,7 @@ public class MainMode implements TerminalMode {
         addAlias("sym", "symbols");
         addAlias("rv", "runvbl");
         addAlias("cm", "cmpmem");
+        addAlias("btn", "button");
 
         commandHelp.put("monitor",
                 "Enters monitor mode for memory examination, manipulation, and debugging.\nUsage: monitor (or m)\nNote: All debugger commands are now integrated into monitor mode.");
@@ -311,6 +314,15 @@ public class MainMode implements TerminalMode {
                         + "actual byte; a clean run prints a match count. aux/main read the physical\n"
                         + "bank regardless of softswitch state, active follows the current mapping.");
 
+        commandHelp.put("button",
+                "Presses or releases an Apple II pushbutton (joystick/paddle fire button).\n"
+                        + "Usage: button <0|1|2> <0|1|on|off> (or btn)\n\n"
+                        + "Button 0 is Open-Apple ($C061), 1 is Closed-Apple ($C062), 2 is $C063.\n"
+                        + "While pressed, a read of the corresponding address returns bit 7 set.\n"
+                        + "The state is latched until you release it, so bracket the run:\n"
+                        + "  button 0 1\n"
+                        + "  runvbl\n"
+                        + "  button 0 0");
         commandHelp.put("runvbl",
                 "Advances emulation to the start of the next vertical blanking interval and halts.\n"
                         + "Usage: runvbl (or rv)\n\n"
@@ -2426,6 +2438,37 @@ public class MainMode implements TerminalMode {
         }
     }
     
+    /**
+     * Presses or releases a pushbutton (PB0/PB1/PB2), the same softswitch state the
+     * Open-Apple / Closed-Apple key handlers drive. Works headless, unlike those.
+     */
+    private void setPushbutton(String[] args) {
+        if (args.length < 2) {
+            output.println("Usage: button <0|1|2> <0|1|on|off>");
+            return;
+        }
+        SoftSwitches sw;
+        switch (args[0]) {
+            case "0": sw = SoftSwitches.PB0; break;
+            case "1": sw = SoftSwitches.PB1; break;
+            case "2": sw = SoftSwitches.PB2; break;
+            default:
+                output.println("Invalid button '" + args[0] + "' -- expected 0, 1 or 2");
+                return;
+        }
+        boolean pressed;
+        if ("1".equals(args[1]) || "on".equalsIgnoreCase(args[1])) {
+            pressed = true;
+        } else if ("0".equals(args[1]) || "off".equalsIgnoreCase(args[1])) {
+            pressed = false;
+        } else {
+            output.println("Invalid state '" + args[1] + "' -- expected 0, 1, on or off");
+            return;
+        }
+        sw.getSwitch().setState(pressed);
+        output.println("Button " + args[0] + " " + (pressed ? "pressed" : "released"));
+    }
+
     /**
      * Advances to the next vertical blanking edge and halts, so a following dump
      * or capture is frame-coherent. See VblankSync for the frame geometry and the

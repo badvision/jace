@@ -28,7 +28,7 @@ this convention; do not rely on it elsewhere.
   `runto`, `runvbl`, `go`, `<addr>G`, `speed`
 - **Observing** — `showtext`, `screenshot`, `mem`, `memaux`/`memmain`, `cmpmem`, `cpu`,
   `registers`, `swstate`, `swlog`, `cycles`
-- **Input** — `key`, `type`, `waitkey`, `expect`
+- **Input** — `key`, `type`, `waitkey`, `expect`, `button`
 - **Debugging** — `break`/`breaklist`, `watch`/`watchlist`, `cheat`/`cheatlist`, `symbols`,
   `poke`, `rdb`, `charlog`
 - **Monitor mode** — Wozniak pattern syntax, `M`/`X` bank prefixes, `fill`, `move`,
@@ -389,6 +389,35 @@ Example for running a program:
 ```
 key "+FPUMF_AUTO_TEST\n"
 ```
+
+### `button` / `btn` - Press or Release a Pushbutton
+
+```
+button <0|1|2> <0|1|on|off>
+```
+
+Sets the pushbutton (joystick/paddle fire button) softswitch that games read to
+detect a fire/jump input. This is the only headless way to press a button — the
+Open-Apple / Closed-Apple key handlers only fire through JavaFX events.
+
+| Arg | Softswitch | Read address | Keyboard equivalent |
+|---|---|---|---|
+| `0` | PB0 | `$C061` | Open-Apple |
+| `1` | PB1 | `$C062` | Closed-Apple |
+| `2` | PB2 | `$C063` | — |
+
+While pressed, a read of the address returns **bit 7 set** (`$80` OR'd with the
+floating bus); released, bit 7 is clear. So `lda $C061 / bmi pressed` works.
+
+The state is **latched** until you release it, so bracket the run:
+
+```
+button 0 1
+runvbl
+button 0 0
+```
+
+Invalid arguments print an error rather than throwing.
 
 ### `tick` - Step Motherboard (All Devices)
 
