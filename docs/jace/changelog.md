@@ -2,6 +2,28 @@
 
 # JACE Change Log
 
+### 2026-08-26 — 6502 assembly quickstart + verified hello-world-asm test
+
+- New `docs/jace/assembly-quickstart.md`: ACME 0.97 workflow (the project assembler; CLI
+  `acme -f apple -o OUT IN`, no `-n`; `* = $800` origin; `!text "..."` for multi-character
+  strings), the 4-byte little-endian apple header (`00 08 1d 00` for the 29-byte $800
+  program) and the `tail -c +5` strip, the run-in-JACE command sequence with the
+  file-redirect stdin pattern (a heredoc placed after a pipe binds to `tee`, not mvn), and
+  the Apple-II-not-C64 notes. Console output is `JSR $FDED` (COUT, char in A), verified
+  three ways (`docs/jace/debugging-guide.md:102`, the passing run, and the ROM dump with
+  $FD47 = `20 ED FD`); $FD43 is explicitly ruled out as an entry point (mid-instruction in
+  JACE's ROM per the $FD40–$FD4E dump), and the doc forbids $FD43/$3D11 without a verified
+  test.
+- New `examples/hello-world/hello.asm` (29 bytes at $800) and
+  `examples/hello-world/hello-world-asm-test.sh` (exit 0=pass, 1=fail, 2=ACME missing,
+  124=hang) — verified PASS: "HELLO WORLD confirmed on emulated text screen (expect match
+  + showtext)".
+- `AGENTS.md`: new index row for the quickstart; non-negotiable #5 "JACE is an Apple II,
+  not a C64" (no PETSCII, no high-bit ASCII, no $C000 screen; plain 7-bit ASCII, text
+  screen $0400–$07FF, console output via JSR $FDED); "Read these four" → "Read these
+  five". (AGENTS.md is the repo's symlink to `CLAUDE.md` — only these two stated changes
+  were made to that content.)
+
 ### 2026-08-05 (b) — Progressive-disclosure restructure
 
 - **Split `CLAUDE.md` from 1768 lines to ~108.** It is auto-loaded into every agent's context

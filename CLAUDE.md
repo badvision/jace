@@ -12,6 +12,7 @@ mode (`--terminal`) used to automate Apple II software testing.
 | `docs/jace/debugging-guide.md` | Debugging 65C02 code: `$FC` debug opcodes, breadcrumbs, breakpoints, failure diagnosis, Language Card switches |
 | `docs/jace/automation-recipes.md` | Writing a full automation script; or need implementation/architecture internals |
 | `docs/jace/applesoft.md` | Working with Applesoft BASIC (cold-start without a disk, tokenizing, variable table layout) |
+| `docs/jace/assembly-quickstart.md` | Writing, assembling (ACME), or testing a 6502 assembly program in JACE (incl. the Apple-II-not-C64 notes) |
 | `docs/jace/unit-tests.md` | Running `mvn test` on JACE itself (not the emulator REPL) |
 | `docs/jace/mockingboard.md` | Touching Mockingboard / AY-3-8910 sound emulation |
 | `docs/jace/changelog.md` | Wanting the history of changes to JACE and to these docs |
@@ -20,7 +21,7 @@ mode (`--terminal`) used to automate Apple II software testing.
 
 ## Non-Negotiables
 
-Read these four before doing anything. Each one has cost real debugging time.
+Read these five before doing anything. Each one has cost real debugging time.
 
 1. **Always use Maven, never the native binary.** `/Users/brobert/Downloads/Jace` silently
    ignores `--terminal` and opens a window. All scripting goes through Maven.
@@ -32,6 +33,9 @@ Read these four before doing anything. Each one has cost real debugging time.
    boot takes ~600 real seconds. Slot 7 (SmartPort) is instant.
 4. **Always wrap invocations in `timeout`.** Programs under test hang; `timeout 90 ...` and
    check for exit code 124.
+5. **JACE is an Apple II, not a C64.** No PETSCII, no high-bit ASCII, no $C64 memory map
+   ($C000 screen does not exist). Plain 7-bit ASCII, text screen $0400–$07FF, console output
+   via JSR $FDED. See `docs/jace/assembly-quickstart.md`.
 
 ## Standard Invocation
 
