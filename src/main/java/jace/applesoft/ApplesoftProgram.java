@@ -64,10 +64,19 @@ public class ApplesoftProgram {
 
     public static ApplesoftProgram fromMemory(RAM memory) {
         int startAddress = memory.readWordRaw(START_OF_PROG_POINTER);
+        // Guard: if pointer is 0 or points into ROM (>= $C000), return empty
+        if (startAddress == 0 || startAddress >= 0xC000) {
+            return new ApplesoftProgram();
+        }
         int nextCheck = memory.readWordRaw(startAddress);
         int pos = startAddress;
         List<Byte> bytes = new ArrayList<>();
-        while (nextCheck != 0) {
+        int maxIterations = 10000; // safety limit
+        while (nextCheck != 0 && maxIterations-- > 0) {
+            // Guard: nextCheck should be in BASIC RAM range ($0800-$3FFF)
+            if (nextCheck < 0x0800 || nextCheck >= 0xC000) {
+                break;
+            }
             while (pos < nextCheck + 2) {
                 bytes.add(memory.readRaw(pos++));
             }
@@ -302,6 +311,11 @@ public class ApplesoftProgram {
     // Entry point inside the RUN handler, past the Ctrl-C check and stack-save preamble.
     // At this address: Y=0, LDA (TXTPTR),Y — reads sentinel byte before program start.
     public static final int RUN_HANDLER_ENTRY = 0xD7E5;
+
+    // Interactive main loop, past GETLN's prompt-print — the same target the GOWARM
+    // zero-page vector ($00-$02) points at. Landing here with an empty program gives
+    // a clean "]" READY prompt instead of running anything.
+    public static final int WARM_START_ENTRY = 0xD43C;
 
     // Default HIMEM for bare Applesoft (no DOS) — top of main RAM before I/O space.
     public static final int DEFAULT_HIMEM  = 0xBF00;

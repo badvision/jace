@@ -25,19 +25,19 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import javax.imageio.ImageIO;
 
 import jace.Emulator;
-import jace.ipc.CyreneIPCServer;
-import jace.terminal.MemoryMode;
 import jace.apple2e.MOS65C02;
 import jace.apple2e.SoftSwitches;
 import jace.applesoft.ApplesoftProgram;
-import jace.core.Motherboard;
 import jace.core.Device;
-import jace.core.RAMListener;
-import jace.core.RAMEvent;
 import jace.core.Keyboard;
+import jace.core.Motherboard;
+import jace.core.RAMEvent;
+import jace.core.RAMListener;
+import jace.ipc.CyreneIPCServer;
 import javafx.scene.image.Image;
 import javafx.scene.image.PixelReader;
 
@@ -215,18 +215,23 @@ public class MainMode implements TerminalMode {
         commandHelp.put("break", "Manages execution breakpoints.\nUsage: break           - List all active breakpoints\n       break <addr>   - Add a breakpoint\n       break -<addr>  - Remove a breakpoint\n       break clear    - Remove all breakpoints");
         commandHelp.put("runto", "Runs the CPU until it reaches the specified address.\nUsage: runto <addr> (or rt <addr>)");
 
-        commandHelp.put("run", "Free-runs the emulator for a WALL-CLOCK duration derived from count. NOT cycle-accurate.\n" +
-                "Usage: run [count] [#breakpoint] (or g [count] [#breakpoint])\n" +
-                "count is converted to milliseconds as count/1000, with a MINIMUM of 100 ms.\n" +
-                "WARNING: any count below 100,000 therefore runs for ~100 ms of real time --\n" +
-                "  'run 1000' does NOT execute 1000 cycles, it executes roughly 100,000+ of them.\n" +
-                "  Actual cycles executed also depend on host load and on 'speed max|normal'.\n" +
-                "If count is omitted, the default is 1,000,000 (~1000 ms).\n" +
-                "If breakpoint is specified with # prefix, stops when that address is reached\n" +
-                "  (polled every 50 ms, so it can be missed if PC passes through between polls).\n" +
-                "For cycle-accurate stepping use 'step' (instructions) or 'tick' (device ticks).\n" +
-                "For frame stepping use 'runvbl'/'rv'. Use 'run' only to 'let it run a while'.");
+        commandHelp.put("run", """
+                Free-runs the emulator for a WALL-CLOCK duration derived from count. NOT cycle-accurate.
+                Usage: run [count] [#breakpoint] (or g [count] [#breakpoint])
+                count is converted to milliseconds as count/1000, with a MINIMUM of 100 ms.
+                WARNING: any count below 100,000 therefore runs for ~100 ms of real time --
+                  'run 1000' does NOT execute 1000 cycles, it executes roughly 100,000+ of them.
+                  Actual cycles executed also depend on host load and on 'speed max|normal'.
+                If count is omitted, the default is 1,000,000 (~1000 ms).
+                If breakpoint is specified with # prefix, stops when that address is reached
+                  (polled every 50 ms, so it can be missed if PC passes through between polls).
+                For cycle-accurate stepping use 'step' (instructions) or 'tick' (device ticks).
+                For frame stepping use 'runvbl'/'rv'. Use 'run' only to 'let it run a while'.
 
+                'run basic' is a special mode: instead of free-running cycles, it directly sets
+                the computer to start running the current basic program.  Use other commands
+                after this to step the CPU, interact or observe the basic program's responses.
+                """);
         commandHelp.put("insertdisk",
                 "Inserts a disk image into a specified drive.\nUsage: insertdisk d<drive_number> <filepath> [slot] (or id d<drive_number> <filepath> [slot])\n"
                         +
@@ -533,6 +538,8 @@ public class MainMode implements TerminalMode {
     RAMListener softSwitchListener = null;
     private Map<SoftSwitches, Boolean> currentSoftSwitchState = new HashMap<>();
 
+    private ApplesoftProgram lastLoadedBasicProgram = null;
+
     private Map<SoftSwitches, Boolean> getSoftSwitchState() {
         Map<SoftSwitches, Boolean> state = new HashMap<>();
         for (SoftSwitches sw : SoftSwitches.values()) {
@@ -712,7 +719,7 @@ public class MainMode implements TerminalMode {
         }
 
         // Save the current program counter
-        int startPC = cpu.getProgramCounter();
+        // int startPC = cpu.getProgramCounter();
 
         // Step all devices
         try {
@@ -794,6 +801,23 @@ public class MainMode implements TerminalMode {
     }
 
     private void runCPU(String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("basic")) {
+            try {
+                if (lastLoadedBasicProgram == null) {
+                    output.println("No BASIC program loaded. Loading from current memory...");
+                    lastLoadedBasicProgram = jace.applesoft.ApplesoftProgram.fromMemory(Emulator.withComputer(c -> c.getMemory(), null));
+                    output.println("Pointed to active BASIC program with " + lastLoadedBasicProgram.getLength() + " lines and " +
+                            lastLoadedBasicProgram.getProgramSize() + " bytes");
+                }
+                lastLoadedBasicProgram.executeProgram();
+                output.println("Started applesoft basic interpreter. Use other commands to nudge execution (run, waitkey, expect, etc.)");
+            } catch (Exception e) {
+                LOG.log(Level.WARNING, "Error running 'run basic'", e);
+                output.println("Error running 'run basic': " + e.getMessage());
+            }
+            return;
+        }
+
         // Default to running for 1 million cycles if no count is specified
         int cycleCount = 1_000_000;
         Integer breakpointAddress = null;
@@ -1658,33 +1682,32 @@ public class MainMode implements TerminalMode {
             }
         }
 
-        ApplesoftProgram program;
         try {
             StringBuilder sb = new StringBuilder();
             for (String line : fileLines) {
                 sb.append(line).append("\n");
             }
-            program = ApplesoftProgram.fromString(sb.toString());
+            lastLoadedBasicProgram = ApplesoftProgram.fromString(sb.toString());
         } catch (Exception e) {
             output.println("Error tokenizing BASIC program: " + e.getMessage());
             return;
         }
 
-        if (program.getLength() == 0) {
+        if (lastLoadedBasicProgram.getLength() == 0) {
             output.println("No BASIC lines found in file: " + filepath);
             return;
         }
 
         try {
-            program.run();
+            lastLoadedBasicProgram.run();
         } catch (Exception e) {
             output.println("Error injecting program into RAM: " + e.getMessage());
             return;
         }
 
-        int byteCount = program.getProgramSize();
-        output.println("Loaded " + program.getLength() + " lines (" + byteCount + " bytes) from " + filepath);
-        LOG.info("Loaded BASIC program: " + program.getLength() + " lines from " + filepath);
+        int byteCount = lastLoadedBasicProgram.getProgramSize();
+        output.println("Loaded " + lastLoadedBasicProgram.getLength() + " lines (" + byteCount + " bytes) from " + filepath);
+        LOG.info("Loaded BASIC program: " + lastLoadedBasicProgram.getLength() + " lines from " + filepath);
     }
 
     private void saveBinary(String[] args) {

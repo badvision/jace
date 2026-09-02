@@ -81,6 +81,14 @@ public class JaceLauncher {
                 System.out.println("*** Initializing emulator with args: " + emulatorArgs + " ***");
                 Emulator.getInstance(emulatorArgs);
 
+                // Configuration.applySettings(BASE) only calls reconfigure() on a config
+                // node when it sees a settings change, so ROM loading + memory-configuration
+                // are not guaranteed to have actually run yet at this point. The GUI path
+                // papers over the same gap with a boot watchdog that retries cold-start until
+                // it detects real ROM execution; terminal mode has no such retry, so force one
+                // deterministic reconfigure here, once, before any terminal command can run.
+                Emulator.withComputer(jace.apple2e.Apple2e::reconfigure);
+
                 HeadlessTerminal terminal = new HeadlessTerminal();
                 terminal.run();
                 if (regLogStream != null) {

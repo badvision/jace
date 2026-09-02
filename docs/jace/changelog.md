@@ -2,6 +2,20 @@
 
 # JACE Change Log
 
+### 2026-08-27 — Advanced 6502 assembly guide
+
+- New agent doc `docs/jace/advanced-assembly.md`: the advanced companion to
+  `docs/jace/assembly-quickstart.md`. Covers the ACME compile-to-load pipeline; the
+  Apple //e memory map as a consolidated 40-row table sourced from the ProDOS 8 Technical
+  Reference (ch. 3 "Memory Use" and ch. 5) and the kreativekorp memory map, plus
+  //e-specifics and JACE operating notes; and the zero-page usage strategy — cooperating
+  with Applesoft vs running outside BASIC/ProDOS 8, with JACE's own Applesoft $0100
+  bootstrap stub as the worked example. Every address carries a source tag (doc, web
+  reference, or JACE source); what could not be verified is marked UNVERIFIED in section
+  4 and left out rather than filled from memory.
+- QA-verified: 162 addresses cross-checked, all examples test-compiled, live JACE terminal
+  run PASS. QA verdict was SHIP-WITH-FIXES — all 3 fixes were applied and re-verified.
+
 ### 2026-08-26 — 6502 assembly quickstart + verified hello-world-asm test
 
 - New `docs/jace/assembly-quickstart.md`: ACME 0.97 workflow (the project assembler; CLI
@@ -23,6 +37,36 @@
   screen $0400–$07FF, console output via JSR $FDED); "Read these four" → "Read these
   five". (AGENTS.md is the repo's symlink to `CLAUDE.md` — only these two stated changes
   were made to that content.)
+
+### 2026-08-25 — Hello-world-in-BASIC quickstart documented
+
+- `docs/jace/applesoft.md` no-disk test workflow gained the facts an agent previously had to
+  rediscover the hard way: the Applesoft prompt on JACE is `]` with **no "READY." banner**
+  (that is C64 BASIC 2.0 — do not `expect "READY"`), the literal `expect` output strings for
+  script gating (`Match found after Nms` on success, `Timeout waiting for: "<string>"` on
+  timeout), and `screenshot --vbl` in the proven sequence — text mode renders correctly
+  (white bg, black text) and is valid evidence for text programs.
+- `docs/jace/commands.md`: `screenshot` section now says text-mode screens are captured
+  correctly too, not just HGR/DHGR.
+- `CLAUDE.md` (symlinked as `AGENTS.md`): one-line pointer to the hello-world quickstart and
+  the re-runnable acceptance test `./hello-world-test.sh [evidence_dir]` (exit 0=pass,
+  1=fail, 124=hang) at the repo root, which drives `hello.bas` (`10 PRINT "HELLO WORLD"`) via
+  Maven, no disk image.
+- Re-verified 2026-08-25: `./hello-world-test.sh` exits 0; transcript shows `Loaded 1 lines
+  (23 bytes)`, `Match found after 106ms`, and a `showtext` dump with `HELLO WORLD` plus the
+  `]` prompt. Evidence: `/tmp/agents/jace-hello-world/iteration-1/`.
+
+### 2026-08-12 — `run basic`, and headless-startup ROM fix
+
+- Added `run basic`: resets the Applesoft interpreter's zero-page workspace and jumps
+  directly into the interactive main loop ($D43C), landing at a working `]` prompt
+  instantly. `ApplesoftProgram.runBasic()`, reusing `executeProgram()`'s stub-injection
+  logic. Documented in `docs/jace/applesoft.md` and `docs/jace/commands.md`.
+- Fixed `JaceLauncher`'s `--terminal` startup path to explicitly call `Apple2e.reconfigure()`
+  once before the terminal loop starts, guaranteeing ROM is fully loaded and the memory
+  configuration is fresh before any command can run.
+- Renamed the `AGENT.md` symlink to `AGENTS.md` (was pointing at the wrong filename for
+  the convention tools actually look for).
 
 ### 2026-08-05 (b) — Progressive-disclosure restructure
 

@@ -1,0 +1,664 @@
+
+########## case: input=1994 expect=MCMXCIV ##########
+JaceLauncher starting with args: --terminal
+Checking arg: --terminal
+*** Starting Jace in terminal mode... ***
+*** Setting headless mode for terminal operation ***
+*** Initializing emulator with args: [] ***
+=== No command line arguments provided ===
+Switched to Main mode (type ? for help)
+Initializing JavaFX toolkit for headless operation...
+Sep 01, 2026 6:54:17 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @33f1366a'
+JavaFX toolkit initialized
+Connected to existing emulator instance
+Emulator initialized in command-line focused mode
+Jace Emulator Terminal
+Type ? for help, exit to quit
+JACE>Cold starting computer: RESETTING SOFT SWITCHES
+Apple II reset performed
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$45
+INFO: Apple II reset performed
+JACE>Expecting: "Apple //" (timeout: 20s)
+Match found after 205ms
+JACE>Sep 01, 2026 6:54:17 PM jace.terminal.MainMode loadBinary
+INFO: Binary load requested: /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin at $800
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode loadBinary
+INFO: Ensuring emulator is fully initialized...
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Computer type: Apple2e
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Memory type: CardRamworks
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Pre-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Post-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$69
+INFO: Loading 379 bytes starting at $800
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$69
+INFO: Memory write operations completed
+Loaded 379 bytes from /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin to $800
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode loadBinary
+INFO: Successfully loaded 379 bytes to $800
+JACE>Execution started at $800
+JACE>Typing string: "1994"
+Typing complete
+JACE>Running for 50000 cycles
+Ran for approximately 103000 cycles (103ms)
+CPU State:
+  PC: $0908
+  A: $0D
+  X: $2C
+  Y: $02
+  S: $FB
+  Flags: nv-BdIzc
+JACE>Expecting: "MCMXCIV" (timeout: 10s)
+Match found after 0ms
+JACE>=== Text Screen (40 columns) ===
+NUMBER: 1994                            
+MCMXCIV                                 
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+=== End of Text Screen ===
+JACE>Exiting Terminal
+
+########## case: input=1456 expect=MCDLVI ##########
+JaceLauncher starting with args: --terminal
+Checking arg: --terminal
+*** Starting Jace in terminal mode... ***
+*** Setting headless mode for terminal operation ***
+*** Initializing emulator with args: [] ***
+=== No command line arguments provided ===
+Switched to Main mode (type ? for help)
+Initializing JavaFX toolkit for headless operation...
+Sep 01, 2026 6:54:17 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @20160647'
+JavaFX toolkit initialized
+Connected to existing emulator instance
+Emulator initialized in command-line focused mode
+Jace Emulator Terminal
+Type ? for help, exit to quit
+JACE>Cold starting computer: RESETTING SOFT SWITCHES
+Apple II reset performed
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$45
+INFO: Apple II reset performed
+JACE>Expecting: "Apple //" (timeout: 20s)
+Match found after 211ms
+JACE>Sep 01, 2026 6:54:17 PM jace.terminal.MainMode loadBinary
+INFO: Binary load requested: /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin at $800
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode loadBinary
+INFO: Ensuring emulator is fully initialized...
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Computer type: Apple2e
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Memory type: CardRamworks
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Pre-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Post-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$69
+INFO: Loading 379 bytes starting at $800
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$69
+INFO: Memory write operations completed
+Loaded 379 bytes from /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin to $800
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode loadBinary
+INFO: Successfully loaded 379 bytes to $800
+JACE>Execution started at $800
+JACE>Typing string: "1456"
+Typing complete
+JACE>Running for 50000 cycles
+Ran for approximately 104000 cycles (104ms)
+CPU State:
+  PC: $0908
+  A: $0D
+  X: $30
+  Y: $01
+  S: $FB
+  Flags: nv-BdIzc
+JACE>Expecting: "MCDLVI" (timeout: 10s)
+Match found after 0ms
+JACE>=== Text Screen (40 columns) ===
+NUMBER: 1456                            
+MCDLVI                                  
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+=== End of Text Screen ===
+JACE>Exiting Terminal
+
+########## case: input=44 expect=XLIV ##########
+JaceLauncher starting with args: --terminal
+Checking arg: --terminal
+*** Starting Jace in terminal mode... ***
+*** Setting headless mode for terminal operation ***
+*** Initializing emulator with args: [] ***
+=== No command line arguments provided ===
+Switched to Main mode (type ? for help)
+Initializing JavaFX toolkit for headless operation...
+Sep 01, 2026 6:54:17 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @6e1a387a'
+JavaFX toolkit initialized
+Connected to existing emulator instance
+Emulator initialized in command-line focused mode
+Jace Emulator Terminal
+Type ? for help, exit to quit
+JACE>Cold starting computer: RESETTING SOFT SWITCHES
+Apple II reset performed
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$45
+INFO: Apple II reset performed
+JACE>Expecting: "Apple //" (timeout: 20s)
+Match found after 211ms
+JACE>Sep 01, 2026 6:54:17 PM jace.terminal.MainMode loadBinary
+INFO: Binary load requested: /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin at $800
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode loadBinary
+INFO: Ensuring emulator is fully initialized...
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Computer type: Apple2e
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Memory type: CardRamworks
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Pre-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$68
+INFO: Post-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$69
+INFO: Loading 379 bytes starting at $800
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode lambda$69
+INFO: Memory write operations completed
+Loaded 379 bytes from /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin to $800
+Sep 01, 2026 6:54:17 PM jace.terminal.MainMode loadBinary
+INFO: Successfully loaded 379 bytes to $800
+JACE>Execution started at $800
+JACE>Typing string: "44"
+Typing complete
+JACE>Running for 50000 cycles
+Ran for approximately 117000 cycles (117ms)
+CPU State:
+  PC: $0908
+  A: $0D
+  X: $2C
+  Y: $02
+  S: $FB
+  Flags: nv-BdIzc
+JACE>Expecting: "XLIV" (timeout: 10s)
+Match found after 0ms
+JACE>=== Text Screen (40 columns) ===
+NUMBER: 44                              
+XLIV                                    
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+=== End of Text Screen ===
+JACE>Exiting Terminal
+
+########## case: input=8 expect=VIII ##########
+JaceLauncher starting with args: --terminal
+Checking arg: --terminal
+*** Starting Jace in terminal mode... ***
+*** Setting headless mode for terminal operation ***
+*** Initializing emulator with args: [] ***
+=== No command line arguments provided ===
+Switched to Main mode (type ? for help)
+Initializing JavaFX toolkit for headless operation...
+Sep 01, 2026 6:54:21 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @2fc6e353'
+JavaFX toolkit initialized
+Connected to existing emulator instance
+Emulator initialized in command-line focused mode
+Jace Emulator Terminal
+Type ? for help, exit to quit
+JACE>Cold starting computer: RESETTING SOFT SWITCHES
+Apple II reset performed
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$45
+INFO: Apple II reset performed
+JACE>Expecting: "Apple //" (timeout: 20s)
+Match found after 212ms
+JACE>Sep 01, 2026 6:54:21 PM jace.terminal.MainMode loadBinary
+INFO: Binary load requested: /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin at $800
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode loadBinary
+INFO: Ensuring emulator is fully initialized...
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Computer type: Apple2e
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Memory type: CardRamworks
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Pre-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Post-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$69
+INFO: Loading 379 bytes starting at $800
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$69
+INFO: Memory write operations completed
+Loaded 379 bytes from /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin to $800
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode loadBinary
+INFO: Successfully loaded 379 bytes to $800
+JACE>Execution started at $800
+JACE>Typing string: "8"
+Typing complete
+JACE>Running for 50000 cycles
+Ran for approximately 101000 cycles (101ms)
+CPU State:
+  PC: $0908
+  A: $0D
+  X: $30
+  Y: $01
+  S: $FB
+  Flags: nv-BdIzc
+JACE>Expecting: "VIII" (timeout: 10s)
+Match found after 0ms
+JACE>=== Text Screen (40 columns) ===
+NUMBER: 8                               
+VIII                                    
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+=== End of Text Screen ===
+JACE>Exiting Terminal
+
+########## case: input=1 expect=I ##########
+JaceLauncher starting with args: --terminal
+Checking arg: --terminal
+*** Starting Jace in terminal mode... ***
+*** Setting headless mode for terminal operation ***
+*** Initializing emulator with args: [] ***
+=== No command line arguments provided ===
+Switched to Main mode (type ? for help)
+Initializing JavaFX toolkit for headless operation...
+Sep 01, 2026 6:54:21 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @1236b36d'
+JavaFX toolkit initialized
+Connected to existing emulator instance
+Emulator initialized in command-line focused mode
+Jace Emulator Terminal
+Type ? for help, exit to quit
+JACE>Cold starting computer: RESETTING SOFT SWITCHES
+Apple II reset performed
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$45
+INFO: Apple II reset performed
+JACE>Expecting: "Apple //" (timeout: 20s)
+Match found after 212ms
+JACE>Sep 01, 2026 6:54:21 PM jace.terminal.MainMode loadBinary
+INFO: Binary load requested: /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin at $800
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode loadBinary
+INFO: Ensuring emulator is fully initialized...
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Computer type: Apple2e
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Memory type: CardRamworks
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Pre-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Post-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$69
+INFO: Loading 379 bytes starting at $800
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$69
+INFO: Memory write operations completed
+Loaded 379 bytes from /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin to $800
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode loadBinary
+INFO: Successfully loaded 379 bytes to $800
+JACE>Execution started at $800
+JACE>Typing string: "1"
+Typing complete
+JACE>Running for 50000 cycles
+Ran for approximately 106000 cycles (106ms)
+CPU State:
+  PC: $0908
+  A: $0D
+  X: $30
+  Y: $01
+  S: $FB
+  Flags: nv-BdIzc
+JACE>Expecting: "I" (timeout: 10s)
+Match found after 0ms
+JACE>=== Text Screen (40 columns) ===
+NUMBER: 1                               
+I                                       
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+=== End of Text Screen ===
+JACE>Exiting Terminal
+
+########## case: input=3999 expect=MMMCMXCIX ##########
+JaceLauncher starting with args: --terminal
+Checking arg: --terminal
+*** Starting Jace in terminal mode... ***
+*** Setting headless mode for terminal operation ***
+*** Initializing emulator with args: [] ***
+=== No command line arguments provided ===
+Switched to Main mode (type ? for help)
+Initializing JavaFX toolkit for headless operation...
+Sep 01, 2026 6:54:21 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @1ef7c018'
+JavaFX toolkit initialized
+Connected to existing emulator instance
+Emulator initialized in command-line focused mode
+Jace Emulator Terminal
+Type ? for help, exit to quit
+JACE>Cold starting computer: RESETTING SOFT SWITCHES
+Apple II reset performed
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$45
+INFO: Apple II reset performed
+JACE>Expecting: "Apple //" (timeout: 20s)
+Match found after 210ms
+JACE>Sep 01, 2026 6:54:21 PM jace.terminal.MainMode loadBinary
+INFO: Binary load requested: /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin at $800
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode loadBinary
+INFO: Ensuring emulator is fully initialized...
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Computer type: Apple2e
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Memory type: CardRamworks
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Pre-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$68
+INFO: Post-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$69
+INFO: Loading 379 bytes starting at $800
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode lambda$69
+INFO: Memory write operations completed
+Loaded 379 bytes from /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin to $800
+Sep 01, 2026 6:54:21 PM jace.terminal.MainMode loadBinary
+INFO: Successfully loaded 379 bytes to $800
+JACE>Execution started at $800
+JACE>Typing string: "3999"
+Typing complete
+JACE>Running for 50000 cycles
+Ran for approximately 105000 cycles (105ms)
+CPU State:
+  PC: $0908
+  A: $0D
+  X: $24
+  Y: $02
+  S: $FB
+  Flags: nv-BdIzc
+JACE>Expecting: "MMMCMXCIX" (timeout: 10s)
+Match found after 0ms
+JACE>=== Text Screen (40 columns) ===
+NUMBER: 3999                            
+MMMCMXCIX                               
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+=== End of Text Screen ===
+JACE>Exiting Terminal
+
+########## case: input=0 expect=* ##########
+JaceLauncher starting with args: --terminal
+Checking arg: --terminal
+*** Starting Jace in terminal mode... ***
+*** Setting headless mode for terminal operation ***
+*** Initializing emulator with args: [] ***
+=== No command line arguments provided ===
+Switched to Main mode (type ? for help)
+Initializing JavaFX toolkit for headless operation...
+Sep 01, 2026 6:54:25 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @2c8f591d'
+JavaFX toolkit initialized
+Connected to existing emulator instance
+Emulator initialized in command-line focused mode
+Jace Emulator Terminal
+Type ? for help, exit to quit
+JACE>Cold starting computer: RESETTING SOFT SWITCHES
+Apple II reset performed
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$45
+INFO: Apple II reset performed
+JACE>Expecting: "Apple //" (timeout: 20s)
+Match found after 212ms
+JACE>Sep 01, 2026 6:54:25 PM jace.terminal.MainMode loadBinary
+INFO: Binary load requested: /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin at $800
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode loadBinary
+INFO: Ensuring emulator is fully initialized...
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$68
+INFO: Computer type: Apple2e
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$68
+INFO: Memory type: CardRamworks
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$68
+INFO: Pre-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$68
+INFO: Post-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$69
+INFO: Loading 379 bytes starting at $800
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$69
+INFO: Memory write operations completed
+Loaded 379 bytes from /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin to $800
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode loadBinary
+INFO: Successfully loaded 379 bytes to $800
+JACE>Execution started at $800
+JACE>Typing string: "0"
+Typing complete
+JACE>Running for 50000 cycles
+Ran for approximately 109000 cycles (109ms)
+CPU State:
+  PC: $0908
+  A: $0D
+  X: $01
+  Y: $28
+  S: $FB
+  Flags: nv-BdIzc
+JACE>Expecting: "*" (timeout: 10s)
+Match found after 0ms
+JACE>=== Text Screen (40 columns) ===
+NUMBER: 0                               
+*                                       
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+=== End of Text Screen ===
+JACE>Exiting Terminal
+
+########## case: input=4000 expect=* ##########
+JaceLauncher starting with args: --terminal
+Checking arg: --terminal
+*** Starting Jace in terminal mode... ***
+*** Setting headless mode for terminal operation ***
+*** Initializing emulator with args: [] ***
+=== No command line arguments provided ===
+Switched to Main mode (type ? for help)
+Initializing JavaFX toolkit for headless operation...
+Sep 01, 2026 6:54:25 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @297e787e'
+JavaFX toolkit initialized
+Connected to existing emulator instance
+Emulator initialized in command-line focused mode
+Jace Emulator Terminal
+Type ? for help, exit to quit
+JACE>Cold starting computer: RESETTING SOFT SWITCHES
+Apple II reset performed
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$45
+INFO: Apple II reset performed
+JACE>Expecting: "Apple //" (timeout: 20s)
+Match found after 212ms
+JACE>Sep 01, 2026 6:54:25 PM jace.terminal.MainMode loadBinary
+INFO: Binary load requested: /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin at $800
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode loadBinary
+INFO: Ensuring emulator is fully initialized...
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$68
+INFO: Computer type: Apple2e
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$68
+INFO: Memory type: CardRamworks
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$68
+INFO: Pre-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$68
+INFO: Post-config memory state: R0_L0R_!CX_C3_C86__Z0_0;W0_L0W__Z0_0
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$69
+INFO: Loading 379 bytes starting at $800
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode lambda$69
+INFO: Memory write operations completed
+Loaded 379 bytes from /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.jMyH06hDxc/roman-numeral.bin to $800
+Sep 01, 2026 6:54:25 PM jace.terminal.MainMode loadBinary
+INFO: Successfully loaded 379 bytes to $800
+JACE>Execution started at $800
+JACE>Typing string: "4000"
+Typing complete
+JACE>Running for 50000 cycles
+Ran for approximately 109000 cycles (109ms)
+CPU State:
+  PC: $0908
+  A: $0D
+  X: $04
+  Y: $28
+  S: $FB
+  Flags: nv-BdIzc
+JACE>Expecting: "*" (timeout: 10s)
+Match found after 0ms
+JACE>=== Text Screen (40 columns) ===
+NUMBER: 4000                            
+*                                       
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+=== End of Text Screen ===
+JACE>Exiting Terminal

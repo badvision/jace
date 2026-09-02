@@ -210,7 +210,7 @@ confused with a number at the end of the string content.
 - If the emulator was paused, it is resumed once at the start
 - All characters are typed, each waiting for a keyboard read, but bounded by the total timeout
 - After the last character is typed (or timeout reached), if the emulator was paused before, it is re-paused
-- Use this when running a BASIC program after `E000G` since a single resume cycle is needed
+- Use this when running a BASIC program after `run basic` since a single resume cycle is needed
 
 ### 7. Tokenizing Applesoft BASIC Programs
 
@@ -225,6 +225,10 @@ Use the `loadBasic` terminal command to load a plain-text BASIC listing directly
 ```
 loadBasic /path/to/program.bas
 ```
+
+**Note:** `loadBasic` only tokenizes and injects the program — it does not initialize the
+Apple II. Call `reset` first to set up the hardware, then `loadBasic`, then `run basic` to
+execute. See `docs/jace/applesoft.md` for the full workflow.
 
 - Alias: `lbas`
 - On success: prints `Loaded N lines (M bytes) from /path/to/program.bas`
@@ -284,6 +288,11 @@ loadbin /path/to/program.bin 4000    # Load binary at $4000
 savebin /tmp/memdump.bin 0900 100    # Save 256 bytes from $0900
 ```
 
+**Note:** `loadbin` injects bytes into RAM but does not initialize the Apple II.
+Call `reset` first to set up the hardware, or use `bootdisk` which includes reset.
+After `loadbin`, use `4000G` (or the target address) to jump to the loaded code,
+then `run`/`expect`/`step` to execute.
+
 **Aliases**: `lb`, `sb`
 
 ## Other Useful Commands
@@ -297,6 +306,9 @@ ss2 <filename.png>
 
 Renders the current Apple II display (HGR or DHGR) to a PNG file using NTSC color simulation.
 Output is 1120×384 (2× scale). Works fully headless — no display window required.
+Text mode is captured correctly as well (white bg, black text); with `--vbl` the capture is
+synced to a VBL edge, so a screenshot of a text screen is valid evidence for text-mode
+programs, not just HGR/DHGR.
 
 ```
 screenshot /tmp/frame.png     # save current frame
@@ -349,17 +361,33 @@ Consequences, all of which have cost real debugging time:
 | Exact device/motherboard ticks | `tick [count]` (`tc`) | Exact — N ticks |
 | Stop at an address | `runto <addr>` (`rt`), or `break` + `resume` | Exact |
 | Advance one frame / get frame-coherent memory | `runvbl` (`rv`), `screenshot ... --vbl` | Exact — VBL edge |
-| "Let it run a while" (boot, BASIC cold-start, waiting on output) | `run N` | Approximate only |
+| "Let it run a while" (boot, waiting on output) | `run N` | Approximate only |
+| Start running the current basic program | `run basic` | Exact — instant |
+| Go straight to the basic primpt | `D43CG` then `expect "]"` | Exact - instant |
 | Wait for known text output | `expect <string> [timeout]` | Event-driven |
 
-`run` is fine for its real purpose — letting the machine churn for a while, e.g.
-`run 2000000` after `E000G` to let BASIC cold-start. It is **not** a stepping primitive.
+`run` is fine for its real purpose — letting the machine churn for a while. It is
+not a stepping primitive; see `run basic` below for reaching Applesoft BASIC.
 
 Examples:
 ```
 run 2000000          # ~2 seconds of free-running emulation (approximate)
 run 1000             # NOT 1000 cycles — ~100 ms, i.e. ~100,000+ cycles. Use `step`/`tick`.
 ```
+
+#### `run basic` — Special Mode: Reach Applesoft's Prompt
+
+To use this, it is recommended to use `lbas` to load a basic program from a text file first.
+You can also manually boostrap the basic interpeter with D43CG, then `expect` the prompt chracter "]" and so on, but run basic and lbas are for convenience.
+`run basic` sets up the basic interpreter to start executing the currently loaded (or typed in) basic program.  The emulator does not start actually executing the program until you use additional commands to expect output or await for inputs.
+`loadBasic`'s RUN handling uses (`ApplesoftProgram.executeProgram()`).
+
+```
+reset
+run basic 
+```
+
+Immediatly following this, use the run command again to execute for a duration of time, or alternatively use expect or the other key commands to interact with the program and so on.  See `docs/jace/applesoft.md` for the full no-disk BASIC workflow.
 
 The misleading behaviour is documented in `help run` and flagged in a comment in
 `MainMode.java` next to the floor. **Do not "fix" the timing logic casually** — existing

@@ -1,0 +1,77 @@
+JaceLauncher starting with args: --terminal
+Checking arg: --terminal
+*** Starting Jace in terminal mode... ***
+*** Setting headless mode for terminal operation ***
+*** Initializing emulator with args: [] ***
+=== No command line arguments provided ===
+Switched to Main mode (type ? for help)
+Initializing JavaFX toolkit for headless operation...
+Aug 26, 2026 12:44:56 AM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @6dbebc14'
+JavaFX toolkit initialized
+Connected to existing emulator instance
+Emulator initialized in command-line focused mode
+Jace Emulator Terminal
+Type ? for help, exit to quit
+JACE>Cold starting computer: RESETTING SOFT SWITCHES
+Apple II reset performed
+Aug 26, 2026 12:44:56 AM jace.terminal.MainMode lambda$45
+INFO: Apple II reset performed
+JACE>Aug 26, 2026 12:44:56 AM jace.terminal.MainMode loadBinary
+INFO: Binary load requested: /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.9AESMWGYcV/hello.bin at $800
+Aug 26, 2026 12:44:56 AM jace.terminal.MainMode loadBinary
+INFO: Ensuring emulator is fully initialized...
+Aug 26, 2026 12:44:56 AM jace.terminal.MainMode lambda$68
+INFO: Computer type: Apple2e
+Aug 26, 2026 12:44:56 AM jace.terminal.MainMode lambda$68
+INFO: Memory type: CardRamworks
+Aug 26, 2026 12:44:56 AM jace.terminal.MainMode lambda$68
+INFO: Pre-config memory state: R0_L0R_!CX_C3_C82__Z0_0;W0_L0W__Z0_0
+Aug 26, 2026 12:44:56 AM jace.terminal.MainMode lambda$68
+INFO: Post-config memory state: R0_L0R_!CX_C3_C82__Z0_0;W0_L0W__Z0_0
+Aug 26, 2026 12:44:56 AM jace.terminal.MainMode lambda$69
+INFO: Loading 29 bytes starting at $800
+Aug 26, 2026 12:44:56 AM jace.terminal.MainMode lambda$69
+INFO: Memory write operations completed
+Loaded 29 bytes from /var/folders/mb/m1xnxfmd19d1nhvxn_90llbh0000gn/T/tmp.9AESMWGYcV/hello.bin to $800
+Aug 26, 2026 12:44:56 AM jace.terminal.MainMode loadBinary
+INFO: Successfully loaded 29 bytes to $800
+JACE>Execution started at $800
+JACE>Running for 20000 cycles
+Ran for approximately 111000 cycles (111ms)
+CPU State:
+  PC: $080E
+  A: $00
+  X: $0C
+  Y: $00
+  S: $F0
+  Flags: nv-BdIZc
+JACE>Expecting: "HELLO WORLD" (timeout: 10s)
+Match found after 1ms
+JACE>=== Text Screen (40 columns) ===
+                                        
+                                        
+HELLO WORLD                             
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+=== End of Text Screen ===
+JACE>Exiting Terminal
