@@ -18,6 +18,7 @@ mode (`--terminal`) used to automate Apple II software testing.
 | `docs/jace/advanced-assembly.md` | Writing advanced 6502 assembly in JACE: the ACME compile pipeline, Apple //e memory mapping, lo-res/DHGR video memory model, YIQ/NTSC color, or choosing a zero-page strategy (cooperate with BASIC vs run outside it) |
 | `docs/jace/unit-tests.md` | Running `mvn test` on JACE itself (not the emulator REPL) |
 | `docs/jace/mockingboard.md` | Touching Mockingboard / AY-3-8910 sound emulation |
+| `docs/jace/floating-point.md` | Calling the Applesoft FP ROM (FADDT/FSUBT/FMULTT/FDIVT/SQR/ATN/GETADR) from raw 6502 assembly, with macro patterns and debugging via `$FC` |
 | `docs/jace/changelog.md` | Wanting the history of changes to JACE and to these docs |
 | `examples/*/README.md` | Wanting a complete, verified, worked program (keyboard input + GETLN semantics: `roman-numeral`; DATA+POKE mixed BASIC/asm: `hello-world-mixed`; DHGR: `dhgr-color-wheel`, `dhgr-pinwheel`; lo-res: `cat-on-rug-lores`) as a starting template instead of writing one from scratch |
 

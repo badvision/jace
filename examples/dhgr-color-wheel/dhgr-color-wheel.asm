@@ -73,7 +73,7 @@ aux_pass:
     bne fill_row
 
 done:
-    jmp done
+    rts               ; return to caller (BRUN/BASIC)
 
 col_main_tab:
     !byte $11, $44, $19, $66, $5D, $77, $44, $11

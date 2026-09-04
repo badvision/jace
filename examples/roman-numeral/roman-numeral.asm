@@ -32,6 +32,7 @@ start
 pr_l
     lda prompt,x
     beq pr_d
+    ora #$80          ; 80-column output
     jsr $FDED         ; COUT: console output, char in A
     inx
     jmp pr_l
@@ -134,6 +135,7 @@ r_print
     ora nh
     bne r_l           ; n still non-zero, keep walking
     lda #$0d
+    ora #$80          ; 80-column output
     jsr $FDED         ; newline after the numeral
     jmp halt
 r_adv                 ; n < this value, skip to the next table entry (4 bytes)
@@ -144,21 +146,25 @@ r_adv                 ; n < this value, skip to the next table entry (4 bytes)
     cpx #52           ; 13 entries * 4 bytes = 52
     bne r_l
     lda #$0d
+    ora #$80          ; 80-column output
     jsr $FDED
     jmp halt
 err
     lda #$2a          ; '*' -- out of range
+    ora #$80
     jsr $FDED
     lda #$0d
+    ora #$80          ; 80-column output
     jsr $FDED
 halt
-    jmp halt
+    rts               ; return to caller (BRUN/BASIC)
 
 putstr                ; print the null-terminated string at ($40)
     ldy #0
 pu_l
     lda ($40),y
     beq pu_d
+    ora #$80          ; 80-column output
     jsr $FDED
     iny
     bne pu_l
